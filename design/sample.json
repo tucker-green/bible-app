@@ -1,0 +1,2603 @@
+{
+ "verses": [
+  {
+   "id": "01001001",
+   "tokens": [
+    {
+     "text": "In",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010011",
+      "o010010010012"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010011",
+      "o010010010012"
+     ]
+    },
+    {
+     "text": "beginning",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010011",
+      "o010010010012"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010031"
+     ]
+    },
+    {
+     "text": "created",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010021"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010051",
+      "o010010010052"
+     ]
+    },
+    {
+     "text": "heavens",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010051",
+      "o010010010052"
+     ]
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010061",
+      "o010010010062"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010010071",
+      "o010010010072"
+     ]
+    },
+    {
+     "text": "earth",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010010071",
+      "o010010010072"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "01001002",
+   "tokens": [
+    {
+     "text": "Now",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020011",
+      "o010010020012",
+      "o010010020013"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020011",
+      "o010010020012",
+      "o010010020013"
+     ]
+    },
+    {
+     "text": "earth",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020011",
+      "o010010020012",
+      "o010010020013"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020021"
+     ]
+    },
+    {
+     "text": "formless",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020031"
+     ]
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020041",
+      "o010010020042"
+     ]
+    },
+    {
+     "text": "void",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010020041",
+      "o010010020042"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020051",
+      "o010010020052"
+     ]
+    },
+    {
+     "text": "darkness",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020051",
+      "o010010020052"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020061"
+     ]
+    },
+    {
+     "text": "over",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020061"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020071"
+     ]
+    },
+    {
+     "text": "surface",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020071"
+     ]
+    },
+    {
+     "text": "of",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020081"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020081"
+     ]
+    },
+    {
+     "text": "deep",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010020081"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "And",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020091",
+      "o010010020092"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020091",
+      "o010010020092"
+     ]
+    },
+    {
+     "text": "Spirit",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020091",
+      "o010010020092"
+     ]
+    },
+    {
+     "text": "of",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020101"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020101"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020111"
+     ]
+    },
+    {
+     "text": "hovering",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020111"
+     ]
+    },
+    {
+     "text": "over",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020121"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020131"
+     ]
+    },
+    {
+     "text": "surface",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020131"
+     ]
+    },
+    {
+     "text": "of",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020141",
+      "o010010020142"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010020141",
+      "o010010020142"
+     ]
+    },
+    {
+     "text": "waters",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010020141",
+      "o010010020142"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "01001003",
+   "tokens": [
+    {
+     "text": "And",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030021"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030021"
+     ]
+    },
+    {
+     "text": "said",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010030011",
+      "o010010030012"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "“",
+     "space_after": false,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "Let",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030031"
+     ]
+    },
+    {
+     "text": "there",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030031"
+     ]
+    },
+    {
+     "text": "be",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030031"
+     ]
+    },
+    {
+     "text": "light",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010030041"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": false,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "”",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030041"
+     ]
+    },
+    {
+     "text": "there",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030051",
+      "o010010030052"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o010010030051",
+      "o010010030052"
+     ]
+    },
+    {
+     "text": "light",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o010010030051",
+      "o010010030052"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "19023001",
+   "tokens": [
+    {
+     "text": "The",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010031"
+     ]
+    },
+    {
+     "text": "LORD",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010031"
+     ]
+    },
+    {
+     "text": "is",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010041",
+      "o190230010042"
+     ]
+    },
+    {
+     "text": "my",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010041",
+      "o190230010042"
+     ]
+    },
+    {
+     "text": "shepherd",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o190230010041",
+      "o190230010042"
+     ]
+    },
+    {
+     "text": ";",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "I",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010051"
+     ]
+    },
+    {
+     "text": "shall",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010051"
+     ]
+    },
+    {
+     "text": "not",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230010051"
+     ]
+    },
+    {
+     "text": "want",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o190230010061"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "19023002",
+   "tokens": [
+    {
+     "text": "He",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020031",
+      "o190230020032"
+     ]
+    },
+    {
+     "text": "makes",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020031",
+      "o190230020032"
+     ]
+    },
+    {
+     "text": "me",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020031",
+      "o190230020032"
+     ]
+    },
+    {
+     "text": "lie",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020031",
+      "o190230020032"
+     ]
+    },
+    {
+     "text": "down",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020031",
+      "o190230020032"
+     ]
+    },
+    {
+     "text": "in",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020021"
+     ]
+    },
+    {
+     "text": "green",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020021"
+     ]
+    },
+    {
+     "text": "pastures",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o190230020011",
+      "o190230020012"
+     ]
+    },
+    {
+     "text": ";",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "He",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020071",
+      "o190230020072"
+     ]
+    },
+    {
+     "text": "leads",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020071",
+      "o190230020072"
+     ]
+    },
+    {
+     "text": "me",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020071",
+      "o190230020072"
+     ]
+    },
+    {
+     "text": "beside",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020041"
+     ]
+    },
+    {
+     "text": "quiet",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "o190230020061"
+     ]
+    },
+    {
+     "text": "waters",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "o190230020051"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "43001001",
+   "tokens": [
+    {
+     "text": "In",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001001"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001002"
+     ]
+    },
+    {
+     "text": "beginning",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001002"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001003"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001004"
+     ]
+    },
+    {
+     "text": "Word",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001001005"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001006"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001007"
+     ]
+    },
+    {
+     "text": "Word",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001008"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001009"
+     ]
+    },
+    {
+     "text": "with",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001010"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001001012"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001013"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001016"
+     ]
+    },
+    {
+     "text": "Word",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001017"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001001015"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001001014"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "43001002",
+   "tokens": [
+    {
+     "text": "He",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001002001"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001002002"
+     ]
+    },
+    {
+     "text": "with",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001002005"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001002007"
+     ]
+    },
+    {
+     "text": "in",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001002003"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001002004"
+     ]
+    },
+    {
+     "text": "beginning",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001002004"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "43001003",
+   "tokens": [
+    {
+     "text": "Through",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003002"
+     ]
+    },
+    {
+     "text": "Him",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003003"
+     ]
+    },
+    {
+     "text": "all",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003001"
+     ]
+    },
+    {
+     "text": "things",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003001"
+     ]
+    },
+    {
+     "text": "were",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003004"
+     ]
+    },
+    {
+     "text": "made",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001003004"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003005"
+     ]
+    },
+    {
+     "text": "without",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003006"
+     ]
+    },
+    {
+     "text": "Him",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003007"
+     ]
+    },
+    {
+     "text": "nothing",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003009",
+      "n43001003010"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003008"
+     ]
+    },
+    {
+     "text": "made",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003008"
+     ]
+    },
+    {
+     "text": "that",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003011"
+     ]
+    },
+    {
+     "text": "has",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003012"
+     ]
+    },
+    {
+     "text": "been",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001003012"
+     ]
+    },
+    {
+     "text": "made",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001003012"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "43001004",
+   "tokens": [
+    {
+     "text": "In",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004001"
+     ]
+    },
+    {
+     "text": "Him",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004002"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004004"
+     ]
+    },
+    {
+     "text": "life",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001004003"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004005"
+     ]
+    },
+    {
+     "text": "that",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004006"
+     ]
+    },
+    {
+     "text": "life",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004007"
+     ]
+    },
+    {
+     "text": "was",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004008"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004009"
+     ]
+    },
+    {
+     "text": "light",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004010"
+     ]
+    },
+    {
+     "text": "of",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001004012"
+     ]
+    },
+    {
+     "text": "men",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001004012"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "43001005",
+   "tokens": [
+    {
+     "text": "The",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005002"
+     ]
+    },
+    {
+     "text": "Light",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005003"
+     ]
+    },
+    {
+     "text": "shines",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005007"
+     ]
+    },
+    {
+     "text": "in",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005004"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005005"
+     ]
+    },
+    {
+     "text": "darkness",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001005006"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005008"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005009"
+     ]
+    },
+    {
+     "text": "darkness",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005010"
+     ]
+    },
+    {
+     "text": "has",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005012"
+     ]
+    },
+    {
+     "text": "not",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005012"
+     ]
+    },
+    {
+     "text": "overcome",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43001005013"
+     ]
+    },
+    {
+     "text": "it",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43001005011"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  },
+  {
+   "id": "43003016",
+   "tokens": [
+    {
+     "text": "For",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016002"
+     ]
+    },
+    {
+     "text": "God",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016005"
+     ]
+    },
+    {
+     "text": "so",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016001"
+     ]
+    },
+    {
+     "text": "loved",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016003"
+     ]
+    },
+    {
+     "text": "the",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016006"
+     ]
+    },
+    {
+     "text": "world",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016007"
+     ]
+    },
+    {
+     "text": "that",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016008"
+     ]
+    },
+    {
+     "text": "He",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016013"
+     ]
+    },
+    {
+     "text": "gave",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016013"
+     ]
+    },
+    {
+     "text": "His",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016009"
+     ]
+    },
+    {
+     "text": "one",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016012"
+     ]
+    },
+    {
+     "text": "and",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016012"
+     ]
+    },
+    {
+     "text": "only",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016012"
+     ]
+    },
+    {
+     "text": "Son",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43003016010"
+     ]
+    },
+    {
+     "text": ",",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    },
+    {
+     "text": "that",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016014"
+     ]
+    },
+    {
+     "text": "everyone",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016015"
+     ]
+    },
+    {
+     "text": "who",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016016"
+     ]
+    },
+    {
+     "text": "believes",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016017"
+     ]
+    },
+    {
+     "text": "in",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016018"
+     ]
+    },
+    {
+     "text": "Him",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016019"
+     ]
+    },
+    {
+     "text": "shall",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016020",
+      "n43003016021"
+     ]
+    },
+    {
+     "text": "not",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016020",
+      "n43003016021"
+     ]
+    },
+    {
+     "text": "perish",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016020",
+      "n43003016021"
+     ]
+    },
+    {
+     "text": "but",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016022"
+     ]
+    },
+    {
+     "text": "have",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016023"
+     ]
+    },
+    {
+     "text": "eternal",
+     "space_after": true,
+     "punct": false,
+     "orig": [
+      "n43003016025"
+     ]
+    },
+    {
+     "text": "life",
+     "space_after": false,
+     "punct": false,
+     "orig": [
+      "n43003016024"
+     ]
+    },
+    {
+     "text": ".",
+     "space_after": true,
+     "punct": true,
+     "orig": []
+    }
+   ]
+  }
+ ],
+ "orig": {
+  "n43001001001": {
+   "text": "Ἐν",
+   "strongs": "G1722",
+   "lemma": "ἐν",
+   "morph": "PREP",
+   "gloss": "in"
+  },
+  "n43001001002": {
+   "text": "ἀρχῇ",
+   "strongs": "G0746",
+   "lemma": "ἀρχή",
+   "morph": "N-DSF",
+   "gloss": "beginning"
+  },
+  "n43001001003": {
+   "text": "ἦν",
+   "strongs": "G2258",
+   "lemma": "εἰμί",
+   "morph": "V-IAI-3S",
+   "gloss": "was"
+  },
+  "n43001001004": {
+   "text": "ὁ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSM",
+   "gloss": "the"
+  },
+  "n43001001005": {
+   "text": "λόγος",
+   "strongs": "G3056",
+   "lemma": "λόγος",
+   "morph": "N-NSM",
+   "gloss": "word"
+  },
+  "n43001001006": {
+   "text": "καὶ",
+   "strongs": "G2532",
+   "lemma": "καί",
+   "morph": "CONJ",
+   "gloss": "and"
+  },
+  "n43001001007": {
+   "text": "ὁ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSM",
+   "gloss": "the"
+  },
+  "n43001001008": {
+   "text": "λόγος",
+   "strongs": "G3056",
+   "lemma": "λόγος",
+   "morph": "N-NSM",
+   "gloss": "word"
+  },
+  "n43001001009": {
+   "text": "ἦν",
+   "strongs": "G2258",
+   "lemma": "εἰμί",
+   "morph": "V-IAI-3S",
+   "gloss": "was"
+  },
+  "n43001001010": {
+   "text": "πρὸς",
+   "strongs": "G4314",
+   "lemma": "πρός",
+   "morph": "PREP",
+   "gloss": "with"
+  },
+  "n43001001012": {
+   "text": "θεόν",
+   "strongs": "G2316",
+   "lemma": "θεός",
+   "morph": "N-ASM",
+   "gloss": "God"
+  },
+  "n43001001013": {
+   "text": "καὶ",
+   "strongs": "G2532",
+   "lemma": "καί",
+   "morph": "CONJ",
+   "gloss": "and"
+  },
+  "n43001001014": {
+   "text": "θεὸς",
+   "strongs": "G2316",
+   "lemma": "θεός",
+   "morph": "N-NSM",
+   "gloss": "God"
+  },
+  "n43001001015": {
+   "text": "ἦν",
+   "strongs": "G2258",
+   "lemma": "εἰμί",
+   "morph": "V-IAI-3S",
+   "gloss": "was"
+  },
+  "n43001001016": {
+   "text": "ὁ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSM",
+   "gloss": "the"
+  },
+  "n43001001017": {
+   "text": "λόγος",
+   "strongs": "G3056",
+   "lemma": "λόγος",
+   "morph": "N-NSM",
+   "gloss": "word"
+  },
+  "n43001002001": {
+   "text": "οὗτος",
+   "strongs": "G3778",
+   "lemma": "οὗτος",
+   "morph": "D-NSM",
+   "gloss": "he"
+  },
+  "n43001002002": {
+   "text": "ἦν",
+   "strongs": "G2258",
+   "lemma": "εἰμί",
+   "morph": "V-IAI-3S",
+   "gloss": "was"
+  },
+  "n43001002003": {
+   "text": "ἐν",
+   "strongs": "G1722",
+   "lemma": "ἐν",
+   "morph": "PREP",
+   "gloss": "in"
+  },
+  "n43001002004": {
+   "text": "ἀρχῇ",
+   "strongs": "G0746",
+   "lemma": "ἀρχή",
+   "morph": "N-DSF",
+   "gloss": "beginning"
+  },
+  "n43001002005": {
+   "text": "πρὸς",
+   "strongs": "G4314",
+   "lemma": "πρός",
+   "morph": "PREP",
+   "gloss": "with"
+  },
+  "n43001002007": {
+   "text": "θεόν",
+   "strongs": "G2316",
+   "lemma": "θεός",
+   "morph": "N-ASM",
+   "gloss": "God"
+  },
+  "n43001003001": {
+   "text": "πάντα",
+   "strongs": "G3956",
+   "lemma": "πᾶς",
+   "morph": "A-NPN",
+   "gloss": "all"
+  },
+  "n43001003002": {
+   "text": "δι",
+   "strongs": "G1223",
+   "lemma": "διά",
+   "morph": "PREP",
+   "gloss": "through"
+  },
+  "n43001003003": {
+   "text": "αὐτοῦ",
+   "strongs": "G0846",
+   "lemma": "αὐτός",
+   "morph": "P-GSM",
+   "gloss": "him"
+  },
+  "n43001003004": {
+   "text": "ἐγένετο",
+   "strongs": "G1096",
+   "lemma": "γίνομαι",
+   "morph": "V-2ADI-3S",
+   "gloss": "came into being"
+  },
+  "n43001003005": {
+   "text": "καὶ",
+   "strongs": "G2532",
+   "lemma": "καί",
+   "morph": "CONJ",
+   "gloss": "and"
+  },
+  "n43001003006": {
+   "text": "χωρὶς",
+   "strongs": "G5565",
+   "lemma": "χωρίς",
+   "morph": "ADV",
+   "gloss": "without"
+  },
+  "n43001003007": {
+   "text": "αὐτοῦ",
+   "strongs": "G0846",
+   "lemma": "αὐτός",
+   "morph": "P-GSM",
+   "gloss": "him"
+  },
+  "n43001003008": {
+   "text": "ἐγένετο",
+   "strongs": "G1096",
+   "lemma": "γίνομαι",
+   "morph": "V-2ADI-3S",
+   "gloss": "came into being"
+  },
+  "n43001003009": {
+   "text": "οὐδὲ",
+   "strongs": "G3761",
+   "lemma": "οὐδέ",
+   "morph": "CONJ-N",
+   "gloss": "not"
+  },
+  "n43001003010": {
+   "text": "ἕν",
+   "strongs": "G1520",
+   "lemma": "εἷς",
+   "morph": "A-NSN",
+   "gloss": "one"
+  },
+  "n43001003011": {
+   "text": "ὃ",
+   "strongs": "G3739",
+   "lemma": "ὅς",
+   "morph": "R-NSN",
+   "gloss": "that"
+  },
+  "n43001003012": {
+   "text": "γέγονεν",
+   "strongs": "G1096",
+   "lemma": "γίνομαι",
+   "morph": "V-2RAI-3S",
+   "gloss": "come into being"
+  },
+  "n43001004001": {
+   "text": "ἐν",
+   "strongs": "G1722",
+   "lemma": "ἐν",
+   "morph": "PREP",
+   "gloss": "in"
+  },
+  "n43001004002": {
+   "text": "αὐτῷ",
+   "strongs": "G0846",
+   "lemma": "αὐτός",
+   "morph": "P-DSM",
+   "gloss": "him"
+  },
+  "n43001004003": {
+   "text": "ζωὴ",
+   "strongs": "G2222",
+   "lemma": "ζωή",
+   "morph": "N-NSF",
+   "gloss": "life"
+  },
+  "n43001004004": {
+   "text": "ἦν",
+   "strongs": "G2258",
+   "lemma": "εἰμί",
+   "morph": "V-IAI-3S",
+   "gloss": "was"
+  },
+  "n43001004005": {
+   "text": "καὶ",
+   "strongs": "G2532",
+   "lemma": "καί",
+   "morph": "CONJ",
+   "gloss": "and"
+  },
+  "n43001004006": {
+   "text": "ἡ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSF",
+   "gloss": "the"
+  },
+  "n43001004007": {
+   "text": "ζωὴ",
+   "strongs": "G2222",
+   "lemma": "ζωή",
+   "morph": "N-NSF",
+   "gloss": "life"
+  },
+  "n43001004008": {
+   "text": "ἦν",
+   "strongs": "G2258",
+   "lemma": "εἰμί",
+   "morph": "V-IAI-3S",
+   "gloss": "was"
+  },
+  "n43001004009": {
+   "text": "τὸ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSN",
+   "gloss": "the"
+  },
+  "n43001004010": {
+   "text": "φῶς",
+   "strongs": "G5457",
+   "lemma": "φῶς",
+   "morph": "N-NSN",
+   "gloss": "light"
+  },
+  "n43001004012": {
+   "text": "ἀνθρώπων",
+   "strongs": "G0444",
+   "lemma": "ἄνθρωπος",
+   "morph": "N-GPM",
+   "gloss": "men"
+  },
+  "n43001005002": {
+   "text": "τὸ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSN",
+   "gloss": "the"
+  },
+  "n43001005003": {
+   "text": "φῶς",
+   "strongs": "G5457",
+   "lemma": "φῶς",
+   "morph": "N-NSN",
+   "gloss": "light"
+  },
+  "n43001005004": {
+   "text": "ἐν",
+   "strongs": "G1722",
+   "lemma": "ἐν",
+   "morph": "PREP",
+   "gloss": "in"
+  },
+  "n43001005005": {
+   "text": "τῇ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-DSF",
+   "gloss": "the"
+  },
+  "n43001005006": {
+   "text": "σκοτίᾳ",
+   "strongs": "G4653",
+   "lemma": "σκοτία",
+   "morph": "N-DSF",
+   "gloss": "darkness"
+  },
+  "n43001005007": {
+   "text": "φαίνει",
+   "strongs": "G5316",
+   "lemma": "φαίνω",
+   "morph": "V-PAI-3S",
+   "gloss": "shines"
+  },
+  "n43001005008": {
+   "text": "καὶ",
+   "strongs": "G2532",
+   "lemma": "καί",
+   "morph": "CONJ",
+   "gloss": "and"
+  },
+  "n43001005009": {
+   "text": "ἡ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSF",
+   "gloss": "the"
+  },
+  "n43001005010": {
+   "text": "σκοτία",
+   "strongs": "G4653",
+   "lemma": "σκοτία",
+   "morph": "N-NSF",
+   "gloss": "darkness"
+  },
+  "n43001005011": {
+   "text": "αὐτὸ",
+   "strongs": "G0846",
+   "lemma": "αὐτός",
+   "morph": "P-ASN",
+   "gloss": "it"
+  },
+  "n43001005012": {
+   "text": "οὐ",
+   "strongs": "G3756",
+   "lemma": "οὐ",
+   "morph": "PRT-N",
+   "gloss": "not"
+  },
+  "n43001005013": {
+   "text": "κατέλαβεν",
+   "strongs": "G2638",
+   "lemma": "καταλαμβάνω",
+   "morph": "V-2AAI-3S",
+   "gloss": "overcome"
+  },
+  "n43003016001": {
+   "text": "Οὕτως",
+   "strongs": "G3779",
+   "lemma": "οὕτω(ς)",
+   "morph": "ADV",
+   "gloss": "so"
+  },
+  "n43003016002": {
+   "text": "γὰρ",
+   "strongs": "G1063",
+   "lemma": "γάρ",
+   "morph": "CONJ",
+   "gloss": "for"
+  },
+  "n43003016003": {
+   "text": "ἠγάπησεν",
+   "strongs": "G0025",
+   "lemma": "ἀγαπάω",
+   "morph": "V-AAI-3S",
+   "gloss": "loved"
+  },
+  "n43003016005": {
+   "text": "θεὸς",
+   "strongs": "G2316",
+   "lemma": "θεός",
+   "morph": "N-NSM",
+   "gloss": "God"
+  },
+  "n43003016006": {
+   "text": "τὸν",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-ASM",
+   "gloss": "the"
+  },
+  "n43003016007": {
+   "text": "κόσμον",
+   "strongs": "G2889",
+   "lemma": "κόσμος",
+   "morph": "N-ASM",
+   "gloss": "world"
+  },
+  "n43003016008": {
+   "text": "ὥστε",
+   "strongs": "G5620",
+   "lemma": "ὥστε",
+   "morph": "CONJ",
+   "gloss": "that"
+  },
+  "n43003016009": {
+   "text": "τὸν",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-ASM",
+   "gloss": "the"
+  },
+  "n43003016010": {
+   "text": "υἱὸν",
+   "strongs": "G5207",
+   "lemma": "υἱός",
+   "morph": "N-ASM",
+   "gloss": "son"
+  },
+  "n43003016012": {
+   "text": "μονογενῆ",
+   "strongs": "G3439",
+   "lemma": "μονογενής",
+   "morph": "A-ASM",
+   "gloss": "one and only"
+  },
+  "n43003016013": {
+   "text": "ἔδωκεν",
+   "strongs": "G1325",
+   "lemma": "δίδωμι",
+   "morph": "V-AAI-3S",
+   "gloss": "gave"
+  },
+  "n43003016014": {
+   "text": "ἵνα",
+   "strongs": "G2443",
+   "lemma": "ἵνα",
+   "morph": "CONJ",
+   "gloss": "that"
+  },
+  "n43003016015": {
+   "text": "πᾶς",
+   "strongs": "G3956",
+   "lemma": "πᾶς",
+   "morph": "A-NSM",
+   "gloss": "whoever"
+  },
+  "n43003016016": {
+   "text": "ὁ",
+   "strongs": "G3588",
+   "lemma": "ὁ",
+   "morph": "T-NSM",
+   "gloss": "*"
+  },
+  "n43003016017": {
+   "text": "πιστεύων",
+   "strongs": "G4100",
+   "lemma": "πιστεύω",
+   "morph": "V-PAP-NSM",
+   "gloss": "believes"
+  },
+  "n43003016018": {
+   "text": "εἰς",
+   "strongs": "G1519",
+   "lemma": "εἰς",
+   "morph": "PREP",
+   "gloss": "in"
+  },
+  "n43003016019": {
+   "text": "αὐτὸν",
+   "strongs": "G0846",
+   "lemma": "αὐτός",
+   "morph": "P-ASM",
+   "gloss": "him"
+  },
+  "n43003016020": {
+   "text": "μὴ",
+   "strongs": "G3361",
+   "lemma": "μή",
+   "morph": "PRT-N",
+   "gloss": "not"
+  },
+  "n43003016021": {
+   "text": "ἀπόληται",
+   "strongs": "G0622",
+   "lemma": "ἀπόλλυμι",
+   "morph": "V-2AMS-3S",
+   "gloss": "perish"
+  },
+  "n43003016022": {
+   "text": "ἀλλὰ",
+   "strongs": "G0235",
+   "lemma": "ἀλλά",
+   "morph": "CONJ",
+   "gloss": "but"
+  },
+  "n43003016023": {
+   "text": "ἔχῃ",
+   "strongs": "G2192",
+   "lemma": "ἔχω",
+   "morph": "V-PAS-3S",
+   "gloss": "have"
+  },
+  "n43003016024": {
+   "text": "ζωὴν",
+   "strongs": "G2222",
+   "lemma": "ζωή",
+   "morph": "N-ASF",
+   "gloss": "life"
+  },
+  "n43003016025": {
+   "text": "αἰώνιον",
+   "strongs": "G0166",
+   "lemma": "αἰώνιος",
+   "morph": "A-ASF",
+   "gloss": "eternal"
+  },
+  "o010010010011": {
+   "text": "בְּ",
+   "strongs": "H0871a",
+   "lemma": "בְּ",
+   "morph": "R",
+   "gloss": "in",
+   "translit": "bə",
+   "lxx": "ἐν|G1722"
+  },
+  "o010010010012": {
+   "text": "רֵאשִׁ֖ית",
+   "strongs": "H7225",
+   "lemma": "רֵאשִׁית",
+   "morph": "Ncfsa",
+   "gloss": "beginning",
+   "translit": "rēʾšiyṯ",
+   "lxx": "ἀρξῇ|G746"
+  },
+  "o010010010021": {
+   "text": "בָּרָ֣א",
+   "strongs": "H1254",
+   "lemma": "בָּרָא",
+   "morph": "Vqp3ms",
+   "gloss": "he.created",
+   "translit": "bārāʾ",
+   "lxx": "ἐποίησεν|G4160"
+  },
+  "o010010010031": {
+   "text": "אֱלֹהִ֑ים",
+   "strongs": "H0430",
+   "lemma": "אֱלֹהִים",
+   "morph": "Ncmpa",
+   "gloss": "God",
+   "translit": "ʾĕlōhiym",
+   "lxx": "θεὸς|G2316"
+  },
+  "o010010010051": {
+   "text": "הַ",
+   "strongs": "H1886a",
+   "lemma": "הַ",
+   "morph": "Td",
+   "gloss": "the",
+   "translit": "ha",
+   "lxx": "τὸν|G3588"
+  },
+  "o010010010052": {
+   "text": "שָּׁמַ֖יִם",
+   "strongs": "H8064",
+   "lemma": "שָׁמַיִם",
+   "morph": "Ncmpa",
+   "gloss": "heavens",
+   "translit": "ššāmayim",
+   "lxx": "οὐρανὸν|G3772"
+  },
+  "o010010010061": {
+   "text": "וְ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wə",
+   "lxx": "καὶ|G2532"
+  },
+  "o010010010062": {
+   "text": "אֵ֥ת",
+   "strongs": "H0853",
+   "lemma": "אֵת",
+   "morph": "To",
+   "gloss": "(et)",
+   "translit": "ʾēṯ",
+   "lxx": ""
+  },
+  "o010010010071": {
+   "text": "הָ",
+   "strongs": "H1886a",
+   "lemma": "הַ",
+   "morph": "Td",
+   "gloss": "the",
+   "translit": "hā",
+   "lxx": "τὴν|G3588"
+  },
+  "o010010010072": {
+   "text": "אָֽרֶץ",
+   "strongs": "H0776",
+   "lemma": "אֶרֶץ",
+   "morph": "Ncbsa",
+   "gloss": "earth",
+   "translit": "ʾāreṣ:",
+   "lxx": "γῆν|G1093"
+  },
+  "o010010020011": {
+   "text": "וְ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wə",
+   "lxx": "δὲ|G1161"
+  },
+  "o010010020012": {
+   "text": "הָ",
+   "strongs": "H1886a",
+   "lemma": "הַ",
+   "morph": "Td",
+   "gloss": "the",
+   "translit": "hā",
+   "lxx": "ἡ|G3588"
+  },
+  "o010010020013": {
+   "text": "אָ֗רֶץ",
+   "strongs": "H0776",
+   "lemma": "אֶרֶץ",
+   "morph": "Ncbsa",
+   "gloss": "earth",
+   "translit": "ʾāreṣ",
+   "lxx": "γῆ|G1093"
+  },
+  "o010010020021": {
+   "text": "הָיְתָ֥ה",
+   "strongs": "H1961",
+   "lemma": "הָיָה",
+   "morph": "Vqp3fs",
+   "gloss": "it.was",
+   "translit": "hāyəṯāh",
+   "lxx": "ἦν|G2258"
+  },
+  "o010010020031": {
+   "text": "תֹ֨הוּ֙",
+   "strongs": "H8414",
+   "lemma": "תֹּהוּ",
+   "morph": "Ncmsa",
+   "gloss": "formlessness",
+   "translit": "ṯōhû",
+   "lxx": "ἀόρατος|G517"
+  },
+  "o010010020041": {
+   "text": "וָ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wā",
+   "lxx": "καὶ|G2532"
+  },
+  "o010010020042": {
+   "text": "בֹ֔הוּ",
+   "strongs": "H0922",
+   "lemma": "בֹּהוּ",
+   "morph": "Ncmsa",
+   "gloss": "emptiness",
+   "translit": "ḇōhû",
+   "lxx": "ἀκατασκεύαστος|G"
+  },
+  "o010010020051": {
+   "text": "וְ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wə",
+   "lxx": "καὶ|G2532"
+  },
+  "o010010020052": {
+   "text": "חֹ֖שֶׁךְ",
+   "strongs": "H2822",
+   "lemma": "חֹשֶׁךְ",
+   "morph": "Ncmsa",
+   "gloss": "darkness",
+   "translit": "ḥōšeḵ",
+   "lxx": "σκότος|G4655"
+  },
+  "o010010020061": {
+   "text": "עַל",
+   "strongs": "H5921",
+   "lemma": "עַל",
+   "morph": "R",
+   "gloss": "[was].over",
+   "translit": "ʿal-",
+   "lxx": "ἐπάνω|G1883"
+  },
+  "o010010020071": {
+   "text": "פְּנֵ֣י",
+   "strongs": "H6440",
+   "lemma": "פָּנֶה",
+   "morph": "Ncbpc",
+   "gloss": "the.surface",
+   "translit": "pənēy",
+   "lxx": ""
+  },
+  "o010010020081": {
+   "text": "תְה֑וֹם",
+   "strongs": "H8415",
+   "lemma": "תְּהוֹם",
+   "morph": "Ncbsa",
+   "gloss": "of.the.deep",
+   "translit": "ṯəhôm",
+   "lxx": "ἀβύσσου|G12"
+  },
+  "o010010020091": {
+   "text": "וְ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wə",
+   "lxx": "καὶ|G2532"
+  },
+  "o010010020092": {
+   "text": "ר֣וּחַ",
+   "strongs": "H7307",
+   "lemma": "רוּחַ",
+   "morph": "Ncbsc",
+   "gloss": "the.spirit",
+   "translit": "rûᵃḥ",
+   "lxx": "πνεῦμα|G4151"
+  },
+  "o010010020101": {
+   "text": "אֱלֹהִ֔ים",
+   "strongs": "H0430",
+   "lemma": "אֱלֹהִים",
+   "morph": "Ncmpa",
+   "gloss": "of.God",
+   "translit": "ʾĕlōhiym",
+   "lxx": "θεοῦ|G2316"
+  },
+  "o010010020111": {
+   "text": "מְרַחֶ֖פֶת",
+   "strongs": "H7363",
+   "lemma": "רָחַף",
+   "morph": "Vprfsa",
+   "gloss": "[was].hovering",
+   "translit": "məraḥep̄eṯ",
+   "lxx": "ἐπεφέρετο|G"
+  },
+  "o010010020121": {
+   "text": "עַל",
+   "strongs": "H5921",
+   "lemma": "עַל",
+   "morph": "R",
+   "gloss": "over",
+   "translit": "ʿal-",
+   "lxx": "ἐπάνω|G1883"
+  },
+  "o010010020131": {
+   "text": "פְּנֵ֥י",
+   "strongs": "H6440",
+   "lemma": "פָּנֶה",
+   "morph": "Ncbpc",
+   "gloss": "the.surface",
+   "translit": "pənēy",
+   "lxx": ""
+  },
+  "o010010020141": {
+   "text": "הַ",
+   "strongs": "H1886a",
+   "lemma": "הַ",
+   "morph": "Td",
+   "gloss": "of",
+   "translit": "ha",
+   "lxx": "τοῦ|G3588"
+  },
+  "o010010020142": {
+   "text": "מָּֽיִם",
+   "strongs": "H4325",
+   "lemma": "מַיִם",
+   "morph": "Ncmpa",
+   "gloss": "the.waters",
+   "translit": "mmāyim:",
+   "lxx": "ὕδατος|G5204"
+  },
+  "o010010030011": {
+   "text": "וַ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wa",
+   "lxx": "καὶ|G2532"
+  },
+  "o010010030012": {
+   "text": "יֹּ֥אמֶר",
+   "strongs": "H0559",
+   "lemma": "אָמַר",
+   "morph": "Vqw3ms",
+   "gloss": "he.said",
+   "translit": "yyōʾmer",
+   "lxx": "εἶπεν|G2036"
+  },
+  "o010010030021": {
+   "text": "אֱלֹהִ֖ים",
+   "strongs": "H0430",
+   "lemma": "אֱלֹהִים",
+   "morph": "Ncmpa",
+   "gloss": "God",
+   "translit": "ʾĕlōhiym",
+   "lxx": "θεός|G2316"
+  },
+  "o010010030031": {
+   "text": "יְהִ֣י",
+   "strongs": "H1961",
+   "lemma": "הָיָה",
+   "morph": "Vqj3ms",
+   "gloss": "let.it.be",
+   "translit": "yəhiy",
+   "lxx": "γενηθήτω|G1096"
+  },
+  "o010010030041": {
+   "text": "א֑וֹר",
+   "strongs": "H0216",
+   "lemma": "אוֹר",
+   "morph": "Ncbsa",
+   "gloss": "light",
+   "translit": "ʾôr",
+   "lxx": "φῶς|G5457"
+  },
+  "o010010030051": {
+   "text": "וַֽ",
+   "strongs": "H2050b",
+   "lemma": "וְ",
+   "morph": "C",
+   "gloss": "and",
+   "translit": "wa",
+   "lxx": "καὶ|G2532"
+  },
+  "o010010030052": {
+   "text": "יְהִי",
+   "strongs": "H1961",
+   "lemma": "הָיָה",
+   "morph": "Vqw3ms",
+   "gloss": "it.was",
+   "translit": "yəhî-",
+   "lxx": "ἐγένετο|G1096"
+  },
+  "o190230010031": {
+   "text": "יְהוָ֥ה",
+   "strongs": "H3068",
+   "lemma": "יהוה",
+   "morph": "Np",
+   "gloss": "Yahweh",
+   "translit": "yəhwāh",
+   "lxx": "κύριος|G2962"
+  },
+  "o190230010041": {
+   "text": "רֹ֝עִ֗",
+   "strongs": "H7473",
+   "lemma": "רָעָה",
+   "morph": "Vqrmsc",
+   "gloss": "[is].my",
+   "translit": "",
+   "lxx": "ποιμαίνει|G4165"
+  },
+  "o190230010042": {
+   "text": "י",
+   "strongs": "H2967a",
+   "lemma": "הוּא",
+   "morph": "Sp1cs",
+   "gloss": "shepherd",
+   "translit": "",
+   "lxx": "με|G3165"
+  },
+  "o190230010051": {
+   "text": "לֹ֣א",
+   "strongs": "H3808",
+   "lemma": "לֹא",
+   "morph": "Tn",
+   "gloss": "not",
+   "translit": "lōʾ",
+   "lxx": ""
+  },
+  "o190230010061": {
+   "text": "אֶחְסָֽר",
+   "strongs": "H2637",
+   "lemma": "חָסֵר",
+   "morph": "Vqi1cs",
+   "gloss": "I.lack",
+   "translit": "ʾeḥsār:",
+   "lxx": ""
+  },
+  "o190230020011": {
+   "text": "בִּ",
+   "strongs": "H0871a",
+   "lemma": "בְּ",
+   "morph": "R",
+   "gloss": "in",
+   "translit": "bi",
+   "lxx": "εἰς|G1519"
+  },
+  "o190230020012": {
+   "text": "נְא֣וֹת",
+   "strongs": "H4999",
+   "lemma": "נָוָה",
+   "morph": "Ncfpc",
+   "gloss": "pastures",
+   "translit": "nəʾôṯ",
+   "lxx": "τόπον|G5117"
+  },
+  "o190230020021": {
+   "text": "דֶּ֭שֶׁא",
+   "strongs": "H1877",
+   "lemma": "דֶּשֶׁא",
+   "morph": "Ncmsa",
+   "gloss": "of.fresh.grass",
+   "translit": "dešeʾ",
+   "lxx": "ξλόης|G5514"
+  },
+  "o190230020031": {
+   "text": "יַרְבִּיצֵ֑",
+   "strongs": "H7257",
+   "lemma": "רָבַץ",
+   "morph": "Vhi3ms",
+   "gloss": "he",
+   "translit": "",
+   "lxx": "κατεσκήνωσεν|G2681"
+  },
+  "o190230020032": {
+   "text": "נִי",
+   "strongs": "H5204a",
+   "lemma": "הוּא",
+   "morph": "Sp1cs",
+   "gloss": "makes.me.lie.down",
+   "translit": "",
+   "lxx": "με|G3165"
+  },
+  "o190230020041": {
+   "text": "עַל",
+   "strongs": "H5921",
+   "lemma": "עַל",
+   "morph": "R",
+   "gloss": "at",
+   "translit": "ʿal-",
+   "lxx": "ἐπὶ|G1909"
+  },
+  "o190230020051": {
+   "text": "מֵ֖י",
+   "strongs": "H4325",
+   "lemma": "מַיִם",
+   "morph": "Ncmpc",
+   "gloss": "waters",
+   "translit": "mēy",
+   "lxx": "ὕδατος|G5204"
+  },
+  "o190230020061": {
+   "text": "מְנֻח֣וֹת",
+   "strongs": "H4496",
+   "lemma": "מְנוּחָה",
+   "morph": "Ncbpa",
+   "gloss": "of.rest(s)",
+   "translit": "mənuḥôṯ",
+   "lxx": "ἀναπαύσεως|G372"
+  },
+  "o190230020071": {
+   "text": "יְנַהֲלֵֽ",
+   "strongs": "H5095",
+   "lemma": "נָהַל",
+   "morph": "Vpi3ms",
+   "gloss": "he",
+   "translit": "",
+   "lxx": "ἐχέθρεψέν|G"
+  },
+  "o190230020072": {
+   "text": "נִי",
+   "strongs": "H5204a",
+   "lemma": "הוּא",
+   "morph": "Sp1cs",
+   "gloss": "leads.me",
+   "translit": "",
+   "lxx": "με|G3165"
+  }
+ }
+}
