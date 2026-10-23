@@ -54,7 +54,7 @@
   /* ---- type scale ------------------------------------------------------- */
   --font-scale: 1;
   --fs-eyebrow: 11px;
-  --fs-label: 10.5px;      /* card / key labels (uppercase, tracked) */
+  --fs-label: 11px;        /* card / key labels (uppercase, tracked) */
   --fs-meta: 12.5px;
   --fs-ui: 13.5px;
   --fs-ui-lg: 15px;

@@ -130,7 +130,7 @@ function SearchField() {
           spellcheck={false}
           enterKeyHint="search"
           placeholder="Search words, λόγος, G3056 or Jn 3:16"
-          aria-controls="search-panel"
+          aria-controls={open ? 'search-panel' : undefined}
           value={searchQuery.value}
           onFocus={() => openSearch()}
           onInput={(e) => {
@@ -224,7 +224,7 @@ export function Header() {
           aria-label={`${trMeta?.abbr ?? tr}${trMeta ? ` ${shortName(trMeta.name)}` : ''} — choose a translation`}
           onClick={() => setPop(pop === 'tr' ? null : 'tr')}
         >
-          <span class="tr-btn__abbr">{trMeta?.abbr ?? tr}</span>
+          <span class="tr-btn__abbr">{trMeta?.abbr ?? tr}</span>{' '}
           {trMeta && <span class="tr-btn__name">{shortName(trMeta.name)}</span>}
           <Icon name="chev" class="chev" />
         </button>

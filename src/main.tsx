@@ -3,11 +3,16 @@ import './styles/global.css';
 import { render } from 'preact';
 import { App } from './app/App';
 import { startRouter } from './app/router';
-import { initState, meta, metaError } from './app/state';
-import { loadMeta } from './lib/data';
+import { initState, meta, metaError, passage } from './app/state';
+import { loadMeta, prefetchChapter } from './lib/data';
 
 initState();
 startRouter();
+
+// Fetch meta.json and the first chapter in parallel (the reader waits for meta to validate the
+// translation; the chapter request is already in flight by then).
+const { tr, ref } = passage.peek();
+prefetchChapter(tr, ref.book, ref.chapter, { next: false });
 loadMeta().then(
   (m) => {
     meta.value = m;

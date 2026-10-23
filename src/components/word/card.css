@@ -99,7 +99,7 @@
 .morphs .plus { color: var(--ink-3); font-size: 12px; }
 
 /* facts */
-.facts { margin: 12px 0 0; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 5px 12px; font-size: 13px; line-height: 1.4; }
+.facts { margin: 12px 0 0; display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 5px 12px; font-size: 13px; line-height: 1.4; }
 .facts dt { font: 600 var(--fs-label)/1.9 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
 .facts dd { margin: 0; color: var(--ink); min-width: 0; }
 .facts .grc { font-size: 16.5px; line-height: 1.2; }
@@ -227,5 +227,5 @@ html.has-sheet main { padding-bottom: 48dvh; }
 @media (max-width: 640px) {
   .word-card.is-sheet .card__orig { font-size: 36px; }
   .word-card.is-sheet .card__orig.hbo { font-size: 38px; }
-  .facts { grid-template-columns: 74px minmax(0, 1fr); }
+  .facts { grid-template-columns: 84px minmax(0, 1fr); }
 }

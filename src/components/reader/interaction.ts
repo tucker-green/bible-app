@@ -87,8 +87,13 @@ export class ReaderController {
     return this.model?.key ?? '';
   }
 
+  /** Narrow screens show the card as a bottom sheet, which only opens on a deliberate tap / Enter. */
+  private narrow(): boolean {
+    return typeof window !== 'undefined' && document.documentElement.clientWidth < 720;
+  }
+
   private hoverEnabled(): boolean {
-    if (!settings.value.hoverCards) return false;
+    if (!settings.value.hoverCards || this.narrow()) return false;
     return typeof matchMedia !== 'function' || matchMedia('(hover: hover) and (pointer: fine)').matches;
   }
 
@@ -205,13 +210,13 @@ export class ReaderController {
       return;
     }
     clearTimeout(this.openTimer);
-    activeWord.value = { key: this.key, unit, via: 'focus' };
+    if (!this.narrow()) activeWord.value = { key: this.key, unit, via: 'focus' };
   };
 
   private onFocusOut = (e: FocusEvent) => {
     if (!this.root) return;
     const el = unitEl(e.target, this.root);
-    if (el) {
+    if (el && !el.classList.contains('is-open')) {
       el.removeAttribute('role');
       el.removeAttribute('aria-haspopup');
     }
@@ -336,6 +341,10 @@ export class ReaderController {
       el.removeAttribute('aria-describedby');
       el.removeAttribute('aria-expanded');
       el.removeAttribute('aria-controls');
+      if (document.activeElement !== el) {
+        el.removeAttribute('role');
+        el.removeAttribute('aria-haspopup');
+      }
     }
     this.marked = [];
     const model = this.model;
@@ -358,6 +367,8 @@ export class ReaderController {
     }
     if (pinned) {
       anchor.classList.add('is-open');
+      anchor.setAttribute('role', 'button');
+      anchor.setAttribute('aria-haspopup', 'dialog');
       anchor.setAttribute('aria-expanded', 'true');
       anchor.setAttribute('aria-controls', 'word-card');
     } else {
