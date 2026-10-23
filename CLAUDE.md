@@ -6,6 +6,11 @@ Greek (NT) or Hebrew (OT) word behind it, with a definition. See docs/ARCHITECTU
 **The app is named Rootword** (owner's choice): use it for the wordmark, page title, README and About page.
 Never call it "Logos" (that is an existing Bible software brand).
 
+**The design is "Scholar"** (owner's choice; see design/concepts/scholar/ and its NOTES.md): an
+editorial, critical-edition look. It must ship with BOTH a light and a dark theme of equal polish,
+a theme toggle (light / dark / follow system) that is remembered per browser, and no flash of the
+wrong theme on load. Grafts from other concepts are fine only where they fit Scholar's language.
+
 **The KJV is the default translation** (owner's decision): it opens first, is listed first in
 `meta.json` and every translation picker, and is the fallback whenever a saved/linked translation is
 unavailable. Its Greek/Hebrew links (via the KJV's own Strong's tags) therefore get the most
