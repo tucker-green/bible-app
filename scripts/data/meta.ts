@@ -14,18 +14,8 @@ export const DATA_VERSION = '1';
 
 const OPEN_BIBLES = 'https://github.com/seven1m/open-bibles';
 
+// The KJV is the app's default translation (owner's decision), so it is listed first.
 export const TRANSLATIONS: TranslationMeta[] = [
-  {
-    id: 'BSB',
-    name: 'Berean Standard Bible',
-    abbr: 'BSB',
-    year: '2022',
-    license: 'Public domain',
-    alignment: 'manual',
-    description:
-      'A modern, readable translation that stays close to the Greek and Hebrew. Every word is linked to the original by hand (Clear-Bible / Biblica alignment).',
-    source: 'https://berean.bible',
-  },
   {
     id: 'KJV',
     name: 'King James Version',
@@ -36,6 +26,17 @@ export const TRANSLATIONS: TranslationMeta[] = [
     description:
       'The classic 1611 translation in its 1769 Oxford edition. Words are linked through the Strong’s numbers tagged in the CrossWire text.',
     source: 'https://crosswire.org',
+  },
+  {
+    id: 'BSB',
+    name: 'Berean Standard Bible',
+    abbr: 'BSB',
+    year: '2022',
+    license: 'Public domain',
+    alignment: 'manual',
+    description:
+      'A modern, readable translation that stays close to the Greek and Hebrew. Every word is linked to the original by hand (Clear-Bible / Biblica alignment).',
+    source: 'https://berean.bible',
   },
   {
     id: 'WEB',

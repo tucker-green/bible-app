@@ -12,15 +12,19 @@ export interface AlignTableJson {
   /** Format version (bump on any incompatible change). */
   v: 1;
   /**
-   * English lemma (see `lemma()` in normalize.ts) -> packed entry
+   * New Testament (Greek) half: English lemma (see `lemma()` in normalize.ts) -> packed entry
    *   "N S1 P1 S2 P2 …"
-   * N  = how many times the lemma occurs in the training texts (linked or not);
-   * Si = a Strong's id exactly as in OrigWord[OW.strongs] ("G0166", "H0871a"), or a base id;
-   * Pi = round(1000 · P(Si | lemma)), integers, sorted descending.
-   * Pairs with low probability / count are pruned, so the Pi of a lemma may sum to < 1000;
-   * the remainder is the chance the word is unlinked or rendered by something rarer.
+   * N  = how many times the lemma occurs in the NT training texts (linked or not);
+   * Si = a Strong's id exactly as in OrigWord[OW.strongs] ("G0166"), or a base id;
+   * Pi = round(1000 · P(Si | lemma)): the share of the lemma's occurrences whose links include an
+   *      original word with that id. Integers, sorted descending.
+   * Pairs with low probability / count are pruned; what is left of 1000 is the chance that the word
+   * is unlinked or rendered by something rarer. Phrase links count fully for every id, so the Pi of
+   * a lemma may also sum to more than 1000.
    */
-  t: Record<string, string>;
+  g: Record<string, string>;
+  /** Old Testament (Hebrew / Aramaic) half, same format; ids like "H0871a" keep their extension letter. */
+  h: Record<string, string>;
   /** Build summary (informational). */
   info?: { lemmas: number; pairs: number; sources: string[] };
 }

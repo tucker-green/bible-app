@@ -215,6 +215,13 @@ export interface LexEntry {
   kjv?: string;
   /** Strong's derivation note. */
   deriv?: string;
+  /** Number of verses (English versification) containing this word, from the concordance. */
+  verses?: number;
+  /**
+   * How each bundled translation renders this word: translation id -> [english rendering, count][],
+   * most frequent first (top 6). Built from the word links, e.g. { BSB: [["word",139],["words",53]], KJV: [...] }.
+   */
+  renderings?: Record<string, [string, number][]>;
 }
 
 /**

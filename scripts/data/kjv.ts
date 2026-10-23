@@ -22,7 +22,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { lemmas } from '../../src/lib/align/normalize';
+import { isFunctionWord, lemmas } from '../../src/lib/align/normalize';
 import { TableBuilder, type TranslationTable } from '../../src/lib/align/table';
 import { segment } from '../../src/lib/tokenize';
 import type { BookId, OrigChapter, OrigWord, TextChapter, TextVerse, Token, TokenInfo, WordToken } from '../../src/lib/types';
@@ -311,6 +311,7 @@ export function linkKjvVerse(
     }
   });
   const assigned = new Map<string, number>();
+  const extraLinks = new Map<string, number[]>();
   const byBase = new Map<string, Occ[]>();
   for (const o of occs.values()) {
     const list = byBase.get(o.base);
@@ -369,12 +370,37 @@ export function linkKjvVerse(
     });
   });
 
+  // A name written as two words with one number (בַּעַל חָנָן "Baal-hanan"): take the neighbours too.
+  {
+    const taken = new Set(assigned.values());
+    const extra = new Map<string, number[]>();
+    for (const o of occs.values()) {
+      const j = assigned.get(o.key);
+      if (j === undefined) continue;
+      const pos = cand.indexOf(j);
+      const more: number[] = [];
+      for (const dir of [-1, 1]) {
+        for (let r = pos + dir; r >= 0 && r < cand.length; r += dir) {
+          const k = cand[r];
+          if (taken.has(k) || !words[k][OW.strongs] || baseStrongs(words[k][OW.strongs]) !== baseStrongs(words[j][OW.strongs])) break;
+          more.push(k);
+        }
+      }
+      if (more.length) {
+        extra.set(o.key, more);
+        more.forEach((k) => taken.add(k));
+      }
+    }
+    for (const [key, more] of extra) extraLinks.set(key, more);
+  }
+
   // Per entry: links + unlinked tags.
   const entryLinks: number[][] = entries.map((e, k) => {
     const s = new Set<number>();
     e.tags.forEach((_, ti) => {
       const j = assigned.get(occOfTag[k][ti]);
       if (j !== undefined) s.add(j);
+      for (const x of extraLinks.get(occOfTag[k][ti]) ?? []) s.add(x);
     });
     return [...s].sort((a, b) => a - b);
   });
@@ -395,19 +421,24 @@ export function linkKjvVerse(
       else groups.set(key, [wi]);
     });
     for (const list of groups.values()) {
-      if (list.length < 2) continue;
       const root = wordLinks[list[0]][0];
       const g = words[root][OW.group];
       const morphemes: number[] = [];
       for (let j = g; j < words.length && words[j][OW.group] === g; j++) if (j !== root) morphemes.push(j);
       if (!morphemes.length) continue;
       const rootS = words[root][OW.strongs];
-      // Keep the root on the word that best renders it.
-      let keep = list[0];
-      for (const wi of list) if (table.prob(lem[wi], rootS) > table.prob(lem[keep], rootS)) keep = wi;
+      // In a run of several words, the root stays on the content word that best renders it.
+      let keep = -1;
+      if (list.length > 1) {
+        for (const wi of list) {
+          if (isFunctionWord(wordPieces[wi].text)) continue;
+          if (keep < 0 || table.prob(lem[wi], rootS) > table.prob(lem[keep], rootS)) keep = wi;
+        }
+      }
       const used = new Set<number>();
       for (const wi of list) {
-        if (wi === keep) continue;
+        // Only function words (and, the, in, his…) move to a prefix / suffix morpheme.
+        if (wi === keep || !isFunctionWord(wordPieces[wi].text)) continue;
         let best = -1;
         let bestP = 0;
         for (const j of morphemes) {
@@ -418,7 +449,7 @@ export function linkKjvVerse(
             best = j;
           }
         }
-        if (best >= 0 && bestP >= 0.15 && bestP > table.prob(lem[wi], rootS)) {
+        if (best >= 0 && bestP >= 0.15 && bestP > 2 * table.prob(lem[wi], rootS)) {
           wordLinks[wi] = [best];
           used.add(best);
         }

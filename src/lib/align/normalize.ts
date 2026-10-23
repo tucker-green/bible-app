@@ -43,6 +43,45 @@ export function isFunctionWord(word: string): boolean {
   return FUNCTION_WORDS.has(foldWord(word));
 }
 
+/**
+ * Word classes used by the bridge aligner's linking policy:
+ *  det   the / a / an                       -> only the article that belongs to the next content word
+ *  poss  his / my / their …                 -> pronoun or suffix of the next content word
+ *  obj   him / them / me …                  -> pronoun or suffix of the previous content word
+ *  subj  he / they / I …                    -> only on direct evidence
+ *  prep  in / of / to …                     -> direct evidence, else the prefix of the next content word
+ *  conj  and / but / that …                 -> direct evidence, else the conjunction prefix of the next word
+ *  aux   shall / will / may …               -> direct evidence, else the verb that follows
+ *  cop   is / was / be …                    -> direct evidence only
+ *  other not / there / also …               -> direct evidence only
+ *  content                                  -> everything else
+ */
+export type WordClass = 'det' | 'poss' | 'obj' | 'subj' | 'prep' | 'conj' | 'aux' | 'cop' | 'other' | 'content';
+
+const CLASS_OF = new Map<string, WordClass>();
+for (const [cls, list] of [
+  ['det', 'the a an'],
+  ['poss', 'his her its their my our your thy thine mine'],
+  ['obj', 'him them me us thee it'],
+  ['subj', 'he she they i we thou ye you'],
+  [
+    'prep',
+    'of to in into on onto at by for from with within without unto upon toward towards through throughout ' +
+      'among amongst between before after above below under over about against out up down off along beside besides near',
+  ],
+  ['conj', 'and or nor but yet if though although whether when whenever where wherever while whilst because since than as so that'],
+  ['aux', 'shall will should would may might can could must shalt wilt shouldest wouldest mayest mightest canst couldest let'],
+  ['cop', 'is are was were be been being am art wast wert'],
+] as [WordClass, string][]) {
+  for (const w of list.split(/\s+/)) CLASS_OF.set(w, cls);
+}
+
+/** The aligner's class of a word (case-insensitive). */
+export function wordClass(word: string): WordClass {
+  const f = foldWord(word);
+  return CLASS_OF.get(f) ?? (FUNCTION_WORDS.has(f) ? 'other' : 'content');
+}
+
 /* ------------------------------------------------------------------------ */
 /* Irregular / archaic forms                                                 */
 /* ------------------------------------------------------------------------ */
