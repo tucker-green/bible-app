@@ -1,4 +1,4 @@
-# Architecture
+# Rootword — Architecture
 
 A static website (Vite + Preact + TypeScript). There is no server: all Bible text, original-language
 data, lexicons and search corpora are pre-built JSON files under `public/data/`, fetched on demand

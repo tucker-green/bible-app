@@ -1,7 +1,10 @@
-# Logos — Bible reader with Greek & Hebrew
+# Rootword — Bible reader with Greek & Hebrew
 
 Static website: read/search the Bible in several translations; hovering an English word shows the
 Greek (NT) or Hebrew (OT) word behind it, with a definition. See docs/ARCHITECTURE.md.
+
+**The app is named Rootword** (owner's choice): use it for the wordmark, page title, README and About page.
+Never call it "Logos" (that is an existing Bible software brand).
 
 **The KJV is the default translation** (owner's decision): it opens first, is listed first in
 `meta.json` and every translation picker, and is the fallback whenever a saved/linked translation is
