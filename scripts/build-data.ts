@@ -17,6 +17,7 @@ const STAGES: Stage[] = [
   { name: 'bridged', run: async () => (await import('./data/bridged')).buildBridged() },
   { name: 'search', run: async () => (await import('./data/search')).buildSearch() },
   { name: 'meta', run: async () => (await import('./data/meta')).buildMeta() },
+  { name: 'validate', run: async () => (await import('./data/validate')).buildValidate() },
 ];
 
 async function main() {

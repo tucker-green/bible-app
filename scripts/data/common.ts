@@ -101,3 +101,86 @@ export function chunkOf(id: string): string {
 export function log(stage: string, msg: string): void {
   console.log(`[${stage}] ${msg}`);
 }
+
+/* ------------------------------------------------------------------------ */
+/* Lighter readers for very large / wide sources                             */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Read only the named columns of a header-row TSV, in file order. Much lighter than
+ * `readTsv` for wide files such as macula-hebrew.tsv (32 columns, 84 MB).
+ * Throws if a requested column is missing from the header.
+ */
+export function readTsvColumns<K extends string>(name: string, cols: readonly K[]): Record<K, string>[] {
+  const text = readFileSync(srcPath(name), 'utf8').replace(/^﻿/, '');
+  const lines = text.split(/\r?\n/);
+  const header = lines[0].split('\t');
+  const idx = cols.map((c) => {
+    const i = header.indexOf(c);
+    if (i < 0) throw new Error(`${name}: missing column "${c}" (have ${header.join(', ')})`);
+    return i;
+  });
+  const rows: Record<K, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || line.startsWith('#')) continue;
+    const cells = line.split('\t');
+    const row = {} as Record<K, string>;
+    for (let j = 0; j < cols.length; j++) row[cols[j]] = cells[idx[j]] ?? '';
+    rows.push(row);
+  }
+  return rows;
+}
+
+export type Testament = 'OT' | 'NT';
+
+/** One English token of the BSB from the Clear-Bible target TSVs (nt_BSB.tsv / ot_BSB.tsv). */
+export interface BsbTokenRow {
+  /** BBCCCVVVWWW (11 digits). English verse = first 8 chars; Psalm titles use verse 000. */
+  id: string;
+  /** BBCCCVVV of the source-language verse this token translates (Hebrew/Greek numbering). */
+  srcVerse: string;
+  text: string;
+  /** True when the source says no space follows this token. */
+  skip: boolean;
+  /** True for punctuation / tokens that are never aligned. */
+  exclude: boolean;
+}
+
+export function readBsbTokens(t: Testament): BsbTokenRow[] {
+  const file = t === 'NT' ? 'nt_BSB.tsv' : 'ot_BSB.tsv';
+  return readTsvColumns(file, ['id', 'source_verse', 'text', 'skip_space_after', 'exclude'] as const)
+    .filter((r) => r.id)
+    .map((r) => ({
+      id: r.id,
+      srcVerse: r.source_verse,
+      text: r.text,
+      skip: r.skip_space_after === 'y',
+      exclude: r.exclude === 'y',
+    }));
+}
+
+/** One manual alignment record: source ids (n…/o… BCVW[P]) <-> BSB target ids (BBCCCVVVWWW). Many-to-many. */
+export type AlignRecord = [source: string[], target: string[]];
+
+export function readAlignment(t: Testament): AlignRecord[] {
+  const file = t === 'NT' ? 'SBLGNT-BSB-manual.json' : 'WLCM-BSB-manual.json';
+  const json = JSON.parse(readFileSync(srcPath(file), 'utf8')) as {
+    records: { source: string[]; target: string[] }[];
+  };
+  return json.records.map((r) => [r.source, r.target]);
+}
+
+/** "BBCCC" chapter key for a book number and chapter, as used in Clear/Macula ids. */
+export function chapterKey(bookNum: number, chapter: number): string {
+  return String(bookNum).padStart(2, '0') + String(chapter).padStart(3, '0');
+}
+
+/** Every (book, chapter) of the canon in order, with its "BBCCC" key. */
+export function allChapters(): { book: BookInfo; chapter: number; key: string }[] {
+  const out: { book: BookInfo; chapter: number; key: string }[] = [];
+  for (const book of BOOKS) {
+    for (let c = 1; c <= book.chapters; c++) out.push({ book, chapter: c, key: chapterKey(book.num, c) });
+  }
+  return out;
+}
