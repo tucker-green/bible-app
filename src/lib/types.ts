@@ -217,6 +217,12 @@ export interface LexEntry {
   deriv?: string;
 }
 
+/**
+ * public/data/lex/index.json — one row per lexicon entry, for lemma / transliteration / gloss
+ * search and word-study autocomplete: [id, lemma, translit, gloss].
+ */
+export type LexIndex = [id: string, lemma: string, translit: string, gloss: string][];
+
 /* ------------------------------------------------------------------------ */
 /* Concordance: public/data/conc/{G|H}/{NNN}.json                           */
 /* ------------------------------------------------------------------------ */
