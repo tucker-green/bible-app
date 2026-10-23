@@ -1,10 +1,13 @@
 /**
  * Translation picker: meta.json order (KJV first), each with year, licence and an alignment meter;
- * runtime translations (e.g. NIV) after a rule, or an "NIV — Connect" row that opens Settings.
+ * runtime translations (e.g. NIV) after a rule, or an "NIV — Connect" row that opens Settings;
+ * then "Compare side by side", which opens #/compare with this translation and the next one.
  */
 import type { RefObject } from 'preact';
+import { compareHash } from '../../app/router';
 import { openSettings, passage, setTranslation, translations } from '../../app/state';
 import { Icon } from '../common/Icon';
+import { UiIcon } from '../shell/icons';
 import { Meter } from '../common/Meter';
 import { Popover } from '../common/Popover';
 
@@ -14,6 +17,10 @@ export function TranslationPicker({ open, onClose, anchor }: { open: boolean; on
   const bundled = list.filter((t) => !t.remote);
   const remote = list.filter((t) => t.remote);
   const hasNiv = remote.some((t) => t.id.toUpperCase() === 'NIV');
+
+  const { ref } = passage.value;
+  const partner = cur === 'KJV' ? (list.find((t) => t.id === 'BSB')?.id ?? list.find((t) => t.id !== cur)?.id) : 'KJV';
+  const compareTo = partner ? compareHash([cur, partner], ref.book, ref.chapter) : null;
 
   const choose = (id: string) => {
     onClose();
@@ -74,6 +81,25 @@ export function TranslationPicker({ open, onClose, anchor }: { open: boolean; on
               Connect <Icon name="arrow" />
             </span>
           </button>
+        </>
+      )}
+      {compareTo && (
+        <>
+          <hr />
+          <a class="tr-item tr-item--compare" href={compareTo} onClick={onClose}>
+            <span class="tr-item__abbr" aria-hidden="true">
+              <UiIcon name="compare" />
+            </span>
+            <span class="tr-item__name">
+              Compare side by side
+              <small>
+                {cur} and {partner}, verse by verse
+              </small>
+            </span>
+            <span class="connect">
+              Open <Icon name="arrow" />
+            </span>
+          </a>
         </>
       )}
     </Popover>

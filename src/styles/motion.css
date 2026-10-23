@@ -1,0 +1,69 @@
+/* ==========================================================================
+   Rootword — motion (docs/EXPERIENCE.md §5). Tokens (--ease-out, --ease-spring, --dur-1/2/3,
+   --stagger) live in theme.css. Only transform and opacity animate.
+
+   html[data-motion="reduce"] is set from Settings → Motion, falling back to
+   prefers-reduced-motion (index.html applies it before first paint): movement collapses to
+   instant changes or ≤ 150 ms fades, springs and auto-scrolling glides are off.
+   ========================================================================== */
+
+/* ---- View Transitions: chapter changes ----------------------------------- */
+/* Names exist only while a transition runs (html[data-vt] is set by src/app/transitions.ts), so
+   they never create stacking contexts that would trap the word card / sheets at other times. */
+html[data-vt] .text { view-transition-name: rw-text; }
+html[data-vt] .ch-title .num { view-transition-name: rw-chnum; }
+html[data-vt] .masthead { view-transition-name: rw-header; }
+html[data-vt] .dock { view-transition-name: rw-dock; }
+
+::view-transition-group(*) { animation-duration: var(--dur-3); animation-timing-function: var(--ease-out); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-2); }
+/* the toolbar stays put (its labels just swap) */
+::view-transition-old(rw-dock) { display: none; }
+::view-transition-new(rw-dock) { animation: none; }
+
+html[data-vt="next"]::view-transition-old(rw-text) { animation: rw-vt-out-left var(--dur-3) var(--ease-out) both; }
+html[data-vt="next"]::view-transition-new(rw-text) { animation: rw-vt-in-right var(--dur-3) var(--ease-out) both; }
+html[data-vt="prev"]::view-transition-old(rw-text) { animation: rw-vt-out-right var(--dur-3) var(--ease-out) both; }
+html[data-vt="prev"]::view-transition-new(rw-text) { animation: rw-vt-in-left var(--dur-3) var(--ease-out) both; }
+html[data-vt="fade"]::view-transition-old(rw-text) { animation: rw-fade-out var(--dur-2) var(--ease) both; }
+html[data-vt="fade"]::view-transition-new(rw-text) { animation: rw-fade-in var(--dur-2) var(--ease) both; }
+
+@keyframes rw-vt-out-left { to { opacity: 0; transform: translateX(-56px); } }
+@keyframes rw-vt-in-right { from { opacity: 0; transform: translateX(56px); } }
+@keyframes rw-vt-out-right { to { opacity: 0; transform: translateX(56px); } }
+@keyframes rw-vt-in-left { from { opacity: 0; transform: translateX(-56px); } }
+@keyframes rw-fade-out { to { opacity: 0; } }
+@keyframes rw-fade-in { from { opacity: 0; } }
+
+/* Fallback without the API: the new text slides / fades in. */
+html[data-vt-fallback="next"] .text { animation: rw-vt-in-right var(--dur-3) var(--ease-out) both; }
+html[data-vt-fallback="prev"] .text { animation: rw-vt-in-left var(--dur-3) var(--ease-out) both; }
+html[data-vt-fallback="fade"] .text, html[data-vt-fallback="fade"] .doc { animation: rw-fade-in var(--dur-2) var(--ease) both; }
+
+/* ---- Reduced motion -------------------------------------------------------- */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: .001ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+/* …except a few short fades, which explain what appeared */
+html[data-motion="reduce"] .word-card,
+html[data-motion="reduce"] .verse-sheet,
+html[data-motion="reduce"] .pop,
+html[data-motion="reduce"] .toast,
+html[data-motion="reduce"] .loupe.is-on {
+  animation: rw-fade-in 120ms linear both !important;
+}
+html[data-motion="reduce"]::view-transition-group(*),
+html[data-motion="reduce"]::view-transition-old(*),
+html[data-motion="reduce"]::view-transition-new(*) {
+  animation-duration: 140ms !important;
+}
+html[data-motion="reduce"]::view-transition-old(rw-text) { animation: rw-fade-out 140ms linear both !important; }
+html[data-motion="reduce"]::view-transition-new(rw-text) { animation: rw-fade-in 140ms linear both !important; }
+html[data-motion="reduce"] .skeleton { animation: none !important; }

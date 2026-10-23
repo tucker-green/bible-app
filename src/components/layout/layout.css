@@ -1,0 +1,27 @@
+/* Full pages (word study, people & places, lineage, compare, my study): one reading column in the
+   Scholar grid, optionally wider or with a right rail. */
+.page.page--doc { grid-template-columns: minmax(0, 720px); }
+.page.page--doc.page--wide { grid-template-columns: minmax(0, 1120px); }
+.page.page--doc.page--aside { grid-template-columns: minmax(0, 720px) minmax(200px, 260px); }
+.doc { min-width: 0; font: 400 16.5px/1.65 var(--font-text); color: var(--ink-2); }
+.doc p { margin: 0 0 var(--s-4); }
+.doc b { color: var(--ink); font-weight: 600; }
+.doc section { margin-top: var(--s-7); }
+.doc .sec { margin-top: 0; }
+.doc__title:focus { outline: none; }
+.doc__title :lang(grc), .doc__title :lang(he) { color: var(--blue); }
+.doc__lede { font-size: 19px; line-height: 1.6; color: var(--ink); margin-top: var(--s-4); }
+.page-back { margin-top: var(--s-4); font: 500 13px/1 var(--font-ui); }
+.page-back a { text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
+.page-back a:hover { text-decoration: underline; }
+.doc__soon { padding: var(--s-5); border: 1px dashed var(--rule-2); border-radius: var(--radius-lg); color: var(--ink-3); font: 400 14px/1.55 var(--font-ui); }
+.doc__soon p { margin: 0; }
+.doc__aside { font-size: var(--fs-meta); }
+
+@media (max-width: 980px) {
+  .page.page--doc.page--aside { grid-template-columns: minmax(0, 720px); }
+  .doc__aside { position: static; max-height: none; margin-top: var(--s-7); }
+}
+@media (pointer: coarse) {
+  .page-back a { min-height: 44px; }
+}

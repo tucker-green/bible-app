@@ -116,10 +116,13 @@ function loadTheme(): Theme {
 function loadMode(): ReadingMode {
   return readString('mode') === 'interlinear' ? 'interlinear' : 'reading';
 }
-export const FONT_SCALES = [0.9, 1, 1.1, 1.2, 1.32] as const;
+/** The six reading-text sizes offered in the UI (docs/EXPERIENCE.md §4: up to 200%). */
+export const FONT_SCALES = [0.9, 1, 1.15, 1.3, 1.6, 2] as const;
+export const FONT_SCALE_MIN = 0.8;
+export const FONT_SCALE_MAX = 2;
 function loadFontScale(): number {
   const n = Number(readString('fontScale'));
-  return n >= 0.8 && n <= 1.5 ? n : 1;
+  return n >= FONT_SCALE_MIN && n <= FONT_SCALE_MAX ? n : 1;
 }
 function loadSettings(): Settings {
   const s = readJson<Partial<Settings>>('settings', {});
@@ -158,8 +161,26 @@ export const settings = signal<Settings>(loadSettings());
 /** Listen mode: the verse currently being read aloud (the reader highlights and scrolls to it), or null. */
 export const listeningVerse = signal<number | null>(null);
 
-/** The verse whose action sheet is open (cross references, highlight, note, compare, listen…), or null. */
+/**
+ * The verse whose action sheet is open (cross references, highlight, note, compare, listen…), or null.
+ * `key` is the reader's chapter key "TR/BOOK/CHAPTER" (same as WordRef.key). Use openVerseSheet().
+ */
 export const verseSheet = signal<{ key: string; verse: number } | null>(null);
+
+/**
+ * Header / toolbar panels: the book picker, the translation picker and the "Aa" display panel.
+ * Only one is open at a time; open with openPanel(id, triggerElement) so focus returns to it.
+ */
+export type PanelId = 'books' | 'translations' | 'display';
+export const panel = signal<PanelId | null>(null);
+/** The element that opened the current panel (desktop popovers anchor to it; focus returns to it). */
+export const panelAnchor: { current: HTMLElement | null } = { current: null };
+
+/**
+ * Phones / phone landscape: the compact top bar (and in landscape the toolbar) hide while reading
+ * down the page and come back on scroll up. Mirrored to <html data-chrome="hidden">.
+ */
+export const chromeHidden = signal(false);
 
 /** The word under the pointer / keyboard focus (card shown as a tooltip). */
 export const activeWord = signal<WordRef | null>(null);
@@ -255,11 +276,66 @@ export function setReadingMode(m: ReadingMode): void {
 }
 
 export function setFontScale(n: number): void {
-  fontScale.value = Math.min(1.5, Math.max(0.8, Math.round(n * 100) / 100));
+  fontScale.value = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(n * 100) / 100));
+}
+
+/** Step the reading-text size through FONT_SCALES (+1 bigger, -1 smaller). */
+export function stepFontScale(dir: 1 | -1): void {
+  const cur = fontScale.value;
+  const list = [...FONT_SCALES];
+  let i = list.findIndex((x) => Math.abs(x - cur) < 0.001);
+  if (i < 0) i = list.reduce((best, x, j) => (Math.abs(x - cur) < Math.abs(list[best] - cur) ? j : best), 0);
+  setFontScale(list[Math.min(list.length - 1, Math.max(0, i + dir))]);
+}
+
+/** Open a header / toolbar panel (closes search and the word card). `from` gets focus back on close. */
+export function openPanel(id: PanelId, from?: HTMLElement | null): void {
+  panelAnchor.current = from ?? (typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null);
+  batch(() => {
+    searchOpen.value = false;
+    pinnedWord.value = null;
+    activeWord.value = null;
+    verseSheet.value = null;
+    panel.value = id;
+  });
+}
+
+export function closePanel(): void {
+  panel.value = null;
+}
+
+export function togglePanel(id: PanelId, from?: HTMLElement | null): void {
+  if (panel.value === id) closePanel();
+  else openPanel(id, from);
+}
+
+/** Open the verse action sheet for a verse of the chapter on screen (key = "TR/BOOK/CHAPTER"). */
+export function openVerseSheet(key: string, verse: number): void {
+  batch(() => {
+    pinnedWord.value = null;
+    activeWord.value = null;
+    panel.value = null;
+    verseSheet.value = { key, verse };
+  });
+}
+
+export function closeVerseSheet(): void {
+  verseSheet.value = null;
 }
 
 export function updateSettings(patch: Partial<Settings>): void {
   settings.value = { ...settings.value, ...patch };
+}
+
+/** True when motion should collapse to fades (Settings → Motion, else the OS preference). */
+export function reducedMotion(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.dataset.motion === 'reduce';
+}
+
+/** Scroll behaviour to use for programmatic scrolling (jumps instead of glides under reduced motion). */
+export function scrollBehavior(): ScrollBehavior {
+  return reducedMotion() ? 'auto' : 'smooth';
 }
 
 /** Close the word card (both hover and pinned). */
@@ -337,4 +413,63 @@ export function initState(): void {
   });
   effect(() => writeString('mode', readingMode.value));
   effect(() => writeJson('settings', settings.value));
+  applyReadingSettings(root);
+  effect(() => {
+    root.dataset.chrome = chromeHidden.value ? 'hidden' : 'shown';
+  });
+}
+
+/** Media queries the html data attributes follow (with the in-app overrides). */
+function mq(query: string): MediaQueryList | null {
+  return typeof matchMedia === 'function' ? matchMedia(query) : null;
+}
+
+/**
+ * Mirror the reading / accessibility settings onto <html> (docs/EXPERIENCE.md §4–5):
+ *   data-motion="reduce|full"     settings.motion, else prefers-reduced-motion
+ *   data-contrast="more|normal"   settings.highContrast, or prefers-contrast: more
+ *   data-font="literata|atkinson|opendyslexic"   (fonts other than Literata load on demand)
+ *   data-justify="on|off" · data-red-letter="on|off"
+ *   --line-spacing (multiplier) · --letter-spacing (em)
+ */
+function applyReadingSettings(root: HTMLElement): void {
+  const reduce = mq('(prefers-reduced-motion: reduce)');
+  const contrast = mq('(prefers-contrast: more)');
+  const os = signal({ reduce: Boolean(reduce?.matches), contrast: Boolean(contrast?.matches) });
+  const sync = () => (os.value = { reduce: Boolean(reduce?.matches), contrast: Boolean(contrast?.matches) });
+  reduce?.addEventListener?.('change', sync);
+  contrast?.addEventListener?.('change', sync);
+  effect(() => {
+    const s = settings.value;
+    const o = os.value;
+    const motion = s.motion === 'system' ? (o.reduce ? 'reduce' : 'full') : s.motion;
+    root.dataset.motion = motion;
+    root.dataset.contrast = s.highContrast || o.contrast ? 'more' : 'normal';
+    root.dataset.font = s.readingFont;
+    root.dataset.justify = s.justify ? 'on' : 'off';
+    root.dataset.redLetter = s.redLetter ? 'on' : 'off';
+    const ls = Number.isFinite(s.lineSpacing) ? Math.min(2, Math.max(0.8, s.lineSpacing)) : 1;
+    const lt = Number.isFinite(s.letterSpacing) ? Math.min(0.2, Math.max(-0.05, s.letterSpacing)) : 0;
+    root.style.setProperty('--line-spacing', String(ls));
+    root.style.setProperty('--letter-spacing', `${lt}em`);
+    if (s.readingFont !== 'literata') void loadReadingFont(s.readingFont);
+  });
+}
+
+const fontLoads: Partial<Record<Settings['readingFont'], Promise<unknown>>> = {};
+/** Load a reading font's CSS (fontsource) the first time it is chosen. */
+export function loadReadingFont(font: Settings['readingFont']): Promise<unknown> {
+  if (font === 'literata') return Promise.resolve();
+  fontLoads[font] ??=
+    font === 'atkinson'
+      ? Promise.all([
+          import('@fontsource-variable/atkinson-hyperlegible-next/wght.css'),
+          import('@fontsource-variable/atkinson-hyperlegible-next/wght-italic.css'),
+        ]).catch(() => undefined)
+      : Promise.all([
+          import('@fontsource/opendyslexic/400.css'),
+          import('@fontsource/opendyslexic/400-italic.css'),
+          import('@fontsource/opendyslexic/700.css'),
+        ]).catch(() => undefined);
+  return fontLoads[font]!;
 }

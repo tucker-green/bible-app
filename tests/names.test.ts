@@ -5,6 +5,8 @@ import {
   assembleNames,
   buildClaims,
   buildEntities,
+  capitalisedWords,
+  cleanForm,
   displayName,
   englishName,
   mapChapterDetailed,
@@ -49,6 +51,7 @@ import type {
   NameIndex,
   OrigChapter,
   OrigWord,
+  TextChapter,
 } from '../src/lib/types';
 import { packRef } from '../src/lib/types';
 
@@ -158,11 +161,45 @@ const FIXTURE = [
   ...place('Bethel@Gen.12.8b=H1008B', [sub('Named', 'Bethel@Gen.12.8b', 'H1008B«H1008=בֵּית־אֵל', 'Bethel', 'Gen.12.8b')], 'Abraham@Gen.11.26-1Pe'),
   ...place('Egypt@Gen.12.10-Rev=H4714', [sub('Named', 'Egypt@Gen.12.10-Rev', 'H4713«H4713=מִצְרִי', 'Egyptian', 'Gen.45.2')]),
   ...place('Mamre@Gen.13.18-=H4471G', [sub('Named', 'Mamre@Gen.13.18-', 'H4471G«H4471=מַמְרֵא', 'Mamre', 'Gen.14.13')]),
+  // Macula's lettered prefix / suffix ids (H1886a = the article) must not count as Dothan (H1886).
+  ...place('Dothan@Gen.37.17-2Ki=H1886', [sub('Named', 'Dothan@Gen.37.17-2Ki', 'H1886«H1886=דֹּתָן', 'Dothan', 'Gen.37.17a; Gen.37.17b')]),
+  // STEP counts the Gilead inside "Ramoth-gilead" (one H7433 name in Macula), so the lone Gilead is "b".
+  ...place('Gilead@Gen.31.21-Zec=H1568G', [sub('Named', 'Gilead@Gen.31.21-Zec', 'H1568G«H1568=גִּלְעָד', 'Gilead', '1Ki.4.13b')]),
+  ...place('Ramoth@Gen.31.47-Hos=H7433', [
+    sub('Named', 'Ramoth@Gen.31.47-Hos', 'H7433«H7433=רָמֹת גִּלְעָד', 'Ramoth-gilead', '1Ki.4.13'),
+    sub('Name combined', 'Ramoth-gilead|Ramoth@Gen.31.47-Hos', 'H7418G«H7418=רָמוֹת+H1568M«H1568=גִּלְעָד', 'Ramoth/-gilead =ESV,KJV; Ramoth/ Gilead =NIV,KJV', '1Ki.4.13'),
+  ]),
+  // Common nouns as parts of names.
+  ...place('Topheth@2Ki.23.10-Jer=H8612', [
+    sub('Named', 'Topheth@2Ki.23.10-Jer', 'H8612«H8612=תֹּפֶת', 'Topheth', 'Jer.7.31'),
+    sub('Name combined', 'Valley_of_Ben-hinnom|Topheth@2Ki.23.10-Jer', 'H1516«H1516=גַּיְא+H1121«H1121=בֵּן+H2011«H2011=הִנֹּם', 'Valley of/ the Son of/ Hinnom', 'Jer.7.31; 2Ch.28.3'),
+  ]),
+  ...person('Bath-shua@Gen.38.2-1Ch=H1340', [
+    sub('Name combined', 'Bath-shua@Gen.38.2-1Ch', 'H1323G«H1323=בַּת+H7770«H7770=שׁוּעַ', 'Bath/-shua =ESV; daughter of/ Shua =ESV,NIV,KJV', 'Gen.38.2'),
+  ], { type: 'Female' }),
+  ...person('Shua@Gen.38.2=H7770', [sub('Named', 'Shua@Gen.38.2', 'H7770«H7770=שׁוּעַ', 'Shua', 'Gen.38.2')]),
+  ...person('Beno@1Ch.24.26-=H1121B', [sub('Named', 'Beno@1Ch.24.26-', 'H1121B«H1121b=בְּנוֹ', 'Beno', '1Ch.24.26')]),
+  ...person('Hammelech@Jer.36.26-=H4428H', [
+    sub('Named', 'Hammelech@Jer.36.26-', 'H4428H«H4428=הַמֶּלֶךְ', 'Hammelech =KJV; the king =ESV,NIV', 'Jer.36.26'),
+  ]),
+  ...person('Jonathan@1Sa.13.2-1Ch=H3083G', [
+    sub('Named', 'Jonathan@1Sa.13.2-1Ch', 'H3083G«H3083=יְהוֹנָתָן', 'Jehonathan; Jonathan =ESV,NIV,KJV', '1Sa.14.6'),
+  ]),
+  '$========== OTHER',
+  row('Chronicles@1Ki.14.19-Est=H1697O', 'Name of a book', '', '', '', '', '>', '#Name of a book', 'Other'),
+  sub('Named', 'Chronicles@1Ki.14.19-Est', 'H1697O«H1697=דָּבָר', 'Chronicle =ESV,KJV', '1Ki.14.19'),
+  ...tail('Historical records of the kings'),
+  '$========== OTHER',
+  row('Sabbath@Exo.16.23-Heb=H7676', 'Name of a festival', '', '', '', '', '>', '#Name of a festival', 'Time'),
+  sub('Named', 'Sabbath@Exo.16.23-Heb', 'H7676«H7676=שַׁבָּת', 'Sabbath', 'Lev.23.15; Lev.24.8'),
+  ...tail('The seventh day'),
   '$========== OTHER',
   row('LORD@Gen.1.1-Rev=H3068G', 'The Deity', '', '', '', '', '>', '#The Deity', 'Supernatural'),
   sub('Named', 'LORD@Gen.1.1-Rev', 'H3068G«H3068=יהוה', 'LORD =ESV,NIV,KJV', 'Gen.2.4; etc'),
   sub('Named', 'God|LORD@Gen.1.1-Rev', 'H0430G«H0430=אֱלֹהִים', 'God', 'Gen.1.1; etc'),
   sub('Name combined', 'El-Elohe-Israel|LORD@Gen.1.1-Rev', 'H0410I«H0410=אֵל+H0430H«H0430=אֱלֹהִים+H3478«H3478=יִשְׂרָאֵל', 'El-Elohe-Israel', 'Gen.33.20'),
+  sub('Named', 'God|LORD@Gen.1.1-Rev', 'H0410G«H0410=אֵל=God', 'God', 'Gen.16.13; etc'),
+  sub('Named', 'Hosts|LORD@Gen.1.1-Rev', 'H6635B«H6635b=צָבָא', 'Hosts =ESV,KJV; Almighty =NIV', 'Isa.13.4'),
   sub('Greek', 'Lord|LORD@Gen.1.1-Rev', 'G2962G«G2962=κύριος', 'Lord', 'Mat.1.20; etc'),
   ...tail('Names or title used to refer to God'),
   '$========== EXCLUDED OTHER',
@@ -187,6 +224,13 @@ const w = (text: string, strongs: string, morph: string, gloss: string, verse: n
   '',
   '',
 ];
+/** One verse of OrigWords, each its own written word unless a group (first-morpheme index) is given. */
+const verse = (v: number, ...ws: [text: string, strongs: string, morph: string, gloss: string, group?: number][]): OrigWord[] =>
+  ws.map(([text, strongs, morph, gloss, group], i) => {
+    const x = w(text, strongs, morph, gloss, v);
+    x[7] = group ?? i;
+    return x;
+  });
 const chapter = (book: string, c: number, lang: 'hbo' | 'grc', words: OrigWord[]): OrigChapter => ({
   book,
   chapter: c,
@@ -222,7 +266,7 @@ describe('parseTipnr', () => {
     expect(names).not.toContain('UnifiedName'); // header template
     expect(names.some((n) => n.startsWith('Latin'))).toBe(false); // EXCLUDED OTHER
     expect(names.some((n) => n.startsWith('Ghost'))).toBe(false); // after "$"
-    expect(records.filter((r) => r.section === 'PLACE')).toHaveLength(4);
+    expect(records.filter((r) => r.section === 'PLACE')).toHaveLength(8);
   });
 
   it('splits header fields, sub-lines and @ lines', () => {
@@ -290,11 +334,30 @@ describe('field helpers', () => {
     expect(displayName('Abram|Abraham@Gen.11.26-1Pe')).toBe('Abram');
     expect(displayName('a_wife_of_Solomon@1Ki.4.11')).toBe('A wife of Solomon');
     expect(displayName('Unnamed#7@Mat.1.15')).toBe('Unnamed');
+    expect(displayName('PharaohNeco|Neco@2Ki.23.29-Jer')).toBe('Pharaoh Neco');
+    expect(displayName('motherInLaw_of_Peter@Mat.8.14')).toBe('Mother-in-law of Peter');
     expect(englishName('Abiah =KJV; his father =ESV; Abijah =NIV')).toBe('Abiah');
     expect(englishName('Areli,Arelite')).toBe('Areli');
-    expect(englishName('(Mount )Carmel')).toBe('Mount Carmel');
     expect(englishName('Berechiah =EsV,KJV')).toBe('Berechiah');
     expect(englishName('[ ]')).toBe('');
+    // The spelling the English Bibles use, not a bare transliteration listed first.
+    expect(englishName('Jehonathan; Jonathan =ESV,NIV,KJV')).toBe('Jonathan');
+    expect(englishName('Jehezekiah; Hezekiah =ESV,NIV,KJV')).toBe('Hezekiah');
+    expect(englishName('Amaw =ESV; people =NIV,KJV')).toBe('Amaw'); // a name before a common noun
+    // Words in parentheses are not part of this word, unless that makes the entity's own name.
+    expect(englishName('(Mount )Zion')).toBe('Zion');
+    expect(englishName('(Mount )Carmel', 'Mount Carmel')).toBe('Mount Carmel');
+    expect(englishName('Corner (Gate)', 'Corner Gate')).toBe('Corner Gate');
+    expect(englishName('Heliopolis (LXX)')).toBe('Heliopolis');
+    // "/" joins the parts of a combined name.
+    expect(englishName('Pharaoh/ Neco =ESV; Pharaoh/ Necho =NIV; Pharaoh/-necho =KJV')).toBe('Pharaoh Neco');
+    expect(englishName('Bath/-shua =ESV; daughter of/ Shua =ESV,NIV,KJV')).toBe('Bath-shua');
+    expect(englishName('Adami/-nekeb =ESV; Adami/ Nekeb =NIV; Adami,/ Nekeb =KJV')).toBe('Adami-nekeb');
+    expect(englishName('father [ie re-founder] of/ Gibeon')).toBe('father of Gibeon');
+    expect(englishName('Jehovah/–jireh: =KJV')).toBe('Jehovah–jireh');
+    // A Latin letter in a Greek form (TIPNR's Colossae) is read as Greek.
+    expect(cleanForm('G2858', 'Κολaσσαεύς')).toBe('Κολασσαεύς');
+    expect(cleanForm('H0410', 'אֵל')).toBe('אֵל');
   });
 
   it('spelling similarity used by the sibling-Strong\'s pass', () => {
@@ -386,6 +449,17 @@ describe('buildEntities', () => {
     expect(bethel).toMatchObject({ kind: 'place', coords: [31.5, 35.1], group: 'Judea' });
     expect(bethel.gender).toBeUndefined();
     expect(get('a_wife_of_Solomon@1Ki.4.11').forms).toEqual([]);
+  });
+
+  it('lists single-word forms before combined names, with the English spelling used', () => {
+    const lord = get('LORD@Gen.1.1-Rev');
+    // אֵל is "God" (its own line), though the combined "El-Elohe-Israel" line comes first in TIPNR.
+    expect(lord.forms.find((f) => f[0] === 'H0410')).toEqual(['H0410', 'אֵל', 'God']);
+    expect(lord.forms.find((f) => f[0] === 'H3478')).toEqual(['H3478', 'יִשְׂרָאֵל', 'El-Elohe-Israel']);
+    expect(lord.forms.findIndex((f) => f[0] === 'H3478')).toBeGreaterThan(lord.forms.findIndex((f) => f[0] === 'H6635'));
+    expect(nameForWord(lord, 'H0410')).toBe('God');
+    expect(get('Jonathan@1Sa.13.2-1Ch').forms).toEqual([['H3083', 'יְהוֹנָתָן', 'Jonathan']]);
+    expect(get('Bath-shua@Gen.38.2-1Ch').forms.map((f) => f[2])).toEqual(['Bath-shua', 'Bath-shua']);
   });
 
   it('resolves family links symmetrically', () => {
@@ -531,6 +605,98 @@ describe('mapChapterDetailed', () => {
     ]);
     expect(ids).toEqual([lord, lord, lord, undefined]);
     expect(map('ROM', 45, 1, 'grc', [w('κυρίου', 'G2962', 'N-GSM', 'Lord', 4, 'κύριος')]).ids).toEqual([undefined]);
+  });
+
+  it('ignores lettered prefix / suffix morphemes that share digits with a name (הָ H1886a is not Dothan)', () => {
+    const dothan = id('Dothan@Gen.37.17-2Ki');
+    const { ids } = map('GEN', 1, 37, 'hbo', verse(17,
+      ['הָ', 'H1886a', 'Td', 'the', 0], ['אִישׁ', 'H0376', 'Ncmsa', 'man', 0],
+      ['דֹּתָיְנָ', 'H1886', 'Np', 'Dothan', 2], ['ה', 'H1886c', 'Sd', 'to', 2],
+      ['בְּ', 'H0871a', 'R', 'at', 4], ['דֹתָן', 'H1886', 'Np', 'Dothan', 4],
+    ));
+    expect(ids).toEqual([undefined, undefined, dothan, undefined, undefined, dothan]);
+  });
+
+  it('gives a suffix beyond our last occurrence to the last unsuffixed one (Gilead "b" in 1 Ki 4:13)', () => {
+    const ramoth = id('Ramoth@Gen.31.47-Hos');
+    const { ids } = map('1KI', 11, 4, 'hbo', verse(13,
+      ['רָמֹת', 'H7433', 'Np', 'Ramoth', 0], ['גִּלְעָד', 'H7433', 'Np', 'Gilead', 1],
+      ['בַּ', 'H0871a', 'Rd', 'in', 2], ['גִּלְעָד', 'H1568', 'Np', 'Gilead', 2],
+    ));
+    expect(ids).toEqual([ramoth, ramoth, undefined, id('Gilead@Gen.31.21-Zec')]);
+  });
+
+  it('takes the common-noun part of a combined name only where it is part of the name', () => {
+    const topheth = id('Topheth@2Ki.23.10-Jer');
+    // Jer 7:31: Macula tags the whole Valley of Ben-hinnom H1516, so "their sons" is not its "Ben".
+    expect(map('JER', 24, 7, 'hbo', verse(31,
+      ['תֹּפֶת', 'H8612', 'Np', 'Topheth'], ['גֵיא', 'H1516a', 'Ncbsc', 'the valley'], ['בֶן', 'H1516a', 'Np', 'of'],
+      ['הִנֹּם', 'H1516a', 'Np', 'Ben Hinnom'], ['שְׂרֹף', 'H8313', 'Vqc', 'burn'], ['אֶת', 'H0853', 'To', ''], ['בְּנֵי', 'H1121', 'Ncmpc', 'sons'],
+    )).ids).toEqual([topheth, topheth, topheth, topheth, undefined, undefined, undefined]);
+    // 2 Chr 28:3: the "son" next to Hinnom, not "his sons" later in the verse.
+    expect(map('2CH', 14, 28, 'hbo', verse(3,
+      ['גֵיא', 'H1516', 'Ncbsc', 'valley'], ['בֶן', 'H1121', 'Ncmsc', 'son'], ['הִנֹּם', 'H2011', 'Np', 'Hinnom'],
+      ['יַּבְעֵר', 'H1197', 'Vhw3ms', 'burned'], ['אֶת', 'H0853', 'To', ''], ['בָּנָיו', 'H1121', 'Ncmpc', 'sons'],
+    )).ids).toEqual([topheth, topheth, topheth, undefined, undefined, undefined]);
+    // A lone mention is kept: "a daughter of a Canaanite named Shua" is Bath-shua (Shua is her father).
+    expect(map('GEN', 1, 38, 'hbo', verse(2,
+      ['בַּת', 'H1323', 'Ncfsc', 'daughter'], ['אִישׁ', 'H0376', 'Ncmsc', 'man'], ['כְּנַעֲנִי', 'H3669', 'Ngmsa', 'Canaanite'],
+      ['שְׁמוֹ', 'H8034', 'Ncmsc', 'name'], ['שׁוּעַ', 'H7770', 'Np', 'Shua'],
+    )).ids).toEqual([id('Bath-shua@Gen.38.2-1Ch'), undefined, undefined, undefined, id('Shua@Gen.38.2')]);
+  });
+
+  it('chooses among the occurrences of a common noun that TIPNR names once', () => {
+    const lord = id('LORD@Gen.1.1-Rev');
+    // "The LORD of hosts musters an army": the צְבָא next to the LORD's name.
+    expect(map('ISA', 23, 13, 'hbo', verse(4,
+      ['יְהוָה', 'H3068', 'Np', 'LORD'], ['צְבָאוֹת', 'H6635', 'Ncbpa', 'hosts'], ['מְפַקֵּד', 'H6485', 'Vprmsa', 'mustering'], ['צְבָא', 'H6635', 'Ncbsc', 'army'],
+    )).ids).toEqual([lord, lord, undefined, undefined]);
+    // "The sons of Jaaziah: Beno": spelled like TIPNR's בְּנוֹ (with its suffix), not the plural בְּנֵי.
+    expect(map('1CH', 13, 24, 'hbo', verse(26,
+      ['בְּנֵי', 'H1121', 'Ncmpc', 'sons', 0], ['יַעֲזִיָּהוּ', 'H3269', 'Np', 'Jaaziah', 1], ['בְנ', 'H1121', 'Ncmsc', 'beno', 2], ['וֹ', 'H2050c', 'Sp3ms', 'his', 2],
+    )).ids).toEqual([undefined, undefined, id('Beno@1Ch.24.26-'), undefined]);
+    // "The king commanded Jerahmeel son of Hammelech": a person's name right after "son of".
+    expect(map('JER', 24, 36, 'hbo', verse(26,
+      ['הַ', 'H1886a', 'Td', 'the', 0], ['מֶּלֶךְ', 'H4428', 'Ncmsa', 'king', 0], ['יְרַחְמְאֵל', 'H3396', 'Np', 'Jerahmeel', 2],
+      ['בֶּן', 'H1121', 'Ncmsc', 'son', 3], ['הַ', 'H1886a', 'Td', 'the', 4], ['מֶּלֶךְ', 'H4428', 'Ncmsa', 'king’s', 4],
+    )).ids).toEqual([undefined, undefined, undefined, undefined, undefined, id('Hammelech@Jer.36.26-')]);
+    // The Sabbath, not "weeks" (שַׁבָּתוֹת); occurrences that are equally good are all kept.
+    const sabbath = id('Sabbath@Exo.16.23-Heb');
+    expect(map('LEV', 3, 23, 'hbo', verse(15, ['שַּׁבָּת', 'H7676', 'Ncbsa', 'sabbath'], ['שֶׁבַע', 'H7651', 'Acfsa', 'seven'], ['שַׁבָּתוֹת', 'H7676', 'Ncbpa', 'weeks'])).ids)
+      .toEqual([sabbath, undefined, undefined]);
+    expect(map('LEV', 3, 24, 'hbo', verse(8, ['שַּׁבָּת', 'H7676', 'Ncbsa', 'sabbath'], ['יוֹם', 'H3117', 'Ncmsc', 'day'], ['שַּׁבָּת', 'H7676', 'Ncbsa', 'sabbath'])).ids)
+      .toEqual([sabbath, undefined, sabbath]);
+  });
+
+  it('uses English capitals to tell the name from the common noun ("the Book of the Chronicles")', () => {
+    const chron = id('Chronicles@1Ki.14.19-Est');
+    const words = verse(19,
+      ['דִּבְרֵי', 'H1697', 'Ncmpc', 'acts'], ['יָרָבְעָם', 'H3379', 'Np', 'Jeroboam'], ['סֵפֶר', 'H5612', 'Ncmsc', 'book'],
+      ['דִּבְרֵי', 'H1697', 'Ncmpc', 'events'], ['יָּמִים', 'H3117', 'Ncmpa', 'days'],
+    );
+    const english = new Set([3, 4]); // BSB "the Book of the Chronicles" -> words 3-4
+    expect(mapChapterDetailed(chapter('1KI', 14, 'hbo', words), 11, idx, undefined, english).ids).toEqual([undefined, undefined, undefined, chron, undefined]);
+    // Without that evidence both stay: TIPNR names the verse, not the word.
+    expect(map('1KI', 11, 14, 'hbo', words).ids).toEqual([chron, undefined, undefined, chron, undefined]);
+  });
+
+  it('capitalisedWords: mid-sentence capitals, not sentence or speech starts or pronouns of God', () => {
+    const kjv: TextChapter = {
+      tr: 'KJV',
+      book: 'ISA',
+      chapter: 62,
+      verses: [
+        {
+          v: 4,
+          t: [
+            ['Thou', [1]], ' ', ['shalt', [2]], ' ', ['be', [3]], ' ', ['called', [3]], ' ', ['Hephzi-bah', [4, 5]], ', ', ['and', [6]], ' ',
+            ['thy', [7]], ' ', ['land', [7]], ' ', ['Beulah', [8]], ': ', ['for', [9]], ' ', ['His', [10]], ' ', ['bride', [11]], '. ',
+            ['The', [12]], ' ', ['LORD', [13]], ' ', ['saith', [14]], ', ', ['Behold', [15]], '.',
+          ],
+        },
+      ],
+    };
+    expect([...capitalisedWords(kjv)].sort((a, b) => a - b)).toEqual([4, 5, 8, 13]);
   });
 });
 
@@ -776,6 +942,54 @@ describe.skipIf(!haveData)('generated names data', () => {
     expect(mapped('MAT', 2, 1).find((m) => m[0] === 'Herod')?.[1]).toBe('Herod@Mat.2.1-Act');
     expect(mapped('LUK', 3, 19).find((m) => m[0] === 'Herod')?.[1]).toBe('Herod@Mat.14.1-Act');
     expect(mapped('ACT', 12, 1).find((m) => m[0] === 'Herod')?.[1]).toBe('Herod@Act.12.1-');
+  });
+
+  it('maps the name, not common nouns or prefixes sharing its number (verifier cases)', () => {
+    const at = (book: string, c: number, v: number, gloss: string) => mapped(book, c, v).filter((m) => m[0] === gloss).map((m) => m[1]);
+    // Ben-hinnom is tagged H1516 throughout by Macula: "sons" / "people" are not its "Ben".
+    expect(at('2CH', 28, 3, 'sons')).toEqual([]);
+    expect(at('2CH', 28, 3, 'people')).toEqual([]);
+    expect(at('JER', 7, 31, 'sons')).toEqual([]);
+    expect(at('2CH', 33, 6, 'sons')).toEqual([]);
+    // "the rest of the acts of …" vs "the Book of the Chronicles".
+    expect(at('1KI', 14, 19, 'acts')).toEqual([]);
+    expect(at('1KI', 14, 19, 'events')).toEqual(['Chronicles@1Ki.14.19-Est']);
+    expect(at('2SA', 10, 6, 'men')).toEqual(['Tob@Jdg.11.3-2Sa']); // Ish-tob, not "1,000 men", "12,000 men"
+    expect(at('JOS', 1, 4, 'great')).toEqual(['Great_Sea@Exo.23.31-Ezk']); // not the "great river"
+    expect(at('ISA', 13, 4, 'army')).toEqual([]);
+    expect(at('ISA', 13, 4, 'hosts')).toEqual(['LORD@Gen.1.1-Rev']);
+    expect(at('JER', 36, 26, 'king')).toEqual([]);
+    expect(at('JER', 36, 26, 'king’s')).toEqual(['Hammelech@Jer.36.26-']);
+    expect(at('1CH', 24, 26, 'sons')).toEqual([]);
+    expect(at('1CH', 24, 26, 'beno')).toEqual(['Beno@1Ch.24.26-']);
+    // Lettered morphemes: the article הָ (H1886a) is not Dothan (H1886); the real second Dothan is.
+    expect(mapped('GEN', 37, 17).filter((m) => m[1].startsWith('Dothan')).map((m) => m[0])).toEqual(['Dothan', 'Dothan']);
+    expect(at('NUM', 21, 1, 'against')).toEqual([]);
+    expect(at('AMO', 6, 2, 'yours')).toEqual([]);
+    // TIPNR's a/b counted a word Macula tags differently.
+    expect(mapped('1KI', 4, 13).filter((m) => m[0] === 'Gilead').map((m) => m[1])).toEqual(['Ramoth@Gen.31.47-Hos', 'Gilead@Gen.31.21-Zec']);
+    expect(at('ROM', 16, 14, 'Hermas')).toEqual(['Hermas@Rom.16.14b']);
+    expect(at('ROM', 16, 14, 'Hermes')).toEqual(['Hermes@Rom.16.14a']);
+  });
+
+  it('hovers with the name the English Bibles use', () => {
+    const all: NameEntity[] = [];
+    for (const k of ['p', 'l', 'g']) {
+      for (const f of readdirSync(join(NAMES_DIR, 'entities', k))) all.push(...Object.values(read<NameEntityChunk>('entities', k, f)));
+    }
+    expect(all).toHaveLength(index.length);
+    const byUnique = (u: string) => all.find((e) => e.uniqueName === u)!;
+    const lord = byUnique('LORD@Gen.1.1-Rev');
+    expect(nameForWord(lord, 'H0410')).toBe('God'); // not "God Most High"
+    expect(nameForWord(byUnique('Jonathan@1Sa.13.2-1Ch'), 'H3083')).toBe('Jonathan'); // not "Jehonathan"
+    expect(nameForWord(byUnique('Hezekiah@2Ki.16.20-Mat'), 'H3169')).toBe('Hezekiah'); // not "Jehezekiah"
+    expect(nameForWord(byUnique('Jerusalem@Gen.14.18-Rev'), 'H6726')).toBe('Zion'); // not "Mount Zion"
+    for (const e of all) {
+      for (const f of e.forms) {
+        expect(f[2]).not.toMatch(/[\/()[\]]|\p{Ll}\p{Lu}/u); // no "PharaohNeco", "Valley of/ Achor"
+        if (f[0].startsWith('G')) expect(f[1]).not.toMatch(/[A-Za-z]/); // no Latin "a" in Κολaσσαεύς
+      }
+    }
   });
 
   it('connects Adam to Jesus and Abraham to David by descent', () => {

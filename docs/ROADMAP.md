@@ -19,3 +19,12 @@ Data: https://github.com/openbibleinfo/Bible-Geocoding-Data — data/ancient.jso
 places; identifications → resolutions with lon/lat and a `modern_basis_id`) and data/modern.jsonl
 (1,596 modern places with modern names). Join to STEPBible TIPNR places, which are already mapped
 to word occurrences in public/data/names/.
+
+## Known data caveats to revisit (from the study-data verification, Oct 2026)
+- Lineage: TIPNR leaves gaps such as nine "Unnamed" links between Matthan and Jacob on the
+  Adam → Jesus path (Matt 1:15 names Matthan as Jacob's father); family.json covers people only,
+  so peoples/groups in genealogies (e.g. the sons of Javan, Mizraim) are not in the tree; place
+  entities carry founders in `parents`.
+- A few names stay ambiguous where nothing in the data separates them (Num 22:5 Amaw, 1 Ki 7:6
+  Hall of Pillars, "holy garments" in Exod 35/39); hover spellings follow the majority of
+  ESV/NIV/KJV and can differ from the BSB (Neco → "Necho").

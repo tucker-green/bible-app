@@ -1,0 +1,52 @@
+/* ---------- Scrub loupe ------------------------------------------------------------------------ */
+.loupe {
+  position: fixed; left: 0; top: 0; z-index: var(--z-loupe);
+  pointer-events: none;
+  will-change: transform;
+}
+.loupe__lens {
+  display: grid; justify-items: center; gap: 2px;
+  min-width: 96px; max-width: min(320px, calc(100vw - 16px));
+  padding: 8px 14px 9px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule-2); border-radius: 14px;
+  box-shadow: var(--shadow);
+  animation: rw-loupe-in var(--dur-1) var(--ease-spring) both;
+  transform-origin: 50% 100%;
+}
+.loupe__en { font: 500 15px/1.2 var(--font-read); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.loupe__or { font-size: 24px; line-height: 1.25; color: var(--blue); white-space: nowrap; }
+.loupe__or:lang(he) { font-size: 27px; }
+.loupe__none { font: italic 400 12px/1.3 var(--font-ui); color: var(--ink-3); }
+@keyframes rw-loupe-in { from { opacity: 0; transform: scale(.8) translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* While scrubbing: no native selection / callout, and the text does not pan. */
+html.is-scrubbing, html.is-scrubbing .prose { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.is-scrubbing .prose { touch-action: none; }
+
+/* ---------- Coach mark ("Tip: press and slide across words") ---------------------------------- */
+.coach {
+  position: fixed; left: 50%; z-index: var(--z-toast);
+  bottom: calc(var(--sheet-visible, 0px) + 12px);
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px;
+  max-width: calc(100vw - 24px);
+  padding: 4px 4px 4px 14px;
+  background: var(--ink); color: var(--paper);
+  border-radius: 999px; box-shadow: var(--shadow);
+  font: 500 13px/1.3 var(--font-ui);
+  animation: rw-rise var(--dur-2) var(--ease-out) both;
+}
+.coach b { font-weight: 700; }
+.coach__x {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 36px; height: 36px; border-radius: 50%; color: var(--paper);
+}
+.coach__x .icon { width: 16px; height: 16px; }
+.coach__x:hover { background: color-mix(in srgb, var(--paper) 15%, transparent); }
+.coach__x:focus-visible { outline-color: var(--paper); }
+@media (pointer: coarse) { .coach__x { width: 44px; height: 44px; } }
+@media (forced-colors: active) {
+  .loupe__lens { border: 2px solid CanvasText; }
+  .coach { border: 1px solid CanvasText; }
+}

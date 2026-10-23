@@ -2,7 +2,9 @@
  * Stage "names": people, places and other proper names from STEPBible's TIPNR
  * (Translators Individualised Proper Names with all References, CC BY 4.0).
  *
- * Reads  .cache/sources/TIPNR.txt  and the orig stage's  public/data/orig/{BOOK}/{C}.json.
+ * Reads  .cache/sources/TIPNR.txt, the orig stage's  public/data/orig/{BOOK}/{C}.json  and, when present,
+ *        public/data/text/{BSB,KJV}/{BOOK}/{C}.json  (only their capitalisation, to tell a common noun used
+ *        as a name from the same noun used plainly in one verse), so it runs after orig, bsb and kjv.
  * Writes public/data/names/
  *   entities/{p|l|g}/{NNN}.json   NameEntityChunk (p = person, l = place, g = group / other)
  *   chapters/{BOOK}/{C}.json      NameChapter: orig word index -> entity id (which person/place a word is)
@@ -35,6 +37,7 @@ import type {
   NameEntityChunk,
   NameIndex,
   OrigChapter,
+  TextChapter,
 } from '../../src/lib/types';
 import { OW, packRef } from '../../src/lib/types';
 import { BOOKS, baseStrongs, cleanOut, log, normStrongs, outPath, srcPath, writeJson } from './common';
@@ -304,26 +307,81 @@ export function displayName(uniqueName: string): string {
     .split('@')[0]
     .split('|')[0]
     .replace(/^Unnamed#\d+$/, 'Unnamed')
+    // A few alternative names are CamelCase: "PharaohNeco", "PottersField", "motherInLaw_of_Peter".
+    .replace(/InLaw/g, '-in-law')
+    .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return base ? base[0].toUpperCase() + base.slice(1) : uniqueName;
 }
 
+export interface NameOption {
+  /** With the words TIPNR puts in parentheses: "(Mount )Zion" -> "Mount Zion", "Corner (Gate)" -> "Corner Gate". */
+  full: string;
+  /** Without them (they are not part of this word): "Zion", "Corner". */
+  short: string;
+  /** How many of the Bibles TIPNR compares (ESV, NIV, KJV) use it: "Jonathan =ESV,NIV,KJV" -> 3. */
+  tags: number;
+}
+
 /**
- * First English rendering of a "Translated name" cell: "Abiah =KJV; his father =ESV" -> "Abiah",
- * "Areli,Arelite" -> "Areli", "(Mount )Carmel" -> "Mount Carmel", "[ ]" (not translated) -> "".
+ * The renderings in a "Translated name" cell: "Jehonathan; Jonathan =ESV,NIV,KJV",
+ * "Abiah =KJV; his father =ESV; Abijah =NIV", "Valley of/ Hamon-gog" ("/" joins the parts of a
+ * combined name), "Areli,Arelite" (first spelling only), "[ ]" (not translated: none).
  */
-export function englishName(cell: string): string {
-  const first = cell
-    .split(';')[0]
-    .replace(/=\s*[A-Za-z,]+\s*$/, '')
-    .split(',')[0]
-    .replace(/[()/]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/[:;,]+$/, '')
-    .trim();
-  return /^\[\s*\]$|^\[?$/.test(first) ? '' : first;
+export function nameOptions(cell: string): NameOption[] {
+  const tidy = (x: string) =>
+    x
+      .replace(/\s+/g, ' ')
+      .replace(/\s+(?=[-–’'])|(?<=[-–])\s+/g, '')
+      .trim()
+      .replace(/\s*[:;,.]+$/, '');
+  const out: NameOption[] = [];
+  for (const seg of cell.split(';')) {
+    let text = seg.trim();
+    let tags = 0;
+    const tm = /=\s*([A-Za-z]+(?:\s*,\s*[A-Za-z]+)*)\s*$/.exec(text);
+    if (tm) {
+      tags = tm[1].split(',').length;
+      text = text.slice(0, tm.index);
+    }
+    text = text
+      .replace(/\[[^\]]*\]/g, ' ') // "[ie re-founder]" remarks; "[ ]" = not translated
+      .replace(/,\s*\//g, '/') // "Adami,/ Nekeb"
+      .split(',')[0] // "Areli,Arelite"
+      .replace(/\/\s*(?=[-–])/g, '') // "Bath/-shua"
+      .replace(/\//g, ' '); // "Valley of/ Achor"
+    const full = tidy(text.replace(/[()]/g, ''));
+    if (!full) continue;
+    out.push({ full, short: tidy(text.replace(/\([^)]*\)/g, ' ')) || full, tags });
+  }
+  return out;
+}
+
+/**
+ * The English name to show for a form: the capitalised rendering most of the compared Bibles use
+ * (first listed on a tie), so "Jehonathan; Jonathan =ESV,NIV,KJV" -> "Jonathan" and
+ * "Abiah =KJV; his father =ESV; Abijah =NIV" -> "Abiah". Words in parentheses are dropped
+ * ("(Mount )Zion" -> "Zion") unless the result is one of `names` (the entity's own name, e.g.
+ * "Corner (Gate)" for the Corner Gate). "" when the cell has no rendering ("[ ]").
+ */
+export function englishName(cell: string, ...names: string[]): string {
+  const opts = nameOptions(cell);
+  if (!opts.length) return '';
+  const cap = (o: NameOption) => (/^\p{Lu}/u.test(o.short) ? 1 : 0);
+  let best = opts[0];
+  for (const o of opts.slice(1)) if (cap(o) > cap(best) || (cap(o) === cap(best) && o.tags > best.tags)) best = o;
+  const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}]/gu, '');
+  return names.some((n) => n && norm(n) === norm(best.full)) ? best.full : best.short;
+}
+
+/** Latin letters that slipped into Greek forms ("Κολaσσαεύς" in TIPNR's Colossae) -> Greek. */
+const GREEK_HOMOGLYPHS: Record<string, string> = { a: 'α', o: 'ο', e: 'ε', i: 'ι', u: 'υ', v: 'ν', k: 'κ', x: 'χ', t: 'τ', A: 'Α', O: 'Ο', E: 'Ε' };
+
+export function cleanForm(strong: string, form: string): string {
+  const f = stripCantillation(form);
+  return strong[0] === 'G' && /[\u0370-\u03FF\u1F00-\u1FFF]/.test(f) ? f.replace(/[A-Za-z]/g, (c) => GREEK_HOMOGLYPHS[c] ?? c) : f;
 }
 
 /**
@@ -371,8 +429,10 @@ interface Claim {
    * ("Abram|Abraham"), 0 = "(same form with alt. meaning)" (some Bibles read it differently).
    */
   rank: number;
-  /** Hebrew / Greek spellings of this component (for the sibling-Strong's pass). */
+  /** Hebrew / Greek spellings of this component (for the sibling-Strong's pass and run choice). */
   forms: string[];
+  /** Base Strong's of every component of the name line the claim comes from (one for a single-word form). */
+  parts: string[];
 }
 
 export function entityKind(rec: TipnrRecord): EntityKind {
@@ -426,26 +486,30 @@ function buildEntity(rec: TipnrRecord, id: string): BuiltEntity {
     if (art) summary = summary ? `${summary}<br>${art}` : art;
   }
 
+  // Single-word forms first, so that a word's own name wins over a combined name containing the same
+  // word (the LORD's אֵל is "God", not "God Most High"); then the components of combined names.
   const forms: [string, string, string][] = [];
   const seenForm = new Set<string>();
-  for (const sub of rec.subs) {
-    if (sub.kind === 'Mentioned') continue;
-    const en = englishName(sub.english) || displayName(sub.uniqueName);
+  const name = displayName(rec.uniqueName);
+  const subs = rec.subs.filter((sub) => sub.kind !== 'Mentioned');
+  for (const sub of [...subs.filter((x) => x.strongs.length === 1), ...subs.filter((x) => x.strongs.length > 1)]) {
+    const alt = displayName(sub.uniqueName);
+    const en = englishName(sub.english, alt, name) || alt;
     for (const s of sub.strongs) {
-      const form = stripCantillation(s.form);
-      if (!form) continue;
       const strong = s.eStrong || baseStrongs(s.dStrong);
+      const form = cleanForm(strong, s.form);
+      if (!form) continue;
       const key = `${strong}|${form}`;
       if (seenForm.has(key)) continue;
       seenForm.add(key);
-      forms.push([strong, form, sub.strongs.length > 1 ? displayName(sub.uniqueName) : en]);
+      forms.push([strong, form, en]);
     }
   }
 
   const group = (f[5] ?? '').trim();
   const e: BuiltEntity = {
     id,
-    name: displayName(rec.uniqueName),
+    name,
     kind,
     uniqueName: rec.uniqueName,
     brief,
@@ -483,6 +547,8 @@ export interface ClaimIndex {
   relatives?: Map<string, Set<string>>;
   /** Base Strong's ids whose every (properly capitalised) occurrence belongs to an entity ("etc"). */
   everywhere: Map<string, string>;
+  /** The same, by entity id: the LORD -> H3068, H0430, H0410. */
+  everywhereById?: Map<string, Set<string>>;
   /** Explicit refs per entity id (packed). */
   refs: Map<string, Set<number>>;
   badRefs: string[];
@@ -526,6 +592,7 @@ export function buildClaims(records: TipnrRecord[], ids: Map<string, string>): C
       }
       const prio = parts.size > 1 ? 2 : 3;
       const rank = /alt\. meaning/.test(sub.kind) ? 0 : sub.uniqueName.includes('|') ? 1 : 2;
+      const partList = [...parts.keys()];
       for (const r of parsed.refs) {
         const vk = `${r.book.num}.${r.chapter}.${r.verse}`;
         for (const [b, forms] of parts) {
@@ -537,12 +604,17 @@ export function buildClaims(records: TipnrRecord[], ids: Map<string, string>): C
             bases.push(b);
             byVerse.set(vk, bases);
           }
-          if (!list.some((c) => c.id === id && c.occ === r.occ)) list.push({ id, occ: r.occ, prio, rank, forms });
+          const have = list.find((c) => c.id === id && c.occ === r.occ);
+          // One claim per entity and occurrence; a single-word form outranks a combined-name component.
+          if (!have) list.push({ id, occ: r.occ, prio, rank, forms, parts: partList });
+          else if (prio > have.prio) Object.assign(have, { prio, rank, forms, parts: partList });
         }
       }
     }
   }
-  return { claims, byVerse, everywhere, refs, badRefs };
+  const everywhereById = new Map<string, Set<string>>();
+  for (const [b, id] of everywhere) everywhereById.set(id, new Set([...(everywhereById.get(id) ?? []), b]));
+  return { claims, byVerse, everywhere, everywhereById, refs, badRefs };
 }
 
 export interface MapStats {
@@ -562,6 +634,23 @@ export function newMapStats(): MapStats {
 export function isProperNoun(lang: 'grc' | 'hbo', w: OrigChapter['words'][number]): boolean {
   if (lang === 'hbo') return /^Np/.test(w[OW.morph]);
   return /^N-/.test(w[OW.morph]) && /^\p{Lu}/u.test(w[OW.lemma]);
+}
+
+/**
+ * A Hebrew prefix, suffix or particle morpheme with one of Macula's lettered ids (H1886a the article,
+ * H0871a בְּ, H3641b כֶם "your"), whose digits say nothing about the word.
+ */
+export function isAffixMorpheme(lang: 'grc' | 'hbo', w: OrigChapter['words'][number]): boolean {
+  return lang === 'hbo' && /^H\d{4}[a-z]$/.test(w[OW.strongs]) && /^[CRST]/.test(w[OW.morph]);
+}
+
+/**
+ * A word that is itself (part of) a name: a proper noun, a gentilic (Hebrew "Ng…", Greek adjective
+ * with a capitalised lemma: Ἰουδαῖος), or a word glossed with a capital ("Holy Place", "LORD").
+ */
+export function isNameLike(lang: 'grc' | 'hbo', w: OrigChapter['words'][number]): boolean {
+  if (isProperNoun(lang, w) || /^\p{Lu}/u.test(w[OW.gloss])) return true;
+  return lang === 'hbo' ? /^Ng/.test(w[OW.morph]) : /^\p{Lu}/u.test(w[OW.lemma]);
 }
 
 /** Loose spelling key: Hebrew consonants (finals folded), Greek without accents / case. */
@@ -612,9 +701,11 @@ function pick(list: Claim[], k: number): Claim[] {
  * Map every word of a chapter to the entity it names.
  *
  * 1. Exact: a word with base Strong's S belonging to the k-th occurrence of S in its English verse
- *    matches TIPNR's claim for that verse and S with suffix k ("Gen.17.23b" = 2nd), else an unsuffixed
- *    claim. An occurrence is a run of adjacent words with the same S, because Macula splits names
- *    such as בֵּית אֵל (Bethel, H1008) into two words where STEP has one. When several entities claim
+ *    matches TIPNR's claim for that verse and S with suffix k ("Gen.17.23b" = 2nd), else a suffix
+ *    beyond our last occurrence (STEP counted one more), else an unsuffixed claim. An occurrence is a
+ *    run of adjacent words with the same S, because Macula splits names such as בֵּית אֵל (Bethel,
+ *    H1008) into two words where STEP has one. An unsuffixed claim takes every proper-noun occurrence,
+ *    but only the best occurrence(s) of a common noun (see runChoice). When several entities claim
  *    the word, single-word forms beat components of combined names; a remaining tie is left unmapped.
  * 2. Sibling Strong's: an unmapped proper noun takes a claim in the same verse whose Strong's number
  *    does not occur in our text, if the spellings are similar (TIPNR tags "Egyptians" H4713 where
@@ -624,8 +715,14 @@ function pick(list: Claim[], k: number): Claim[] {
  * 4. "etc" (applied right after pass 1): names of God listed as "every occurrence" (YHWH, Elohim, El)
  *    map every word with that Strong's whose contextual gloss is capitalised ("God", not "gods").
  */
-export function mapChapter(orig: OrigChapter, bookNum: number, idx: ClaimIndex, stats?: MapStats): Record<string, string> {
-  const { ids, pass } = mapChapterDetailed(orig, bookNum, idx, stats);
+export function mapChapter(
+  orig: OrigChapter,
+  bookNum: number,
+  idx: ClaimIndex,
+  stats?: MapStats,
+  english?: ReadonlySet<number>,
+): Record<string, string> {
+  const { ids, pass } = mapChapterDetailed(orig, bookNum, idx, stats, english);
   const out: Record<string, string> = {};
   ids.forEach((id, i) => {
     if (!id) return;
@@ -639,32 +736,56 @@ export function mapChapter(orig: OrigChapter, bookNum: number, idx: ClaimIndex, 
   return out;
 }
 
-/** mapChapter with the pass (0-3, -1 = unmapped) that mapped each word, for audits and tests. */
+/**
+ * mapChapter with the pass (0-3, -1 = unmapped) that mapped each word, for audits and tests.
+ * `english`: original-word indices that an English translation renders with a capital letter
+ * mid-sentence ("the Book of the Chronicles", "the LORD of Hosts"), see capitalisedWords().
+ */
 export function mapChapterDetailed(
   orig: OrigChapter,
   bookNum: number,
   idx: ClaimIndex,
   stats?: MapStats,
+  english?: ReadonlySet<number>,
 ): { ids: (string | undefined)[]; pass: number[] } {
   const words = orig.words;
   const n = words.length;
+  const lang = orig.lang;
   const ids: (string | undefined)[] = new Array(n);
   const pass: number[] = new Array(n).fill(-1);
   const base: string[] = new Array(n).fill('');
   const occ: number[] = new Array(n).fill(0);
   const runs = new Map<string, number>(); // "verse|S" -> number of runs (occurrences) in our text
+  const runWords = new Map<string, number[][]>(); // "verse|S" -> word indices of each run
   const verseKey = (v: number) => `${bookNum}.${orig.chapter}.${v}`;
+  const claimsAt = (v: number, b: string) => idx.claims.get(`${verseKey(v)}|${b}`);
+  // Written-word number of each word (Macula splits prefixes / suffixes into separate words).
+  const wordNo: number[] = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) wordNo[i] = wordNo[i - 1] + (words[i][OW.group] === words[i - 1][OW.group] ? 0 : 1);
+  const nameLike = words.map((w) => isNameLike(lang, w));
 
   for (let i = 0; i < n; i++) {
     const s = words[i][OW.strongs];
     if (!s) continue;
     const b = baseStrongs(s);
-    base[i] = b;
     const v = words[i][OW.verse];
+    // Macula numbers Hebrew prefix / suffix / particle morphemes with lettered ids ("H1886a" = the
+    // article, "H0871a" = בְּ) that share their digits with unrelated names (H1886 Dothan, H0871
+    // Atharim): such a morpheme is a name candidate only if it is spelled like one of the claimed forms.
+    if (isAffixMorpheme(lang, words[i])) {
+      const forms = (claimsAt(v, b) ?? []).flatMap((c) => c.forms);
+      const key = spellingKey(words[i][OW.text]);
+      if (!forms.some((f) => similarity(spellingKey(f), key) >= MIN_SIMILARITY)) continue;
+    }
+    base[i] = b;
     const sameRun = i > 0 && base[i - 1] === b && words[i - 1][OW.verse] === v;
     const rk = `${v}|${b}`;
     if (!sameRun) runs.set(rk, (runs.get(rk) ?? 0) + 1);
     occ[i] = runs.get(rk)!;
+    let rl = runWords.get(rk);
+    if (!rl) runWords.set(rk, (rl = []));
+    if (sameRun) rl[rl.length - 1].push(i);
+    else rl.push([i]);
   }
   const set = (i: number, id: string, p: number) => {
     ids[i] = id;
@@ -677,16 +798,175 @@ export function mapChapterDetailed(
       stats.ambiguousSamples.push(`${orig.book} ${orig.chapter}:${words[i][OW.verse]} ${base[i]} #${occ[i]} -> ${cands.join(' / ')}`);
   };
 
-  // 1. Exact.
+  /**
+   * TIPNR counts occurrences in STEP's tagging, which sometimes has one more word with the number
+   * than Macula (Gilead inside "Ramoth-gilead", tagged H7433 by Macula): a claim whose suffix is
+   * beyond our last occurrence goes to the last occurrence no suffix names (Rom 16:14 "Hermas" b), or
+   * whose suffix names only a combined-name component standing apart from the rest of its name: STEP's
+   * occurrence that our text lacks (1 Ki 4:13: Ramoth-gilead "a" claims the lone Gilead, which is
+   * Gilead "b"). Returns occurrence -> claims.
+   */
+  const overflowCache = new Map<string, Map<number, Claim[]>>();
+  const overflow = (v: number, b: string, list: Claim[]): Map<number, Claim[]> => {
+    const key = `${v}|${b}`;
+    let m = overflowCache.get(key);
+    if (m) return m;
+    overflowCache.set(key, (m = new Map()));
+    const have = runs.get(key) ?? 0;
+    const over = [...new Set(list.filter((c) => c.occ > have).map((c) => c.occ))].sort((x, y) => y - x);
+    if (!over.length) return m;
+    const free: number[] = [];
+    for (let r = have; r >= 1; r--) {
+      const run = runWords.get(key)![r - 1];
+      const named = list.filter((c) => c.occ === r);
+      if (named.every((c) => c.parts.length > 1 && !run.some((i) => anchoredPart(c, i)))) free.push(r);
+    }
+    over.forEach((o, j) => {
+      if (j < free.length) m!.set(free[j], list.filter((c) => c.occ === o));
+    });
+    return m;
+  };
+
+  // Bases each entity is claimed with in a verse (plus its "every occurrence" names), for anchoring.
+  const entityBases = (v: number, id: string): Set<string> => {
+    const out = new Set(idx.everywhereById?.get(id) ?? []);
+    for (const b of idx.byVerse.get(verseKey(v)) ?? []) if (claimsAt(v, b)!.some((c) => c.id === id)) out.add(b);
+    return out;
+  };
+  const near = (i: number, j: number, dist: number) => Math.abs(wordNo[i] - wordNo[j]) <= dist;
+  const byVerseWords = new Map<number, number[]>();
+  words.forEach((w, j) => byVerseWords.set(w[OW.verse], [...(byVerseWords.get(w[OW.verse]) ?? []), j]));
+  const verseWords = (v: number) => byVerseWords.get(v) ?? [];
+  /**
+   * A combined-name component is next to another component of the same name ("son" in Ben-hinnom):
+   * the next or previous written word in Hebrew (articles and prepositions are prefixes; "his sons
+   * through the fire in the Valley of Ben-hinnom" is two words away), within three words in Greek
+   * (τῇ στοᾷ τῇ καλουμένῃ Σολομῶντος).
+   */
+  const partWindow = lang === 'grc' ? 3 : 1;
+  const anchoredPart = (c: Claim, i: number) => {
+    if (c.parts.length < 2) return true;
+    const v = words[i][OW.verse];
+    return verseWords(v).some((j) => base[j] && base[j] !== base[i] && c.parts.includes(base[j]) && near(i, j, partWindow));
+  };
+  /** The written word(s) of a run, with their prefixes and suffixes: "בְנ" + "וֹ" -> "בְנוֹ". */
+  const spelledAs = (run: number[]): string[] => {
+    const groups = new Set(run.map((i) => words[i][OW.group]));
+    let whole = '';
+    for (let j = run[0]; j >= 0 && groups.has(words[j][OW.group]); j--) whole = words[j][OW.text] + whole;
+    for (let j = run[0] + 1; j < n && groups.has(words[j][OW.group]); j++) whole += words[j][OW.text];
+    return [run.map((i) => words[i][OW.text]).join(''), whole];
+  };
+
+  /**
+   * An unsuffixed TIPNR reference says the verse names the entity, not how often. For proper nouns
+   * every occurrence is taken (TIPNR's a/b marks are incomplete: Abraham twice in Gen 25:6), but a
+   * common noun that serves as a name ("son" in Ben-hinnom, "acts" vs the Book of the Chronicles,
+   * "hosts" in the LORD of hosts) is often used in its ordinary sense elsewhere in the same verse.
+   * When a claim could take several occurrences, keep the best, compared in this order:
+   *  - a name-like occurrence (proper noun or capitalised gloss);
+   *  - for a combined name, one next to another of its components (Hinnom after "son");
+   *  - one an English translation capitalises (the Book of the "Chronicles", "Beulah");
+   *  - for a person, one right after "son of" / "daughter of" (Jerahmeel son of "Hammelech");
+   *  - one next to another name of the same entity (יְהוָה צְבָאוֹת, not צְבָא "army");
+   *  - one spelled exactly like TIPNR's form (בְּנוֹ Beno, not בְּנֵי "sons"; שַׁבָּת, not שַׁבָּתוֹת "weeks").
+   * Occurrences still equal are all kept (the Sabbath twice in Lev 24:8). A single candidate is kept.
+   */
+  const runIsNameLike = (run: number[]) => run.some((i) => nameLike[i]);
+  /** The entity is already named in the verse by a name-like word (mapped, or a name of God). */
+  const namedInVerse = (id: string, v: number) =>
+    verseWords(v).some(
+      (j) => nameLike[j] && base[j] && (ids[j] === id || idx.everywhere.get(STRONGS_ALIASES[base[j]] ?? base[j]) === id),
+    );
+  const bestRuns = new Map<string, Set<number>>();
+  const runChoice = (c: Claim, v: number, b: string): Set<number> => {
+    const key = `${v}|${b}|${c.id}|${c.prio}`;
+    let best = bestRuns.get(key);
+    if (best) return best;
+    const list = claimsAt(v, b)!;
+    const over = overflow(v, b, list);
+    // A component away from the rest of its name is not part of it when the name itself is in the verse
+    // (גֵיא בֶן־הִנֹּם, all tagged H1516 by Macula: "their sons" בְּנֵיהֶם after it is not "Ben"). When
+    // the other components are missing (Macula numbers them differently: עִיר H5892 in the "City of
+    // Palms", where TIPNR has H5899) there is nothing to measure against.
+    const strict =
+      c.parts.length > 1 &&
+      verseWords(v).some((j) => base[j] && base[j] !== b && c.parts.includes(base[j])) &&
+      namedInVerse(c.id, v);
+    const open = (runWords.get(`${v}|${b}`) ?? [])
+      .map((run, r0) => ({ run, r: r0 + 1 }))
+      .filter(({ r }) => !list.some((x) => x.occ === r) && !over.has(r)) // no suffix names these
+      .filter(({ run }) => !strict || runIsNameLike(run) || run.some((i) => anchoredPart(c, i)));
+    if (open.length <= 1) {
+      bestRuns.set(key, (best = new Set(open.map((o) => o.r))));
+      return best;
+    }
+    const mine = entityBases(v, c.id);
+    const vw = verseWords(v);
+    const person = c.id[0] === 'p';
+    const formKeys = new Set(c.forms.map(spellingKey).filter(Boolean));
+    let top: number[] = [];
+    let topScore: number[] = [];
+    for (const { run, r } of open) {
+      const first = run[0];
+      const prevWord = vw.filter((j) => wordNo[j] === wordNo[first] - 1 && base[j]).map((j) => base[j]);
+      const score = [
+        runIsNameLike(run) ? 1 : 0,
+        run.some((i) => anchoredPart(c, i)) ? 1 : 0,
+        english && run.some((i) => english.has(i)) ? 1 : 0,
+        person && prevWord.some((p) => p === 'H1121' || p === 'H1323') ? 1 : 0,
+        vw.some(
+          (j) =>
+            !run.includes(j) && nameLike[j] && base[j] !== b && mine.has(STRONGS_ALIASES[base[j]] ?? base[j]) && run.some((i) => near(i, j, 1)),
+        )
+          ? 1
+          : 0,
+        spelledAs(run).some((t) => formKeys.has(spellingKey(t))) ? 1 : 0,
+      ];
+      const d = topScore.length ? score.findIndex((x, k) => x !== topScore[k]) : -2;
+      if (d === -2 || (d >= 0 && score[d] > topScore[d])) {
+        top = [r];
+        topScore = score;
+      } else if (d === -1) top.push(r);
+    }
+    bestRuns.set(key, (best = new Set(top)));
+    return best;
+  };
+
+  /** Claims for word i: an overflowing suffix given to its occurrence, its own suffix, else unsuffixed claims. */
+  const candidates = (i: number): Claim[] => {
+    const v = words[i][OW.verse];
+    const b = base[i];
+    const list = claimsAt(v, b);
+    if (!list) return [];
+    const k = occ[i];
+    const over = overflow(v, b, list).get(k);
+    if (over?.length) return over;
+    const exact = list.filter((c) => c.occ === k);
+    if (exact.length) return exact;
+    const loose = list.filter((c) => c.occ === 0);
+    if (runIsNameLike(runWords.get(`${v}|${b}`)![k - 1])) return loose;
+    return loose.filter((c) => runChoice(c, v, b).has(k));
+  };
+
+  // 1. Exact: names (and suffixed claims) first, then common nouns, which look at the names mapped.
   const ties: [number, string[]][] = [];
-  for (let i = 0; i < n; i++) {
-    if (!base[i]) continue;
-    const list = idx.claims.get(`${verseKey(words[i][OW.verse])}|${base[i]}`);
-    if (!list) continue;
-    const w = winner(pick(list, occ[i]));
+  const later: number[] = [];
+  const exactPass = (i: number) => {
+    const w = winner(candidates(i));
     if (w.id) set(i, w.id, 0);
     else if (w.ids.length > 1) ties.push([i, w.ids]);
+  };
+  for (let i = 0; i < n; i++) {
+    if (!base[i]) continue;
+    const v = words[i][OW.verse];
+    const list = claimsAt(v, base[i]);
+    if (!list) continue;
+    const named = list.some((c) => c.occ === occ[i]) || overflow(v, base[i], list).has(occ[i]);
+    if (named || runIsNameLike(runWords.get(`${v}|${base[i]}`)![occ[i] - 1])) exactPass(i);
+    else later.push(i);
   }
+  for (const i of later) exactPass(i);
   // Still tied: take the one candidate with a relative named in the same verse ("Mamre the Amorite"
   // next to his brothers Eshcol and Aner, rather than the place Mamre); otherwise leave it unmapped.
   for (const [i, cands] of ties) {
@@ -705,7 +985,6 @@ export function mapChapterDetailed(
     if (ev && /^\p{Lu}/u.test(words[i][OW.gloss])) set(i, ev, 3);
   }
 
-  const lang = orig.lang;
   const unmappedProper = (i: number) => !ids[i] && !!base[i] && isProperNoun(lang, words[i]);
 
   // 2. Sibling Strong's in the same verse.
@@ -915,7 +1194,36 @@ export interface NamesResult {
   badRefs: string[];
 }
 
-export function assembleNames(text: string, loadOrig: (book: string, chapter: number) => OrigChapter | null): NamesResult {
+/** Capitalised words that do not mark a name: BSB capitalises pronouns referring to God ("His bride"). */
+const CAPITAL_STOPWORDS = new Set(
+  'I O He His Him Himself Me My Mine Myself You Your Yours Yourself Thou Thee Thy Thine Who Whom Whose'.split(' '),
+);
+
+/**
+ * Original-word indices that a translation renders with a capital letter mid-sentence ("the Book of
+ * the Chronicles", "your land Beulah"): evidence that a common noun is used as a name there.
+ */
+export function capitalisedWords(text: TextChapter, into: Set<number> = new Set()): Set<number> {
+  for (const verse of text.verses) {
+    let sentenceStart = true;
+    for (const tok of verse.t) {
+      if (typeof tok === 'string') {
+        // The KJV has no quotation marks: speech starts with a capital after "saying," / "said:".
+        if (/[.!?,:;“"‘(]\s*$/.test(tok)) sentenceStart = true;
+        continue;
+      }
+      if (!sentenceStart && /^\p{Lu}/u.test(tok[0]) && !CAPITAL_STOPWORDS.has(tok[0])) for (const i of tok[1]) into.add(i);
+      sentenceStart = false;
+    }
+  }
+  return into;
+}
+
+export function assembleNames(
+  text: string,
+  loadOrig: (book: string, chapter: number) => OrigChapter | null,
+  loadEnglish?: (book: string, chapter: number) => ReadonlySet<number> | undefined,
+): NamesResult {
   const records = parseTipnr(text);
   const built = buildEntities(records);
   const ids = new Map(built.map((e) => [e.uniqueName, e.id]));
@@ -934,7 +1242,7 @@ export function assembleNames(text: string, loadOrig: (book: string, chapter: nu
     for (let c = 1; c <= book.chapters; c++) {
       const orig = loadOrig(book.id, c);
       if (!orig) continue;
-      const words = mapChapter(orig, book.num, claimIdx, stats);
+      const words = mapChapter(orig, book.num, claimIdx, stats, loadEnglish?.(book.id, c));
       for (const [i, id] of Object.entries(words)) {
         let set = refSets.get(id);
         if (!set) refSets.set(id, (set = new Set()));
@@ -967,7 +1275,17 @@ export function buildNames(): NamesResult {
     const p = outPath('orig', book, `${chapter}.json`);
     return existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as OrigChapter) : null;
   };
-  const res = assembleNames(text, loadOrig);
+  // Capitalisation in the BSB and KJV (earlier stages' output; used only to choose between
+  // occurrences of a common noun that TIPNR lists as a name, see mapChapterDetailed).
+  const loadEnglish = (book: string, chapter: number): Set<number> | undefined => {
+    let out: Set<number> | undefined;
+    for (const tr of ['BSB', 'KJV']) {
+      const p = outPath('text', tr, book, `${chapter}.json`);
+      if (existsSync(p)) out = capitalisedWords(JSON.parse(readFileSync(p, 'utf8')) as TextChapter, out);
+    }
+    return out;
+  };
+  const res = assembleNames(text, loadOrig, loadEnglish);
 
   cleanOut('names');
   const chunks = new Map<string, NameEntityChunk>();

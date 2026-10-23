@@ -1,18 +1,33 @@
 /* ---------- Masthead ----------------------------------------------------- */
 .masthead {
   position: sticky; top: 0; z-index: var(--z-header);
-  height: var(--header-h);
+  height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
   background: var(--header-bg);
   backdrop-filter: saturate(1.2) blur(10px);
   -webkit-backdrop-filter: saturate(1.2) blur(10px);
   border-bottom: 1px solid var(--rule);
+  transition: transform var(--dur-2) var(--ease-out), opacity var(--dur-2) var(--ease-out);
+  view-transition-name: rw-header;
 }
 .masthead__inner {
   height: 100%;
   max-width: 1440px; margin: 0 auto;
-  padding: 0 var(--s-6);
+  padding: 0 max(var(--s-6), env(safe-area-inset-right)) 0 max(var(--s-6), env(safe-area-inset-left));
   display: flex; align-items: center; gap: var(--s-3);
 }
+.aa-btn .icon { width: 20px; height: 20px; }
+
+/* compact phone title ("John 1 · KJV"): hidden until < 600px */
+.hdr-title { display: none; }
+.hdr-title button {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; border-radius: 8px;
+  font: 600 16px/1 var(--font-ui); letter-spacing: -.005em; color: var(--ink); white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.hdr-title__tr { font-weight: 650 !important; letter-spacing: .02em !important; color: var(--ink-2) !important; }
+.hdr-title button:active, .hdr-title button[aria-expanded="true"] { background: var(--sunken); }
+.hdr-title__dot { color: var(--ink-3); font-weight: 700; }
 .brand {
   display: inline-flex; align-items: center; gap: 10px;
   color: var(--ink); text-decoration: none; margin-right: var(--s-4);
@@ -214,6 +229,25 @@
   .locator__step { width: 36px; }
   .theme-btn, .search__btn-mobile { width: 42px; }
 }
+/* ---------- Compact top bar (phones < 600px, docs/EXPERIENCE.md §1) ----------------------------- */
+@media (max-width: 599.98px) {
+  .masthead__inner { padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); gap: 4px; justify-content: space-between; }
+  .masthead .locator, .masthead .tr-btn, .masthead .theme-btn, .masthead .aa-btn, .masthead .search__btn-mobile, .masthead .hdr-spacer { display: none; }
+  .hdr-title { display: flex; align-items: center; gap: 0; min-width: 0; flex: 1; justify-content: center; margin-right: 34px; }
+  .hdr-title__ref { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .brand { margin-right: 0; flex: none; }
+  .brand__mark { width: 30px; height: 30px; }
+  .search { width: 0; flex: none; }
+}
+/* hide on scroll down, back on scroll up (shell/chrome.ts sets data-chrome) */
+@media (max-width: 599.98px), (max-height: 500px) and (pointer: coarse) {
+  html[data-chrome="hidden"] .masthead { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+  html[data-chrome="hidden"] .masthead:focus-within { transform: none; opacity: 1; pointer-events: auto; }
+}
+@media (max-height: 500px) and (pointer: coarse) {
+  .masthead .btn { height: 44px; }
+}
+
 @media (max-width: 400px) {
   .locator__step { width: 30px !important; }
   .locator__ref { padding: 0 4px; }
@@ -222,3 +256,10 @@
 @media (max-width: 339px) {
   .locator__step { display: none; }
 }
+
+/* ---------- Compare row (translation picker) ------------------------------- */
+.tr-item--compare { color: var(--ink); text-decoration: none; }
+.tr-item--compare .tr-item__abbr { color: var(--blue); display: inline-flex; }
+.tr-item--compare .icon { width: 20px; height: 20px; }
+.tr-item--compare:hover { color: var(--ink); }
+.tr-item--compare:hover .connect { background: var(--accent-wash); }

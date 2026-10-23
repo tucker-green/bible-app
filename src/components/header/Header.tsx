@@ -1,15 +1,23 @@
 /**
  * Masthead (Scholar): R mark + wordmark · ‹ book/chapter › · translation · search · Reading |
- * Interlinear · theme. Phones get a compact row: mark, ‹ John 1 ›, KJV, search icon, theme.
+ * Interlinear · Aa · theme. Phones (< 600px) get the compact top bar of docs/EXPERIENCE.md §1 —
+ * just "John 1 · KJV" (each half opens its picker) — while the bottom toolbar carries the rest;
+ * the bar hides on scroll down and comes back on scroll up (shell/chrome.ts).
+ *
+ * The book / translation pickers and the Aa panel are driven by the `panel` signal (openPanel /
+ * togglePanel), so the header and the phone toolbar open the same panels.
  */
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import {
+  closePanel,
   closeSearch,
   cycleTheme,
   effectiveTheme,
   meta,
   navigate,
   openSearch,
+  panel,
+  panelAnchor,
   passage,
   readingMode,
   route,
@@ -19,6 +27,7 @@ import {
   searchQuery,
   setReadingMode,
   theme,
+  togglePanel,
   translations,
 } from '../../app/state';
 import { getBook } from '../../lib/books';
@@ -26,6 +35,8 @@ import { nextChapter, prevChapter } from '../../lib/data';
 import { formatChapter, parseReference, refToHash } from '../../lib/reference';
 import { shortName } from '../common/alignment';
 import { BrandMark, Icon } from '../common/Icon';
+import { UiIcon } from '../shell/icons';
+import { DisplayPanel } from '../toolbar/DisplayPanel';
 import { BookPicker } from './BookPicker';
 import { TranslationPicker } from './TranslationPicker';
 import './header.css';
@@ -164,17 +175,26 @@ export function Header() {
   const trMeta = translations.value.find((t) => t.id === tr);
   const prev = prevChapter(ref.book, ref.chapter);
   const next = nextChapter(ref.book, ref.chapter);
-  const [pop, setPop] = useState<'books' | 'tr' | null>(null);
+  const pop = panel.value;
   const bookBtn = useRef<HTMLButtonElement>(null);
   const trBtn = useRef<HTMLButtonElement>(null);
-  const about = route.value.name === 'about';
+  const r = route.value.name;
+  const reading = r === 'read' || r === 'search';
+  const chapterLabel = formatChapter(ref.book, ref.chapter);
 
   return (
     <header class="masthead" id="masthead">
       <div class="masthead__inner">
-        <a class="brand" href={refToHash(tr, { book: ref.book, chapter: ref.chapter })} title="Rootword — back to reading">
+        <a
+          class="brand"
+          href={refToHash(tr, { book: ref.book, chapter: ref.chapter })}
+          title="Rootword — back to reading"
+          aria-label="Rootword — back to reading"
+        >
           <BrandMark />
-          <span class="brand__word">Rootword</span>
+          <span class="brand__word" aria-hidden="true">
+            Rootword
+          </span>
         </a>
         <span class="hdr-sep" aria-hidden="true" />
 
@@ -195,8 +215,8 @@ export function Header() {
             class="btn locator__ref"
             aria-haspopup="dialog"
             aria-expanded={pop === 'books'}
-            aria-label={`${formatChapter(ref.book, ref.chapter)} — choose a passage`}
-            onClick={() => setPop(pop === 'books' ? null : 'books')}
+            aria-label={`${chapterLabel} — choose a passage`}
+            onClick={(e) => togglePanel('books', e.currentTarget as HTMLElement)}
           >
             <span class="ref-book ref-book--long">{book?.id === 'PSA' ? 'Psalm' : book?.name}</span>
             <span class="ref-book ref-book--short">{book?.id === 'PSA' ? 'Ps' : book?.short}</span>
@@ -220,22 +240,61 @@ export function Header() {
           type="button"
           class="btn tr-btn"
           aria-haspopup="dialog"
-          aria-expanded={pop === 'tr'}
+          aria-expanded={pop === 'translations'}
           aria-label={`${trMeta?.abbr ?? tr}${trMeta ? ` ${shortName(trMeta.name)}` : ''} — choose a translation`}
-          onClick={() => setPop(pop === 'tr' ? null : 'tr')}
+          onClick={(e) => togglePanel('translations', e.currentTarget as HTMLElement)}
         >
           <span class="tr-btn__abbr">{trMeta?.abbr ?? tr}</span>{' '}
           {trMeta && <span class="tr-btn__name">{shortName(trMeta.name)}</span>}
           <Icon name="chev" class="chev" />
         </button>
 
+        {/* Phones: the compact title "John 1 · KJV" (the toolbar has the other controls). */}
+        <div class="hdr-title" role="group" aria-label="Passage and translation">
+          <button
+            type="button"
+            class="hdr-title__ref"
+            aria-haspopup="dialog"
+            aria-expanded={pop === 'books'}
+            aria-label={`${chapterLabel} — choose a passage`}
+            onClick={(e) => togglePanel('books', e.currentTarget as HTMLElement)}
+          >
+            {chapterLabel}
+          </button>
+          <span class="hdr-title__dot" aria-hidden="true">
+            ·
+          </span>
+          <button
+            type="button"
+            class="hdr-title__tr"
+            aria-haspopup="dialog"
+            aria-expanded={pop === 'translations'}
+            aria-label={`${trMeta?.abbr ?? tr} — choose a translation`}
+            onClick={(e) => togglePanel('translations', e.currentTarget as HTMLElement)}
+          >
+            {trMeta?.abbr ?? tr}
+          </button>
+        </div>
+
         <span class="hdr-spacer" />
         <SearchField />
-        {!about && <ModeToggle class="mode-hdr" />}
+        {reading && <ModeToggle class="mode-hdr" />}
+        <button
+          type="button"
+          class="btn btn--icon aa-btn"
+          aria-haspopup="dialog"
+          aria-expanded={pop === 'display'}
+          aria-label="Aa: display settings and more"
+          title="Display settings, My study, Settings"
+          onClick={(e) => togglePanel('display', e.currentTarget as HTMLElement)}
+        >
+          <UiIcon name="aa" />
+        </button>
         <ThemeToggle />
       </div>
-      <BookPicker open={pop === 'books'} onClose={() => setPop(null)} anchor={bookBtn} />
-      <TranslationPicker open={pop === 'tr'} onClose={() => setPop(null)} anchor={trBtn} />
+      <BookPicker open={pop === 'books'} onClose={closePanel} anchor={pop === 'books' && panelAnchor.current ? panelAnchor : bookBtn} />
+      <TranslationPicker open={pop === 'translations'} onClose={closePanel} anchor={pop === 'translations' && panelAnchor.current ? panelAnchor : trBtn} />
+      <DisplayPanel />
     </header>
   );
 }

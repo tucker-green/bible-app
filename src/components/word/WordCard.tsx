@@ -4,9 +4,18 @@
  *
  * Hover / keyboard focus: role="tooltip" (the word points at it with aria-describedby).
  * Pinned (click, tap, Enter): role="dialog"; the sheet form traps focus.
+ *
+ * Sheet form (docs/EXPERIENCE.md §2): opens at peek height (~45%) with a spring, the page scrolls so
+ * the tapped word stays above it, drag / fling between peek · full · closed (shell/sheet.ts),
+ * back button / Esc / × / tapping the dimmed text close it; tapping another word swaps the content
+ * in place (cross-fade), scrubbing updates it live.
+ *
+ * Extension slots: <SpeakButton> beside each headword, <EntitySection> (people & places) inside
+ * every card, and a "Word study →" link to #/word/{id} in the footer.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { activeWord, announce, closeWord, openSearch, pinnedWord, settings, translations } from '../../app/state';
+import { preloadPage } from '../../app/pages';
+import { activeWord, announce, closeWord, openSearch, pinnedWord, scrollBehavior, settings, translations } from '../../app/state';
 import { BOOKS, getBook } from '../../lib/books';
 import { loadConcordance, loadLexEntry } from '../../lib/data';
 import { refToHash } from '../../lib/reference';
@@ -22,6 +31,11 @@ import { DefText } from './DefText';
 import type { DefNode } from './definition';
 import { defToText, parseDefinition, splitDefinitionHead } from './definition';
 import { computePlacement } from './placement';
+import { EntitySection } from './EntitySection';
+import { scrub } from './scrub';
+import { SpeakButton } from './SpeakButton';
+import { useBackClose, useSheet } from '../shell/sheet';
+import { UiIcon } from '../shell/icons';
 import './card.css';
 
 type Load<T> = { id: string; status: 'loading' | 'ready' | 'error'; value?: T };
@@ -58,7 +72,6 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   const sheet = Boolean(card) && (size.width < 720 || (isPinned && (pinned?.via === 'touch' || coarse)));
   const cardRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const [full, setFull] = useState(false);
   const [retry, setRetry] = useState(0);
   const scrolledFor = useRef('');
   const openedAt = useRef(0);
@@ -74,12 +87,19 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   const wordKey = card ? `${model?.key}:${card.unitId}` : '';
   useEffect(() => {
     setExpanded(false);
-    setFull(false);
     openedAt.current = Date.now();
   }, [wordKey]);
 
   // While the sheet is open, reserve room below the text so the last lines can scroll above it.
   const sheetOpen = sheet && isPinned;
+  const sheetApi = useSheet(cardRef, {
+    open: sheetOpen,
+    enabled: sheet,
+    onClose: () => closeWord(),
+    peek: 0.45,
+  });
+  const full = sheet && sheetApi.detent === 'full';
+  useBackClose(sheetOpen, () => closeWord());
   useEffect(() => {
     document.documentElement.classList.toggle('has-sheet', sheetOpen);
     return () => document.documentElement.classList.remove('has-sheet');
@@ -88,17 +108,16 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   // Keep the tapped word visible above the sheet, also while the sheet grows (content loading).
   const keepVisible = () => {
     const el = cardRef.current;
-    if (!el || !unit || Date.now() - openedAt.current > 1500) return;
+    if (!el || !unit || scrub.peek() || Date.now() - openedAt.current > 1500) return;
     const anchor = controller.el(unit.id);
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
-    const sheetTop = window.innerHeight - el.getBoundingClientRect().height;
-    const header = document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0;
-    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const sheetTop = sheetApi.restingTop();
+    const header = Math.max(0, document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0);
     let dy = 0;
     if (r.bottom > sheetTop - 16) dy = r.bottom - (sheetTop - 16);
     else if (r.top < header + 8) dy = r.top - header - 24;
-    if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: smooth ? 'smooth' : 'auto' });
+    if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: scrollBehavior() });
   };
   useEffect(() => {
     const el = cardRef.current;
@@ -169,7 +188,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     el.classList.toggle('is-above', p.side === 'above');
     if (p.scrollBy > 0 && scrolledFor.current !== wordKey) {
       scrolledFor.current = wordKey;
-      window.scrollBy({ top: p.scrollBy, behavior: 'smooth' });
+      window.scrollBy({ top: p.scrollBy, behavior: scrollBehavior() });
     }
   });
 
@@ -193,7 +212,8 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   const close = (refocus: boolean) => {
     const id = card.unitId;
     const hadFocus = cardRef.current?.contains(document.activeElement);
-    closeWord();
+    if (sheetOpen && !refocus) sheetApi.close();
+    else closeWord();
     if (refocus || hadFocus) controller.focusUnit(id);
   };
 
@@ -236,9 +256,13 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
         onKeyDown={onKeyDown}
       >
         {!sheet && <span class="card__notch" aria-hidden="true" />}
-        {sheet && <SheetHandle onClose={() => close(false)} full={full} setFull={setFull} cardRef={cardRef} />}
-        <div class="card__inner">
-          <CardTop card={card} pinned={isPinned || sheet} onClose={() => close(true)} />
+        {sheet && (
+          <div class="sheet-handle" aria-hidden="true" {...sheetApi.handleProps}>
+            <span />
+          </div>
+        )}
+        <div class="card__inner" key={wordKey}>
+          <CardTop card={card} pinned={isPinned || sheet} onClose={() => close(!sheet)} />
           {card.kind === 'supplied' ? (
             <SuppliedBody card={card} />
           ) : (
@@ -248,20 +272,23 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
               <Facts card={card} lex={lex} trMeta={trMeta} />
               {card.note && <p class="card__note">{card.note}</p>}
               {card.approx && <ApproxNote card={card} trMeta={trMeta} />}
-              <Definition
-                card={card}
-                lex={lex}
-                expanded={expanded}
-                onExpand={() => {
-                  setExpanded(true);
-                  if (sheet) setFull(true);
-                  if (!isPinned) pinnedWord.value = { ...ref!, via: 'click' };
-                }}
-                onCollapse={() => setExpanded(false)}
-                onRetry={() => setRetry((n) => n + 1)}
-                tr={tr}
-              />
             </>
+          )}
+          <EntitySection book={model.book} chapter={model.chapter} origIndices={unit?.links ?? []} />
+          {card.kind !== 'supplied' && (
+            <Definition
+              card={card}
+              lex={lex}
+              expanded={expanded}
+              onExpand={() => {
+                setExpanded(true);
+                if (sheet) sheetApi.setDetent('full');
+                if (!isPinned) pinnedWord.value = { ...ref!, via: 'click' };
+              }}
+              onCollapse={() => setExpanded(false)}
+              onRetry={() => setRetry((n) => n + 1)}
+              tr={tr}
+            />
           )}
         </div>
         {card.kind !== 'supplied' && card.strongs && <CardFoot card={card} conc={conc} book={model.book} />}
@@ -271,57 +298,6 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
 }
 
 /* ------------------------------------------------------------------------ */
-
-/** Drag handle of the bottom sheet: drag up → full height, drag down → peek height / close. */
-function SheetHandle({
-  onClose,
-  full,
-  setFull,
-  cardRef,
-}: {
-  onClose: () => void;
-  full: boolean;
-  setFull: (v: boolean) => void;
-  cardRef: { current: HTMLDivElement | null };
-}) {
-  const start = useRef<number | null>(null);
-  const reset = () => {
-    start.current = null;
-    if (cardRef.current) {
-      cardRef.current.style.transform = '';
-      cardRef.current.style.transition = '';
-    }
-  };
-  return (
-    <div
-      class="sheet-handle"
-      aria-hidden="true"
-      onPointerDown={(e) => {
-        start.current = e.clientY;
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        if (cardRef.current) cardRef.current.style.transition = 'none';
-      }}
-      onPointerMove={(e) => {
-        if (start.current === null || !cardRef.current) return;
-        const dy = Math.max(-40, e.clientY - start.current);
-        cardRef.current.style.transform = `translateY(${dy}px)`;
-      }}
-      onPointerUp={(e) => {
-        if (start.current === null) return;
-        const dy = e.clientY - start.current;
-        reset();
-        if (dy < -24) setFull(true);
-        else if (dy > 70) {
-          if (full) setFull(false);
-          else onClose();
-        } else if (Math.abs(dy) < 4) setFull(!full);
-      }}
-      onPointerCancel={reset}
-    >
-      <span />
-    </div>
-  );
-}
 
 function CardTop({ card, pinned, onClose }: { card: CardModel; pinned: boolean; onClose: () => void }) {
   const tag = card.kind === 'supplied' ? 'Supplied' : `${card.langLabel} · ${card.edition}`;
@@ -384,7 +360,10 @@ function CardHero({ card, lxxGloss }: { card: CardModel; lxxGloss: string }) {
             <span>{card.langLabel}</span>
             <StrongsPill id={card.strongs} label={card.strongsLabel} />
           </div>
-          <HebrewWord card={card} />
+          <div class="card__headrow">
+            <HebrewWord card={card} />
+            <SpeakButton text={card.headword} lang="hbo" translit={card.translit || undefined} size="sm" />
+          </div>
           {card.translit && <p class="card__translit">{card.translit}</p>}
         </div>
         <span class="vr" aria-hidden="true" />
@@ -395,9 +374,12 @@ function CardHero({ card, lxxGloss }: { card: CardModel; lxxGloss: string }) {
           </div>
           {card.lxx ? (
             <>
-              <p class="lxx-word" lang="grc">
-                {card.lxx.text}
-              </p>
+              <div class="card__headrow">
+                <p class="lxx-word" lang="grc">
+                  {card.lxx.text}
+                </p>
+                <SpeakButton text={card.lxx.text} lang="grc" translit={card.lxx.translit || undefined} size="sm" />
+              </div>
               <p class="card__translit lxx-sub">
                 {card.lxx.translit}
                 {lxxGloss && <span class="lxx-gloss"> · {lxxGloss}</span>}
@@ -417,6 +399,11 @@ function CardHero({ card, lxxGloss }: { card: CardModel; lxxGloss: string }) {
         {card.headword || card.strongsLabel || '—'}
       </p>
       {card.translit && <p class="card__translit">{card.translit}</p>}
+      {card.headword && (
+        <span class="card__speak">
+          <SpeakButton text={card.headword} lang={card.lang === 'grc' ? 'grc' : 'hbo'} translit={card.translit || undefined} size="md" />
+        </span>
+      )}
       <span class="card__hero-pill">
         <StrongsPill id={card.strongs} label={card.strongsLabel} />
       </span>
@@ -728,9 +715,20 @@ function CardFoot({ card, conc, book }: { card: CardModel; conc: Load<number[]> 
           </>
         )}
       </div>
-      <button type="button" class="btn-all" onClick={() => openSearch(label)} title={`Search every verse with ${label}`}>
-        See all occurrences <Icon name="arrow" />
-      </button>
+      <div class="card__actions">
+        <a
+          class="card__study"
+          href={`#/word/${card.strongs}`}
+          onPointerEnter={() => preloadPage('word')}
+          onFocus={() => preloadPage('word')}
+          onClick={() => closeWord()}
+        >
+          Word study <UiIcon name="arrow" />
+        </a>
+        <button type="button" class="btn-all" onClick={() => openSearch(label)} title={`Search every verse with ${label}`}>
+          See all occurrences <Icon name="arrow" />
+        </button>
+      </div>
     </div>
   );
 }

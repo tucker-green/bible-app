@@ -1,6 +1,33 @@
 /* App shell pieces that belong to no single component. */
 #app { min-height: 100dvh; display: flex; flex-direction: column; }
-main { flex: 1; }
+main { flex: 1; padding-bottom: var(--dock-h, 0px); }
+main:focus { outline: none; }
+
+/* Bottom dock: listen bar (stacked) above the phone toolbar. Fixed to the bottom on every size;
+   it is empty (0 px) on desktop until the listen bar shows. Its height is published as --dock-h
+   (shell/chrome.ts) so main, toasts and sheets keep clear of it. */
+.dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-dock);
+  display: flex; flex-direction: column;
+  pointer-events: none;
+  transition: transform var(--dur-2) var(--ease-out);
+  view-transition-name: rw-dock;
+}
+.listen-dock { pointer-events: none; display: flex; justify-content: center; }
+.listen-dock > * { pointer-events: auto; }
+.listen-dock:empty { display: none; }
+/* phone landscape: the dock slides away with the top bar while reading */
+@media (max-height: 500px) and (pointer: coarse) {
+  html[data-chrome="hidden"] .dock { transform: translateY(100%); }
+  html[data-chrome="hidden"] .dock:focus-within { transform: none; }
+}
+/* while a bottom sheet is open the dock stays underneath it */
+html.has-sheet .dock { z-index: var(--z-header); }
+
+/* Toasts rise from just above the dock (toolbar / listen bar). */
+.toast-region { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-toast); pointer-events: none; }
+.toast-region .toast { bottom: calc(var(--dock-h, 0px) + 16px + env(safe-area-inset-bottom)); }
+html.has-sheet .toast-region .toast { bottom: calc(var(--sheet-visible, 45dvh) + 12px); }
 
 /* Placeholders until the search panel and settings sheet are built (other agents replace them). */
 .search-stub, .settings-stub {

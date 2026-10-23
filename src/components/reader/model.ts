@@ -43,6 +43,8 @@ export interface Unit {
   primary: number;
   /** Base Strong's id used to find related words ("" = do not mark related words). */
   kinKey: string;
+  /** Words of Jesus (TextVerse.wj covers the unit's tokens). */
+  wj?: boolean;
 }
 
 /** A verse (or superscription) as a sequence of plain text and units. */
@@ -51,6 +53,11 @@ export type Piece = string | Unit;
 export interface VerseModel {
   v: number;
   pieces: Piece[];
+  /**
+   * Red letter: wj[i] is true when pieces[i] lies in a TextVerse.wj range (words of Jesus).
+   * Present only for verses that have such ranges; units also carry `wj`.
+   */
+  wj?: boolean[];
 }
 
 export interface ChapterModel {
@@ -138,6 +145,8 @@ const WHITESPACE = /^\s+$/;
 
 export interface Draft {
   key: string;
+  /** Words of Jesus (drafts never merge across a red-letter boundary). */
+  wj?: boolean;
   kind: UnitKind;
   links: number[];
   conf: number;
@@ -170,60 +179,91 @@ function tokenDraft(t: Exclude<Token, string>): Draft | null {
   return { key, kind, links, conf, parts: [text], words: 1, strongs, morphs: info?.m ?? [], forms: info?.o ?? [] };
 }
 
+/** Token indices covered by red-letter ranges ([start, end) end-exclusive). */
+function wjSet(ranges: readonly [number, number][] | undefined): Set<number> | null {
+  if (!ranges?.length) return null;
+  const set = new Set<number>();
+  for (const [a, b] of ranges) for (let i = a; i < b; i++) set.add(i);
+  return set;
+}
+
 /**
  * Group one verse's tokens into pieces; `ctx.makeUnit` turns each finished run into a Unit.
+ * With red-letter ranges (`wj`, token indices), runs never cross a red-letter boundary and
+ * `flags` (when given) receives one boolean per returned piece.
  * Exported for tests; buildChapterModel() is the normal entry point.
  */
-export function groupTokens(tokens: Token[], verse: number, ctx: GroupContext): Piece[] {
+export function groupTokens(tokens: Token[], verse: number, ctx: GroupContext, wj?: readonly [number, number][], flags?: boolean[]): Piece[] {
   const out: Piece[] = [];
+  const red = wjSet(wj);
+  const fl: boolean[] = [];
   let draft: Draft | null = null;
   let gap = ''; // whitespace seen after the current draft
 
   const flush = () => {
     if (!draft) return;
-    out.push(ctx.makeUnit(draft, verse));
+    const u = ctx.makeUnit(draft, verse);
+    out.push(u);
+    fl.push(Boolean(draft.wj));
     draft = null;
   };
-  const pushText = (s: string) => {
+  const pushText = (s: string, w: boolean) => {
     if (!s) return;
-    const last = out[out.length - 1];
-    if (typeof last === 'string') out[out.length - 1] = last + s;
-    else out.push(s);
+    const i = out.length - 1;
+    const last = out[i];
+    if (typeof last === 'string') {
+      const blank = WHITESPACE.test(s);
+      if (blank || fl[i] === w) {
+        out[i] = last + s;
+        return;
+      }
+      if (WHITESPACE.test(last)) {
+        out[i] = last + s;
+        fl[i] = w;
+        return;
+      }
+    }
+    out.push(s);
+    fl.push(w);
   };
 
-  for (const t of tokens) {
+  tokens.forEach((t, ti) => {
+    const w = red ? red.has(ti) : false;
     if (typeof t === 'string') {
       if (draft && WHITESPACE.test(t)) {
         gap += t;
-        continue;
+        return;
       }
       flush();
-      pushText(gap + t);
+      pushText(gap + t, w);
       gap = '';
-      continue;
+      return;
     }
     const d = tokenDraft(t);
     if (!d) {
       flush();
-      pushText(gap + t[0]);
+      pushText(gap, w);
+      pushText(t[0], w);
       gap = '';
-      continue;
+      return;
     }
+    if (w) d.wj = true;
     const cur = draft as Draft | null;
-    if (cur && cur.key === d.key) {
+    if (cur && cur.key === d.key && Boolean(cur.wj) === w) {
       cur.parts.push(gap, d.parts[0]);
       cur.words += 1;
       cur.conf = Math.min(cur.conf, d.conf);
       gap = '';
-      continue;
+      return;
     }
     flush();
-    pushText(gap);
+    pushText(gap, w);
     gap = '';
     draft = d;
-  }
+  });
   flush();
-  pushText(gap);
+  pushText(gap, false);
+  if (flags) flags.push(...fl);
   return out;
 }
 
@@ -276,6 +316,7 @@ export function buildChapterModel(
         primary,
         kinKey,
       };
+      if (d.wj) unit.wj = true;
       units.push(unit);
       for (const l of d.links) {
         const list = byOrig.get(l);
@@ -302,7 +343,10 @@ export function buildChapterModel(
   }
   const verses: VerseModel[] = text.verses.map((v) => {
     count(v.t);
-    return { v: v.v, pieces: groupTokens(v.t, v.v, ctx) };
+    if (!v.wj?.length) return { v: v.v, pieces: groupTokens(v.t, v.v, ctx) };
+    const flags: boolean[] = [];
+    const pieces = groupTokens(v.t, v.v, ctx, v.wj, flags);
+    return { v: v.v, pieces, wj: flags };
   });
 
   return {

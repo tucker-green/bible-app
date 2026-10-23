@@ -1,0 +1,49 @@
+/* ---------- Phone bottom toolbar (docs/EXPERIENCE.md §1) -------------------------------------
+   Lives in the bottom dock (shell). Hidden above 600px; on compact landscape it auto-hides with the
+   top bar (html[data-chrome="hidden"]), and it steps aside while the on-screen keyboard is open. */
+.toolbar {
+  display: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 4px max(4px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+  background: var(--header-bg);
+  backdrop-filter: saturate(1.2) blur(12px);
+  -webkit-backdrop-filter: saturate(1.2) blur(12px);
+  border-top: 1px solid var(--rule);
+  pointer-events: auto;
+}
+.tb-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 44px; min-height: 52px; padding: 4px 2px;
+  border-radius: 10px;
+  color: var(--ink-2); text-decoration: none;
+  font: 550 11px/1.1 var(--font-ui); letter-spacing: .01em;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.tb-btn .icon { width: 23px; height: 23px; }
+.tb-lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-btn:hover { color: var(--ink); }
+.tb-btn:active { background: var(--sunken); transform: scale(.96); }
+.tb-btn[aria-expanded="true"], .tb-btn[aria-pressed="true"] { color: var(--blue); }
+.tb-btn[aria-expanded="true"] .tb-lbl, .tb-btn[aria-pressed="true"] .tb-lbl { font-weight: 700; }
+/* the pressed / open state also changes shape, not just colour: a short rule above the icon */
+.tb-btn[aria-expanded="true"]::before, .tb-btn[aria-pressed="true"]::before {
+  content: ''; display: block; width: 18px; height: 3px; border-radius: 2px; background: currentColor; margin: -4px 0 1px;
+}
+.tb-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+html:not([data-motion="reduce"]) .tb-btn:active { transform: scale(.96); }
+
+@media (max-width: 599.98px) {
+  .toolbar { display: grid; }
+}
+@media (max-width: 599.98px) and (max-height: 500px) and (pointer: coarse) {
+  .toolbar .tb-btn { min-height: 44px; flex-direction: row; gap: 6px; }
+  .toolbar .tb-btn .icon { width: 20px; height: 20px; }
+}
+html[data-keyboard="open"] .toolbar { display: none; }
+
+@media (forced-colors: active) {
+  .toolbar { border-top: 1px solid CanvasText; background: Canvas; }
+  .tb-btn[aria-expanded="true"], .tb-btn[aria-pressed="true"] { color: Highlight; }
+}

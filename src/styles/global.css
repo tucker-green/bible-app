@@ -1,6 +1,7 @@
 /* ==========================================================================
    Rootword — global styles: fonts, reset, typography primitives, focus,
-   selection, reduced motion. Tokens live in theme.css (imported first).
+   selection. Tokens live in theme.css (imported first); motion.css, a11y.css
+   and print.css follow.
    ========================================================================== */
 @import '@fontsource-variable/literata/opsz.css';
 @import '@fontsource-variable/literata/opsz-italic.css';
@@ -23,6 +24,7 @@ html {
 
 body {
   margin: 0;
+  touch-action: manipulation; /* no double-tap-zoom delay; pinch-zoom stays available */
   min-height: 100dvh;
   background: var(--paper);
   color: var(--ink);
@@ -140,37 +142,21 @@ a:hover { color: var(--blue-ui); }
 }
 @keyframes rw-shimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
 
-/* Toast (role=status) */
+/* Toast (role=status): slides up from the toolbar / bottom edge (motion.css) */
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: var(--z-toast);
   transform: translateX(-50%);
   max-width: calc(100vw - 32px);
+  width: max-content;
   background: var(--ink); color: var(--paper);
   padding: 10px 16px; border-radius: 999px;
   font: 500 13px/1.3 var(--font-ui);
   box-shadow: var(--shadow);
-  animation: rw-rise .18s var(--ease);
+  animation: rw-rise var(--dur-2) var(--ease-out);
 }
-@keyframes rw-rise { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes rw-rise { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* Body scroll lock while a modal sheet is open */
 .scroll-lock { overflow: hidden; }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-@media (forced-colors: active) {
-  .w.is-active, .w.is-linked { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  .w.is-kin { text-decoration: underline dotted CanvasText; }
-}
-
-@media print {
-  .no-print, header.masthead, .rail, .ch-nav, .colophon, .word-card, .toast { display: none !important; }
-  body { background: #fff; color: #000; }
-}
+/* Reduced motion, forced colours and print live in motion.css, a11y.css and print.css. */

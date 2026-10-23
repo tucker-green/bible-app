@@ -2,20 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- viewport-fit=cover: draw under notches / home indicator; the shell pads with env(safe-area-inset-*).
+         Pinch-zoom is never disabled (no maximum-scale / user-scalable). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual" />
     <title>Rootword — Read the Bible with Greek &amp; Hebrew</title>
     <meta name="description" content="Read and search the Bible in several translations. Hover or tap any English word to see the Greek or Hebrew word behind it, with its dictionary form, grammar and definition." />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#101319" media="(prefers-color-scheme: dark)" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <script>
-      // Apply the saved theme before first paint (no flash of the wrong theme).
-      // localStorage 'rootword:theme' = 'light' | 'dark' | 'system' (default 'system').
+      // Apply saved preferences before first paint (no flash of the wrong theme / size / motion).
+      // localStorage 'rootword:theme' = 'light' | 'dark' | 'system' (default 'system');
+      // 'rootword:settings' = JSON Settings (src/app/state.ts) — mirrored to data-* attributes here
+      // exactly as initState() does later.
       (function () {
+        var root = document.documentElement;
         var t = 'system';
         try { t = localStorage.getItem('rootword:theme') || 'system'; } catch (e) {}
-        var root = document.documentElement;
         if (t === 'light' || t === 'dark') {
           root.setAttribute('data-theme', t);
           var c = t === 'dark' ? '#101319' : '#fafaf7';
@@ -24,13 +29,25 @@
         }
         try {
           var s = parseFloat(localStorage.getItem('rootword:fontScale') || '');
-          if (s >= 0.8 && s <= 1.5) root.style.setProperty('--font-scale', String(s));
+          if (s >= 0.8 && s <= 2) root.style.setProperty('--font-scale', String(s));
         } catch (e) {}
+        var st = {};
+        try { st = JSON.parse(localStorage.getItem('rootword:settings') || '{}') || {}; } catch (e) {}
+        var mm = function (q) { try { return window.matchMedia(q).matches; } catch (e) { return false; } };
+        var motion = st.motion === 'reduce' || st.motion === 'full' ? st.motion : mm('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full';
+        root.setAttribute('data-motion', motion);
+        root.setAttribute('data-contrast', st.highContrast || mm('(prefers-contrast: more)') ? 'more' : 'normal');
+        root.setAttribute('data-font', st.readingFont === 'atkinson' || st.readingFont === 'opendyslexic' ? st.readingFont : 'literata');
+        root.setAttribute('data-justify', st.justify ? 'on' : 'off');
+        root.setAttribute('data-red-letter', st.redLetter === false ? 'off' : 'on');
+        if (typeof st.lineSpacing === 'number') root.style.setProperty('--line-spacing', String(st.lineSpacing));
+        if (typeof st.letterSpacing === 'number') root.style.setProperty('--letter-spacing', st.letterSpacing + 'em');
       })();
     </script>
   </head>
   <body>
     <div id="app"></div>
+    <noscript><p style="padding:16px;font:16px/1.5 system-ui,sans-serif">Rootword needs JavaScript to show the Bible text.</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Rootword — listen &amp; pronounce harness</title>
+    <script>
+      // ?theme=light|dark (default: follow the system), applied before first paint like index.html does.
+      (function () {
+        var t = new URLSearchParams(location.search).get('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./listen-harness.tsx"></script>
+  </body>
+</html>

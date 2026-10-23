@@ -13,7 +13,7 @@
   text-align: left;
   line-height: 1.4;
   transform-origin: var(--notch-x, 40px) 0;
-  animation: rw-card-in .14s var(--ease);
+  animation: rw-card-in 180ms var(--ease-spring);
   scrollbar-width: thin;
 }
 .word-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
@@ -21,8 +21,16 @@
 .word-card.is-above { transform-origin: var(--notch-x, 40px) 100%; animation-name: rw-card-in-up; }
 .word-card.is-pop { overflow: visible; }
 .word-card.is-pop[style*="max-height"] { overflow-y: auto; }
-@keyframes rw-card-in { from { opacity: 0; transform: translateY(-3px) scale(.985); } to { opacity: 1; transform: none; } }
-@keyframes rw-card-in-up { from { opacity: 0; transform: translateY(3px) scale(.985); } to { opacity: 1; transform: none; } }
+/* Card reveal (docs/EXPERIENCE.md §5): from its anchor, scale .97 → 1 with a 4px rise, 180ms spring;
+   swapping words cross-fades the content (120ms); the original word fades up last (the "root
+   revealed" moment, staggered by --stagger). */
+@keyframes rw-card-in { from { opacity: 0; transform: translateY(4px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes rw-card-in-up { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes rw-swap-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rw-root-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.card__inner { animation: rw-swap-in var(--dur-1) var(--ease) both; }
+.card__orig, .lxx-word { animation: rw-root-up var(--dur-2) var(--ease-out) calc(var(--stagger) * 2) both; }
+.card__translit, .card__hero-pill, .card__duo .col-lbl .card__strongs { animation: rw-root-up var(--dur-2) var(--ease-out) calc(var(--stagger) * 3) both; }
 
 .card__notch {
   position: absolute; top: -7px; left: calc(var(--notch-x, 40px) - 7px);
@@ -54,7 +62,11 @@
 .card__close:hover { background: var(--sunken); color: var(--ink); }
 
 /* hero: headword · transliteration · Strong's */
-.card__hero { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 2px 14px; }
+.card__hero { display: grid; grid-template-columns: auto 1fr auto auto; align-items: baseline; gap: 2px 14px; }
+.card__speak { align-self: center; display: inline-flex; }
+.card__speak:empty { display: none; }
+.card__headrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.card__headrow > :first-child { min-width: 0; }
 .card__orig { font-size: 38px; line-height: 1.12; color: var(--ink); letter-spacing: -.005em; }
 .card__orig.is-tr { color: var(--ink-2); }
 .card__orig.hbo { font-size: 40px; line-height: 1.25; font-weight: 500; text-align: left; }
@@ -179,6 +191,14 @@
 .dist .axis { display: flex; justify-content: space-between; font: 500 9.5px/1 var(--font-ui); color: var(--ink-3); margin-top: 3px; letter-spacing: .02em; }
 .dist .lbl { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dist .lbl b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.card__actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.card__study {
+  display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border-radius: 6px;
+  font: 600 12.5px/1 var(--font-ui); color: var(--blue); text-decoration: none; white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);
+}
+.card__study:hover { background: var(--wash); color: var(--blue); }
+.card__study .icon { width: 14px; height: 14px; }
 .btn-all {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
   height: 32px; padding: 0 12px; border-radius: 6px;
@@ -190,42 +210,65 @@
 .btn-all .icon { width: 15px; height: 15px; }
 
 /* ---------- Bottom sheet (narrow / touch) --------------------------------- */
-/* The scrim dims the text but lets taps through (tap another word to swap the sheet); the open
-   word is lifted above it so it stays readable. */
+/* The scrim dims the text but lets taps through (tap another word to swap the sheet; tap the dimmed
+   text to close); the paragraph holding the open word is lifted above it so it stays readable. */
 .word-scrim {
   position: fixed; inset: 0; z-index: 1;
   background: var(--scrim);
   pointer-events: none;
-  animation: rw-fade-in .2s var(--ease);
+  animation: rw-fade-in var(--dur-2) var(--ease);
 }
+html.has-sheet .prose > :has(.w.is-open) { position: relative; z-index: 2; }
 html.has-sheet .w.is-open { position: relative; z-index: 2; background-color: var(--wash); }
 html.has-sheet main { padding-bottom: 48dvh; }
+/* Height = content, up to the full detent; the visible part is set with transform (shell/sheet.ts). */
 .word-card.is-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; top: auto;
-  width: auto; max-width: none; max-height: 58dvh;
+  width: auto; max-width: none;
+  max-height: min(90dvh, var(--vv-h, 100dvh) - 12px);
   z-index: var(--z-sheet);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; border-bottom: 0;
   box-shadow: inset 0 1px 0 var(--card-top), var(--shadow-sheet);
-  animation: rw-sheet-in .22s var(--ease);
+  animation: none;
   padding-bottom: env(safe-area-inset-bottom);
-  overflow-y: auto;
-  transition: transform .18s var(--ease), max-height .24s var(--ease);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  transform: translate3d(0, 100%, 0);
+  will-change: transform;
 }
-.word-card.is-sheet.is-full { max-height: 90dvh; }
-.word-card.is-sheet .card__inner { padding: 4px 20px 0; }
+.word-card.is-sheet.is-full { overflow-y: auto; }
+.word-card.is-sheet .card__inner { padding: 4px max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left)); }
 .word-card.is-sheet.is-supplied .card__inner { padding-bottom: 20px; }
-.word-card.is-sheet .card__foot { margin-top: 16px; padding: 12px 20px 16px; border-radius: 0; }
+.word-card.is-sheet .card__foot { margin-top: 16px; padding: 12px 20px 16px; border-radius: 0; flex-wrap: wrap; }
 .word-card.is-sheet .card__en { font-size: 15px; }
-.sheet-handle { display: flex; justify-content: center; padding: 8px 0 8px; cursor: grab; touch-action: none; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+.word-card.is-sheet .card__close { width: 44px; height: 44px; margin: -12px -14px -12px -4px; }
+.sheet-handle { display: flex; justify-content: center; padding: 10px 0 10px; cursor: grab; touch-action: none; position: sticky; top: 0; background: var(--surface); z-index: 2; border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; }
+.sheet-handle:active { cursor: grabbing; }
 .sheet-handle span { width: 40px; height: 4px; border-radius: 2px; background: var(--rule-2); }
 .word-card.is-sheet .card__def-txt { -webkit-line-clamp: 5; line-clamp: 5; }
 
+/* phone landscape: up to 85% tall; side-anchored when there is room */
 @media (max-height: 500px) {
-  .word-card.is-sheet { max-height: 85dvh; }
+  .word-card.is-sheet { max-height: min(85dvh, var(--vv-h, 100dvh) - 8px); }
   html.has-sheet main { padding-bottom: 80dvh; }
+}
+@media (max-height: 500px) and (min-width: 700px) {
+  .word-card.is-sheet { left: auto; right: max(12px, env(safe-area-inset-right)); width: min(460px, 52vw); border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; border: 1px solid var(--rule); border-bottom: 0; }
+  html.has-sheet main { padding-bottom: 0; }
 }
 @media (max-width: 640px) {
   .word-card.is-sheet .card__orig { font-size: 36px; }
   .word-card.is-sheet .card__orig.hbo { font-size: 38px; }
   .facts { grid-template-columns: 84px minmax(0, 1fr); }
+}
+@media (max-width: 380px) {
+  .word-card.is-sheet .card__inner { padding-left: 16px; padding-right: 16px; }
+  .facts { grid-template-columns: 72px minmax(0, 1fr); gap: 5px 8px; }
+  .card__actions { width: 100%; }
+  .card__actions > * { flex: 1; justify-content: center; }
+}
+@media (pointer: coarse) {
+  .card__strongs { padding: 9px 9px; }
+  .card__study, .btn-all { height: 44px; }
+  .card__close { width: 44px; height: 44px; }
 }

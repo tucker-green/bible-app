@@ -93,6 +93,7 @@ function unitClass(u: Unit, extra = ''): string {
   if (u.kind === 'supplied') c += ' w--sup';
   else if (u.kind === 'lexicon') c += ' w--lex';
   if (u.approx) c += ' w--approx';
+  if (u.wj) c += ' wj';
   return extra ? `${c} ${extra}` : c;
 }
 
@@ -100,12 +101,13 @@ function unitAttrs(u: Unit, firstId: number): string {
   return `data-u="${u.id}" tabindex="${u.id === firstId ? 0 : -1}"`;
 }
 
-function readingPieces(pieces: Piece[], firstId: number): string {
+/** Reading-mode HTML for pieces; `wj` flags (VerseModel.wj) wrap red-letter text in <span class="wj">. */
+function readingPieces(pieces: Piece[], firstId: number, wj?: readonly boolean[]): string {
   let html = '';
-  for (const p of pieces) {
-    if (typeof p === 'string') html += typeset(p);
+  pieces.forEach((p, i) => {
+    if (typeof p === 'string') html += wj?.[i] && /\S/.test(p) ? `<span class="wj">${typeset(p)}</span>` : typeset(p);
     else html += `<span class="${unitClass(p)}" ${unitAttrs(p, firstId)}>${typeset(p.text)}</span>`;
-  }
+  });
   return html;
 }
 
@@ -139,21 +141,25 @@ export interface IlCell {
   unit: Unit | null;
   /** English text including attached punctuation ("Word," / "“Let"). */
   en: string;
+  /** A plain (unlinked) word inside a red-letter range. */
+  wj?: boolean;
 }
 
 /**
  * Interlinear cells for a verse: every unit and every plain word becomes a cell; punctuation sticks
  * to the neighbouring English (closing marks to the previous cell, opening marks to the next).
  */
-export function interlinearCells(pieces: Piece[]): IlCell[] {
+export function interlinearCells(pieces: Piece[], wj?: readonly boolean[]): IlCell[] {
   const cells: IlCell[] = [];
   let prefix = '';
-  for (const p of pieces) {
+  for (let pi = 0; pi < pieces.length; pi++) {
+    const p = pieces[pi];
     if (typeof p !== 'string') {
       cells.push({ unit: p, en: prefix + p.text });
       prefix = '';
       continue;
     }
+    const red = Boolean(wj?.[pi]);
     // Split into whitespace-separated chunks, remembering whether each touched the previous cell.
     const re = /(\s*)(\S+)/g;
     let m: RegExpExecArray | null;
@@ -162,7 +168,7 @@ export function interlinearCells(pieces: Piece[]): IlCell[] {
       const hasWord = /[\p{L}\p{N}]/u.test(chunk);
       const touchesPrev = !space && m.index === 0;
       if (hasWord) {
-        cells.push({ unit: null, en: prefix + chunk });
+        cells.push(red ? { unit: null, en: prefix + chunk, wj: true } : { unit: null, en: prefix + chunk });
         prefix = '';
       } else if (touchesPrev && cells.length && !prefix) {
         cells[cells.length - 1].en += chunk;
@@ -184,7 +190,7 @@ export function interlinearCells(pieces: Piece[]): IlCell[] {
 function ilCellHtml(model: ChapterModel, cell: IlCell, opts: RenderOptions, firstId: number): string {
   const u = cell.unit;
   const en = `<span class="il__en">${typeset(cell.en)}</span>`;
-  if (!u) return `<span class="il il--plain">${en}</span>`;
+  if (!u) return `<span class="il il--plain${cell.wj ? ' wj' : ''}">${en}</span>`;
   const orig = model.orig;
   let or = '';
   let tr = '';
@@ -213,8 +219,8 @@ function ilCellHtml(model: ChapterModel, cell: IlCell, opts: RenderOptions, firs
   return `<span class="${unitClass(u, `il${multi}`)}" ${unitAttrs(u, firstId)}>${en}${or}${tr}${gl}</span>`;
 }
 
-function ilPieces(model: ChapterModel, pieces: Piece[], opts: RenderOptions, firstId: number): string {
-  return interlinearCells(pieces)
+function ilPieces(model: ChapterModel, pieces: Piece[], opts: RenderOptions, firstId: number, wj?: readonly boolean[]): string {
+  return interlinearCells(pieces, wj)
     .map((c) => ilCellHtml(model, c, opts, firstId))
     .join('');
 }
@@ -223,8 +229,13 @@ function ilPieces(model: ChapterModel, pieces: Piece[], opts: RenderOptions, fir
 /* Chapter                                                                   */
 /* ------------------------------------------------------------------------ */
 
+/**
+ * Verse number: a button-like target that opens the verse sheet (tap / click / Enter). It is part
+ * of the reader's roving focus (← → pass through it; ↑ ↓ land on it) and is announced as "Verse N".
+ * Not selectable, so copied text stays clean.
+ */
 function vn(v: number): string {
-  return `<span class="vn" aria-hidden="true">${v}</span><span class="sr-only">Verse ${v}. </span>`;
+  return `<span class="vn" data-vn="${v}" role="button" tabindex="-1" aria-haspopup="dialog" aria-label="Verse ${v}">${v}</span>`;
 }
 
 /** The whole prose block (headings, superscription, paragraphs) as HTML. */
@@ -283,12 +294,12 @@ export function renderChapterHtml(model: ChapterModel, opts: RenderOptions): str
       html += ' ';
     }
     let body: string;
-    if (il) body = ilPieces(model, V.pieces, opts, firstId);
+    if (il) body = ilPieces(model, V.pieces, opts, firstId, V.wj);
     else if (layout === 'poetry')
       body = splitCola(V.pieces)
         .map((c, ci) => `<span class="colon${ci ? ' cont' : ''}">${readingPieces(c, firstId).trim()}</span>`)
         .join('');
-    else body = readingPieces(V.pieces, firstId).replace(/\s+$/, '');
+    else body = readingPieces(V.pieces, firstId, V.wj).replace(/\s+$/, '');
     html += `<span class="verse" id="v${v}" data-v="${v}">${vn(v)}${body}</span>`;
   });
   close();

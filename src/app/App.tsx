@@ -1,19 +1,29 @@
-/** App shell: header, the routed page (reader / about), search panel, settings sheet, toast, live region. */
-import { useEffect } from 'preact/hooks';
+/**
+ * App shell (docs/EXPERIENCE.md §1, §4): skip link, header (banner), the routed page in <main>
+ * (reader, about, or a code-split page from src/pages/), the search panel, settings sheet, the
+ * bottom dock (listen bar + phone toolbar), toasts and the polite live region.
+ */
+import { useEffect, useRef } from 'preact/hooks';
 import { About } from '../components/about/About';
 import { Header } from '../components/header/Header';
+import { ListenBar } from '../components/listen/ListenBar';
 import { Reader } from '../components/reader/Reader';
 import { SearchPanel } from '../components/search/SearchPanel';
 import { SettingsSheet } from '../components/settings/SettingsSheet';
+import { observeDock, startChrome } from '../components/shell/chrome';
+import { Toolbar } from '../components/toolbar/Toolbar';
 import { nextChapter, prevChapter } from '../lib/data';
 import { refToHash } from '../lib/reference';
+import { PageRoute } from './pages';
 import { DEFAULT_HASH } from './router';
 import {
+  closePanel,
   closeSearch,
   closeSettings,
   liveMessage,
   navigate,
   openSearch,
+  panel,
   passage,
   pinnedWord,
   route,
@@ -21,6 +31,7 @@ import {
   searchOpen,
   settingsOpen,
   toastMessage,
+  verseSheet,
 } from './state';
 import './app.css';
 
@@ -40,6 +51,7 @@ function useGlobalKeys(): void {
           closeSearch();
           (document.activeElement as HTMLElement | null)?.blur?.();
         } else if (settingsOpen.value) closeSettings();
+        else if (panel.value) closePanel();
         return;
       }
       if (isTyping(t)) return;
@@ -52,7 +64,7 @@ function useGlobalKeys(): void {
       }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey && route.value.name === 'read') {
         if (t instanceof Element && t.closest('[data-u], [role="dialog"], [role="radiogroup"], .books__grid, .chapters, .seg')) return;
-        if (pinnedWord.value || searchOpen.value || settingsOpen.value || document.querySelector('.pop')) return;
+        if (pinnedWord.value || verseSheet.value || searchOpen.value || settingsOpen.value || panel.value || document.querySelector('.pop')) return;
         const { ref } = passage.value;
         const target = e.key === 'ArrowLeft' ? prevChapter(ref.book, ref.chapter) : nextChapter(ref.book, ref.chapter);
         if (target) {
@@ -88,31 +100,81 @@ function NotFound({ path }: { path: string }) {
   );
 }
 
+/** Move focus to the main content after a page change (not on chapter changes inside the reader). */
+function usePageFocus(): void {
+  const prev = useRef(route.peek().name);
+  useEffect(() => {
+    const name = route.value.name;
+    const was = prev.current;
+    prev.current = name;
+    if (name === was || name === 'search' || (name === 'read' && was === 'search')) return;
+    if (name === 'read') return;
+    requestAnimationFrame(() => {
+      const h = document.getElementById('page-title') ?? document.querySelector<HTMLElement>('main h1');
+      if (h) {
+        if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
+        h.focus({ preventScroll: true });
+      }
+    });
+  }, [route.value.name, route.value]);
+}
+
+function Toast() {
+  const toast = toastMessage.value;
+  return (
+    <div class="toast-region" role="status" aria-live="polite">
+      {toast && (
+        <div class="toast" key={toast}>
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Bottom dock: the listen bar above the phone toolbar (fixed; publishes --dock-h). */
+function Dock() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => (ref.current ? observeDock(ref.current) : undefined), []);
+  return (
+    <div class="dock" ref={ref}>
+      <div class="listen-dock">
+        <ListenBar />
+      </div>
+      <Toolbar />
+    </div>
+  );
+}
+
 export function App() {
   useGlobalKeys();
+  usePageFocus();
+  useEffect(() => startChrome(), []);
   const r = route.value;
-  const toast = toastMessage.value;
+  const page =
+    r.name === 'about' ? <About /> : r.name === 'notfound' ? <NotFound path={r.path} /> : r.name === 'read' || r.name === 'search' ? <Reader /> : <PageRoute route={r} />;
   return (
     <>
       <a
         class="skip-link"
-        href="#text"
+        href="#main"
         onClick={(e) => {
           e.preventDefault();
-          const text = document.getElementById('text');
-          text?.focus();
-          text?.scrollIntoView();
+          const target = document.getElementById('text') ?? document.getElementById('page-title') ?? document.getElementById('main');
+          if (!target) return;
+          if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+          target.focus();
+          target.scrollIntoView();
         }}
       >
-        Skip to the text
+        {r.name === 'read' || r.name === 'search' ? 'Skip to the text' : 'Skip to the content'}
       </a>
       <Header />
-      <main id="main">{r.name === 'about' ? <About /> : r.name === 'notfound' ? <NotFound path={r.path} /> : <Reader />}</main>
+      <main id="main">{page}</main>
       <SearchPanel />
       <SettingsSheet />
-      <div class="toast-region" role="status" aria-live="polite">
-        {toast && <div class="toast">{toast}</div>}
-      </div>
+      <Dock />
+      <Toast />
       <div class="sr-only" aria-live="polite" aria-atomic="true">
         {liveMessage.value}
       </div>

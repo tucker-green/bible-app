@@ -1,12 +1,19 @@
 /**
  * Word interaction for the reader: ONE set of delegated listeners on the prose root handles hover
- * (with intent delay), click / tap (pin), keyboard (roving tabindex, ←/→, Home/End, Enter, Esc)
- * and focus. Word states are toggled imperatively on the affected spans — the chapter is never
- * re-rendered for a hover.
+ * (with intent delay), click / tap (pin), keyboard (roving tabindex, ←/→, ↑/↓, Home/End, Enter,
+ * Esc), focus, verse numbers (→ verse sheet), nearest-word hit-testing for touch, and
+ * press-and-slide scrubbing (docs/EXPERIENCE.md §2). Word states are toggled imperatively on the
+ * affected spans — the chapter is never re-rendered for a hover.
+ *
+ * Roving focus covers words ([data-u]) and verse numbers ([data-vn]) in reading order: Tab enters
+ * the text at one stop, ←/→ move stop to stop, ↑/↓ move to the previous / next verse number,
+ * Enter/Space opens the word card or the verse sheet, Esc closes and returns focus.
  */
 import { batch } from '@preact/signals';
-import { activeWord, closeWord, pinnedWord, settings } from '../../app/state';
+import { activeWord, closeWord, openVerseSheet, pinnedWord, settings, verseSheet } from '../../app/state';
 import type { WordRef } from '../../app/state';
+import { feedback } from '../../lib/feedback';
+import { HIT_SLOP_PX, SCRUB_HOLD_MS, SCRUB_SLOP_PX, SCRUB_TICK_MS, distanceToRects, markScrubLearned, maybeShowCoach, scrub } from '../word/scrub';
 import type { ChapterModel } from './model';
 import { linkedUnits, relatedUnits } from './model';
 
@@ -14,11 +21,34 @@ const HOVER_OPEN_MS = 100;
 const HOVER_SWITCH_MS = 40;
 const HOVER_CLOSE_MS = 240;
 const STATE_CLASSES = ['is-active', 'is-linked', 'is-kin', 'is-open'];
+const STOP_SELECTOR = '[data-u], [data-vn]';
 
 function unitEl(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
   if (!(target instanceof Element)) return null;
   const el = target.closest<HTMLElement>('[data-u]');
   return el && root.contains(el) ? el : null;
+}
+
+function vnEl(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
+  if (!(target instanceof Element)) return null;
+  const el = target.closest<HTMLElement>('[data-vn]');
+  return el && root.contains(el) ? el : null;
+}
+
+function stopEl(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
+  if (!(target instanceof Element)) return null;
+  const el = target.closest<HTMLElement>(STOP_SELECTOR);
+  return el && root.contains(el) ? el : null;
+}
+
+interface Press {
+  id: number;
+  x0: number;
+  y0: number;
+  x: number;
+  y: number;
+  timer: ReturnType<typeof setTimeout>;
+  unit: number;
 }
 
 export class ReaderController {
@@ -27,11 +57,21 @@ export class ReaderController {
   /** The card element (set by WordCard) so pointer travel into it keeps a hover card open. */
   cardEl: HTMLElement | null = null;
   private els: HTMLElement[] = [];
+  /** Words and verse numbers in reading order (the roving-focus stops). */
+  private stops: HTMLElement[] = [];
+  private stopIndex = new Map<HTMLElement, number>();
   private openTimer: ReturnType<typeof setTimeout> | undefined;
   private closeTimer: ReturnType<typeof setTimeout> | undefined;
   private marked: HTMLElement[] = [];
-  private roving = 0;
+  private roving: HTMLElement | null = null;
   private pointerType = 'mouse';
+  /* scrubbing */
+  private press: Press | null = null;
+  private scrubbing = false;
+  private suppressClickUntil = 0;
+  private lastTick = 0;
+  private scrollRaf = 0;
+  private longPressAt = 0;
 
   attach(root: HTMLElement): void {
     if (this.root === root) return;
@@ -44,6 +84,12 @@ export class ReaderController {
     root.addEventListener('focusin', this.onFocusIn);
     root.addEventListener('focusout', this.onFocusOut);
     root.addEventListener('keydown', this.onKeyDown);
+    root.addEventListener('contextmenu', this.onContextMenu);
+    root.addEventListener('selectstart', this.onSelectStart);
+    root.addEventListener('touchmove', this.onTouchMove, { passive: false });
+    document.addEventListener('pointermove', this.onDocPointerMove, { passive: true });
+    document.addEventListener('pointerup', this.onDocPointerUp, true);
+    document.addEventListener('pointercancel', this.onDocPointerCancel, true);
     document.addEventListener('pointerdown', this.onDocPointerDown, true);
     window.addEventListener('scroll', this.onScroll, { passive: true });
   }
@@ -58,24 +104,43 @@ export class ReaderController {
     root.removeEventListener('focusin', this.onFocusIn);
     root.removeEventListener('focusout', this.onFocusOut);
     root.removeEventListener('keydown', this.onKeyDown);
+    root.removeEventListener('contextmenu', this.onContextMenu);
+    root.removeEventListener('selectstart', this.onSelectStart);
+    root.removeEventListener('touchmove', this.onTouchMove);
+    document.removeEventListener('pointermove', this.onDocPointerMove);
+    document.removeEventListener('pointerup', this.onDocPointerUp, true);
+    document.removeEventListener('pointercancel', this.onDocPointerCancel, true);
     document.removeEventListener('pointerdown', this.onDocPointerDown, true);
     window.removeEventListener('scroll', this.onScroll);
     clearTimeout(this.openTimer);
     clearTimeout(this.closeTimer);
+    this.cancelPress();
+    this.endScrub(false);
     this.root = null;
   }
 
   /** Index the unit spans after (re-)rendering the chapter HTML. */
   index(model: ChapterModel | null): void {
+    this.cancelPress();
+    this.endScrub(false);
     this.model = model;
     this.els = [];
     this.marked = [];
-    this.roving = 0;
+    this.stops = [];
+    this.stopIndex.clear();
+    this.roving = null;
     if (!this.root) return;
-    const list = this.root.querySelectorAll<HTMLElement>('[data-u]');
+    const list = this.root.querySelectorAll<HTMLElement>(STOP_SELECTOR);
     for (let i = 0; i < list.length; i++) {
       const el = list[i];
-      this.els[Number(el.dataset.u)] = el;
+      this.stops.push(el);
+      this.stopIndex.set(el, i);
+      if (el.dataset.u !== undefined) this.els[Number(el.dataset.u)] = el;
+      if (!this.roving && el.getAttribute('tabindex') === '0') this.roving = el;
+    }
+    if (!this.roving && this.stops[0]) {
+      this.roving = this.stops[0];
+      this.roving.setAttribute('tabindex', '0');
     }
   }
 
@@ -83,7 +148,22 @@ export class ReaderController {
     return this.els[unit] ?? null;
   }
 
-  private get key(): string {
+  /** The verse-number element of a verse, if rendered. */
+  vn(verse: number): HTMLElement | null {
+    return this.root?.querySelector<HTMLElement>(`[data-vn="${verse}"]`) ?? null;
+  }
+
+  /** True while a long-press is pending or a scrub is in progress. */
+  busy(): boolean {
+    return Boolean(this.press) || this.scrubbing;
+  }
+
+  /** True while scrubbing (swipe navigation stays out of the way). */
+  isScrubbing(): boolean {
+    return this.scrubbing;
+  }
+
+  get key(): string {
     return this.model?.key ?? '';
   }
 
@@ -97,10 +177,206 @@ export class ReaderController {
     return typeof matchMedia !== 'function' || matchMedia('(hover: hover) and (pointer: fine)').matches;
   }
 
+  /* ------------------------------------------------------- hit testing */
+
+  /**
+   * The word unit at a point, or the nearest one within `slop` px (touch targets are small).
+   * Points over the open sheet / header are ignored.
+   */
+  unitNear(x: number, y: number, slop = HIT_SLOP_PX): HTMLElement | null {
+    const root = this.root;
+    if (!root || typeof document.elementFromPoint !== 'function') return null;
+    const direct = unitEl(document.elementFromPoint(x, y), root);
+    if (direct) return direct;
+    const seen = new Set<HTMLElement>();
+    const probes: [number, number][] = [
+      [-slop, 0],
+      [slop, 0],
+      [0, -slop],
+      [0, slop],
+      [-slop * 0.7, -slop * 0.7],
+      [slop * 0.7, -slop * 0.7],
+      [-slop * 0.7, slop * 0.7],
+      [slop * 0.7, slop * 0.7],
+    ];
+    for (const [dx, dy] of probes) {
+      const el = unitEl(document.elementFromPoint(x + dx, y + dy), root);
+      if (el) seen.add(el);
+    }
+    let best: HTMLElement | null = null;
+    let dist = Infinity;
+    for (const el of seen) {
+      const d = distanceToRects(x, y, el.getClientRects());
+      if (d < dist) {
+        dist = d;
+        best = el;
+      }
+    }
+    return dist <= slop + 0.5 ? best : null;
+  }
+
+  /** Units under a point regardless of what covers it (the sheet / loupe), for scrubbing. */
+  private unitUnder(x: number, y: number): HTMLElement | null {
+    const root = this.root;
+    if (!root) return null;
+    if (typeof document.elementsFromPoint === 'function') {
+      for (const el of document.elementsFromPoint(x, y)) {
+        const u = unitEl(el, root);
+        if (u) return u;
+        if (el === root) break;
+      }
+    }
+    return this.unitNear(x, y);
+  }
+
   /* -------------------------------------------------------------- pointer */
 
   private onPointerDown = (e: PointerEvent) => {
     this.pointerType = e.pointerType || 'mouse';
+    if (e.pointerType !== 'touch' || !e.isPrimary || !this.root) return;
+    if (vnEl(e.target, this.root)) return;
+    const el = unitEl(e.target, this.root) ?? this.unitNear(e.clientX, e.clientY);
+    if (!el) return;
+    this.cancelPress();
+    const unit = Number(el.dataset.u);
+    this.press = {
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      x: e.clientX,
+      y: e.clientY,
+      unit,
+      timer: setTimeout(() => this.engage(), SCRUB_HOLD_MS),
+    };
+  };
+
+  private cancelPress(): void {
+    if (this.press) clearTimeout(this.press.timer);
+    this.press = null;
+  }
+
+  /** Long-press fired: enter scrub mode on the pressed word. */
+  private engage(): void {
+    const p = this.press;
+    if (!p || !this.root) return;
+    this.scrubbing = true;
+    this.longPressAt = Date.now();
+    this.suppressClickUntil = Number.POSITIVE_INFINITY;
+    document.documentElement.classList.add('is-scrubbing');
+    try {
+      window.getSelection()?.removeAllRanges();
+    } catch {
+      /* ignore */
+    }
+    feedback('engage');
+    this.lastTick = performance.now();
+    this.selectUnit(p.unit, 'touch');
+    scrub.value = { key: this.key, unit: p.unit, x: p.x, y: p.y };
+    this.autoScroll();
+  }
+
+  private onDocPointerMove = (e: PointerEvent) => {
+    const p = this.press;
+    if (!p || e.pointerId !== p.id) return;
+    p.x = e.clientX;
+    p.y = e.clientY;
+    if (!this.scrubbing) {
+      if (Math.hypot(p.x - p.x0, p.y - p.y0) > SCRUB_SLOP_PX) this.cancelPress();
+      return;
+    }
+    this.scrubTo(p.x, p.y);
+  };
+
+  /** Move the scrub selection to the word under (x, y). */
+  private scrubTo(x: number, y: number): void {
+    const top = Math.max(0, document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0) + 4;
+    const sheetTop = this.cardEl?.isConnected ? this.cardEl.getBoundingClientRect().top - 4 : window.innerHeight;
+    const hy = Math.min(Math.max(y, top), sheetTop);
+    const el = this.unitUnder(x, hy);
+    const cur = scrub.value;
+    if (el) {
+      const unit = Number(el.dataset.u);
+      if (!cur || cur.unit !== unit) {
+        this.selectUnit(unit, 'touch');
+        const now = performance.now();
+        if (now - this.lastTick >= SCRUB_TICK_MS) {
+          this.lastTick = now;
+          feedback('tick');
+        }
+      }
+      scrub.value = { key: this.key, unit, x, y };
+    } else if (cur) {
+      scrub.value = { ...cur, x, y };
+    }
+  }
+
+  /** While scrubbing near the header or the sheet, scroll the text slowly. */
+  private autoScroll(): void {
+    cancelAnimationFrame(this.scrollRaf);
+    const step = () => {
+      const p = this.press;
+      if (!this.scrubbing || !p) return;
+      const top = Math.max(0, document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0);
+      const bottom = this.cardEl?.isConnected ? this.cardEl.getBoundingClientRect().top : window.innerHeight;
+      const zone = 44;
+      let v = 0;
+      if (p.y < top + zone) v = -Math.min(14, ((top + zone - p.y) / zone) * 14);
+      else if (p.y > bottom - zone) v = Math.min(14, ((p.y - (bottom - zone)) / zone) * 14);
+      if (v) {
+        window.scrollBy(0, v);
+        this.scrubTo(p.x, p.y);
+      }
+      this.scrollRaf = requestAnimationFrame(step);
+    };
+    this.scrollRaf = requestAnimationFrame(step);
+  }
+
+  private endScrub(keep: boolean): void {
+    cancelAnimationFrame(this.scrollRaf);
+    if (!this.scrubbing) return;
+    this.scrubbing = false;
+    document.documentElement.classList.remove('is-scrubbing');
+    scrub.value = null;
+    if (keep) {
+      markScrubLearned();
+      // swallow the click that follows the lift
+      this.suppressClickUntil = Date.now() + 450;
+    } else {
+      this.suppressClickUntil = 0;
+    }
+  }
+
+  private onDocPointerUp = (e: PointerEvent) => {
+    const p = this.press;
+    if (!p || e.pointerId !== p.id) return;
+    const was = this.scrubbing;
+    this.cancelPress();
+    this.endScrub(was);
+  };
+
+  private onDocPointerCancel = (e: PointerEvent) => {
+    const p = this.press;
+    if (!p || e.pointerId !== p.id) return;
+    // While scrubbing, scrolling is suppressed, so a cancel means the OS took the gesture.
+    const was = this.scrubbing;
+    this.cancelPress();
+    this.endScrub(was);
+  };
+
+  /** Scrolling is suppressed only while scrubbing. */
+  private onTouchMove = (e: TouchEvent) => {
+    if (this.scrubbing && e.cancelable) e.preventDefault();
+  };
+
+  /** Long-press on a word is ours (scrubbing), not the browser's menu / selection. */
+  private onContextMenu = (e: Event) => {
+    if (!this.root) return;
+    if ((this.pointerType === 'touch' || this.scrubbing) && unitEl(e.target, this.root)) e.preventDefault();
+  };
+
+  private onSelectStart = (e: Event) => {
+    if (!this.root) return;
+    if ((this.press || this.scrubbing) && this.pointerType === 'touch' && unitEl(e.target, this.root)) e.preventDefault();
   };
 
   private onPointerOver = (e: PointerEvent) => {
@@ -150,9 +426,31 @@ export class ReaderController {
     if (activeWord.value?.via === 'hover' && !pinnedWord.value) this.scheduleClose();
   }
 
+  /** Pin a unit's card (tap / click / keyboard / scrub). */
+  private selectUnit(unit: number, via: WordRef['via']): void {
+    this.setRoving(this.els[unit] ?? null);
+    batch(() => {
+      if (verseSheet.value) verseSheet.value = null;
+      pinnedWord.value = { key: this.key, unit, via };
+      activeWord.value = null;
+    });
+  }
+
   private onClick = (e: MouseEvent) => {
     if (!this.root) return;
-    const el = unitEl(e.target, this.root);
+    if (Date.now() < this.suppressClickUntil) {
+      e.preventDefault();
+      this.suppressClickUntil = 0;
+      return;
+    }
+    const touch = this.pointerType === 'touch';
+    const v = vnEl(e.target, this.root);
+    if (v) {
+      e.preventDefault();
+      this.openVerse(Number(v.dataset.vn), e.detail === 0);
+      return;
+    }
+    const el = unitEl(e.target, this.root) ?? (touch && e.detail !== 0 ? this.unitNear(e.clientX, e.clientY) : null);
     if (!el) return;
     const unit = Number(el.dataset.u);
     clearTimeout(this.openTimer);
@@ -162,14 +460,20 @@ export class ReaderController {
       closeWord();
       return;
     }
-    const touch = this.pointerType === 'touch';
     const via: WordRef['via'] = e.detail === 0 ? 'keyboard' : touch ? 'touch' : 'click';
-    this.setRoving(unit);
-    batch(() => {
-      pinnedWord.value = { key: this.key, unit, via };
-      activeWord.value = null;
-    });
+    const swapping = Boolean(p);
+    this.selectUnit(unit, via);
+    feedback(touch ? 'select' : swapping ? 'select' : 'pin');
+    if (touch) maybeShowCoach();
   };
+
+  /** Open the verse sheet for a verse (from a verse number). */
+  openVerse(verse: number, keyboard = false): void {
+    const el = this.vn(verse);
+    if (el) this.setRoving(el);
+    openVerseSheet(this.key, verse);
+    feedback(keyboard ? 'pin' : 'select');
+  }
 
   private onDocPointerDown = (e: PointerEvent) => {
     if (!pinnedWord.value || !this.root) return;
@@ -177,6 +481,8 @@ export class ReaderController {
     if (t && this.cardEl?.contains(t)) return;
     if (unitEl(t, this.root)) return; // the click handler decides
     if (t instanceof Element && t.closest('[data-keep-word]')) return;
+    // a touch just beside a word selects it (nearest-word hit-testing) rather than closing
+    if (e.pointerType === 'touch' && this.root.contains(t) && this.unitNear(e.clientX, e.clientY)) return;
     closeWord();
   };
 
@@ -191,10 +497,11 @@ export class ReaderController {
 
   private onFocusIn = (e: FocusEvent) => {
     if (!this.root) return;
+    const stop = stopEl(e.target, this.root);
+    if (stop) this.setRoving(stop);
     const el = unitEl(e.target, this.root);
     if (!el) return;
     const unit = Number(el.dataset.u);
-    this.setRoving(unit);
     el.setAttribute('role', 'button');
     el.setAttribute('aria-haspopup', 'dialog');
     let keyboard = false;
@@ -227,44 +534,50 @@ export class ReaderController {
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (!this.root || e.altKey || e.ctrlKey || e.metaKey) return;
-    const el = unitEl(e.target, this.root);
-    if (!el) return;
-    const unit = Number(el.dataset.u);
+    const stop = stopEl(e.target, this.root);
+    if (!stop) return;
+    const isVerse = stop.dataset.vn !== undefined;
     switch (e.key) {
       case 'ArrowRight':
       case 'ArrowLeft':
         e.preventDefault();
         e.stopPropagation();
-        this.focusUnit(this.step(unit, e.key === 'ArrowRight' ? 1 : -1));
+        this.focusStop(this.stepStop(stop, e.key === 'ArrowRight' ? 1 : -1));
         break;
       case 'ArrowDown':
       case 'ArrowUp': {
-        const target = this.verseStep(unit, e.key === 'ArrowDown' ? 1 : -1);
-        if (target === null) return; // let the page scroll
+        const target = this.verseStop(stop, e.key === 'ArrowDown' ? 1 : -1);
+        if (!target) return; // let the page scroll
         e.preventDefault();
         e.stopPropagation();
-        this.focusUnit(target);
+        this.focusStop(target);
         break;
       }
       case 'Home':
-      case 'End': {
+      case 'End':
         e.preventDefault();
         e.stopPropagation();
-        const ids = this.ids();
-        this.focusUnit(e.key === 'Home' ? ids[0] : ids[ids.length - 1]);
+        this.focusStop(e.key === 'Home' ? this.stops[0] : this.stops[this.stops.length - 1]);
         break;
-      }
       case 'Enter':
       case ' ': {
         e.preventDefault();
         e.stopPropagation();
+        if (isVerse) {
+          this.openVerse(Number(stop.dataset.vn), true);
+          break;
+        }
+        const unit = Number(stop.dataset.u);
         const p = pinnedWord.value;
         if (p && p.key === this.key && p.unit === unit) closeWord();
-        else
+        else {
           batch(() => {
+            verseSheet.value = null;
             pinnedWord.value = { key: this.key, unit, via: 'keyboard' };
             activeWord.value = null;
           });
+          feedback('pin');
+        }
         break;
       }
       case 'Escape':
@@ -277,59 +590,68 @@ export class ReaderController {
     }
   };
 
-  private ids(): number[] {
-    const out: number[] = [];
-    this.els.forEach((el, i) => {
-      if (el) out.push(i);
-    });
-    return out;
+  private stepStop(from: HTMLElement, delta: 1 | -1): HTMLElement {
+    const i = this.stopIndex.get(from) ?? 0;
+    return this.stops[Math.min(this.stops.length - 1, Math.max(0, i + delta))] ?? from;
   }
 
-  private step(unit: number, delta: 1 | -1): number {
-    let i = unit + delta;
-    while (i >= 0 && i < this.els.length) {
-      if (this.els[i]) return i;
-      i += delta;
-    }
-    return unit;
-  }
-
-  /** First unit of the next (+1) or previous (-1) verse, or null at the ends. */
-  private verseStep(unit: number, dir: 1 | -1): number | null {
-    const units = this.model?.units;
-    if (!units?.[unit]) return null;
-    const v = units[unit].verse;
+  /** Verse number (or first word) of the next (+1) / previous (-1) verse, or null at the ends. */
+  private verseStop(from: HTMLElement, dir: 1 | -1): HTMLElement | null {
+    const i = this.stopIndex.get(from);
+    if (i === undefined) return null;
+    const verseOf = (el: HTMLElement): number => {
+      if (el.dataset.vn !== undefined) return Number(el.dataset.vn);
+      const u = this.model?.units[Number(el.dataset.u)];
+      return u ? u.verse : -1;
+    };
+    const v = verseOf(from);
+    // first stop of each verse = its verse number (rendered before its words)
     if (dir === 1) {
-      for (let i = unit + 1; i < units.length; i++) if (units[i].verse !== v && this.els[i]) return i;
+      for (let j = i + 1; j < this.stops.length; j++) if (verseOf(this.stops[j]) !== v) return this.stops[j];
       return null;
     }
-    // previous verse: walk back past this verse, then to the first unit of that verse
-    let i = unit - 1;
-    while (i >= 0 && units[i].verse === v) i--;
-    if (i < 0) return null;
-    const pv = units[i].verse;
-    while (i > 0 && units[i - 1].verse === pv) i--;
-    return this.els[i] ? i : null;
+    let j = i - 1;
+    // on a word: ↑ first goes to this verse's own number
+    if (from.dataset.vn === undefined) {
+      while (j >= 0 && verseOf(this.stops[j]) === v) {
+        if (this.stops[j].dataset.vn !== undefined) return this.stops[j];
+        j--;
+      }
+    }
+    if (j < 0) return null;
+    const pv = verseOf(this.stops[j]);
+    while (j > 0 && verseOf(this.stops[j - 1]) === pv) j--;
+    return this.stops[j] ?? null;
   }
 
-  private setRoving(unit: number): void {
-    if (this.roving === unit) return;
-    this.els[this.roving]?.setAttribute('tabindex', '-1');
-    this.els[unit]?.setAttribute('tabindex', '0');
-    this.roving = unit;
+  private setRoving(el: HTMLElement | null): void {
+    if (!el || this.roving === el) return;
+    this.roving?.setAttribute('tabindex', '-1');
+    el.setAttribute('tabindex', '0');
+    this.roving = el;
   }
 
-  /** Move keyboard focus to a unit (keeps it in view under the sticky header). */
-  focusUnit(unit: number): void {
-    const el = this.els[unit];
+  /** Move keyboard focus to a stop (keeps it in view under the sticky header / above the dock). */
+  private focusStop(el: HTMLElement | null | undefined): void {
     if (!el) return;
-    this.setRoving(unit);
+    this.setRoving(el);
     el.focus({ preventScroll: true });
     const r = el.getBoundingClientRect();
-    const header = document.querySelector('.masthead')?.getBoundingClientRect().bottom ?? 0;
-    if (r.top < header + 8 || r.bottom > window.innerHeight - 8) {
+    const header = Math.max(0, document.querySelector('.masthead')?.getBoundingClientRect().bottom ?? 0);
+    const bottom = window.innerHeight - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dock-h')) || 0);
+    if (r.top < header + 8 || r.bottom > bottom - 8) {
       el.scrollIntoView({ block: 'center', behavior: 'auto' });
     }
+  }
+
+  /** Move keyboard focus to a unit. */
+  focusUnit(unit: number): void {
+    this.focusStop(this.els[unit]);
+  }
+
+  /** Move keyboard focus to a verse number. */
+  focusVerse(verse: number): void {
+    this.focusStop(this.vn(verse));
   }
 
   /* ------------------------------------------------------------ highlight */
@@ -374,5 +696,10 @@ export class ReaderController {
     } else {
       anchor.setAttribute('aria-describedby', 'word-card');
     }
+  }
+
+  /** Was a long-press scrub engaged within the last `ms`? (for tests / diagnostics) */
+  scrubbedRecently(ms = 1000): boolean {
+    return Date.now() - this.longPressAt < ms;
   }
 }
