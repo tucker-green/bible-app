@@ -1047,16 +1047,20 @@ export function buildRedLetter(): RedLetterStats {
     }
 
     // 3. whole quotations, never the narrator; propagated verses left black against the KJV / WEB
-    for (const [tr, ch] of result) {
-      const propagated = (PROPAGATED as readonly string[]).includes(tr);
+    // The marked translations first (checked against each other only for the narrator's opening),
+    // then the propagated ones against the finished KJV / WEB.
+    const finish = (tr: string, against: readonly Map<number, SourceVerse>[], propagated: boolean) => {
+      const ch = result.get(tr);
+      if (!ch) return;
       ch.verses = ch.verses.map((v) => {
-        // Marked translations are checked against each other only for the narrator's opening.
-        const others = propagated ? marked.map((m) => m.get(v.v)) : MARKED.filter((x) => x !== tr).map((x) => marked[MARKED.indexOf(x)].get(v.v));
-        const out = finishVerse(v, others, QUOTED_TRANSLATIONS.has(tr), propagated);
+        const out = finishVerse(v, against.map((m) => m.get(v.v)), QUOTED_TRANSLATIONS.has(tr), propagated);
         checkVerse(v, out, `${tr} ${ck}:${v.v}`);
         return out;
       });
-    }
+    };
+    for (const tr of MARKED) finish(tr, MARKED.filter((x) => x !== tr).map((x) => marked[MARKED.indexOf(x)]), false);
+    const finished = MARKED.map((tr) => (result.has(tr) ? sourceVerses(result.get(tr)!) : new Map<number, SourceVerse>()));
+    for (const tr of PROPAGATED) finish(tr, finished, true);
     // consensus check: verses whose red share differs from the marked translations' by 0.4 or more
     if (hasRed) {
       const ref = MARKED.map((tr) => (result.has(tr) ? verseShares(result.get(tr)!) : new Map<number, number>()));
