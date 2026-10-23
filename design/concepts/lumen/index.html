@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rootword · Lumen concept</title>
+  <meta name="description" content="Lumen design concept for Rootword: read the Bible with the Greek and Hebrew beneath every word.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230a0d1c'/%3E%3Cg fill='%233f6ae6'%3E%3Cpath d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3Cpath transform='rotate(90 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3Cpath transform='rotate(180 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3Cpath transform='rotate(270 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3C/g%3E%3Cg fill='%23d23a58'%3E%3Cpath transform='rotate(45 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3Cpath transform='rotate(135 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3Cpath transform='rotate(225 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3Cpath transform='rotate(315 16 16)' d='M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='4' fill='%23f0c46c'/%3E%3C/svg%3E">
+  <script>
+    // Theme before first paint: ?theme= wins, otherwise follow the OS.
+    (function () {
+      var p = new URLSearchParams(location.search).get('theme');
+      var t = p === 'dark' || p === 'light' ? p
+        : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="preload" href="../../sample.json" as="fetch" crossorigin>
+  <link rel="stylesheet" href="lumen.css">
+  <script type="module" src="lumen.js"></script>
+</head>
+<body>
+  <a class="skip" href="#passage">Skip to the text</a>
+
+  <!-- Light falling through glass: fixed, decorative -->
+  <div class="sky" aria-hidden="true"></div>
+
+  <!-- Reusable SVG symbols -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="rose-gold" cx="45%" cy="40%" r="65%">
+        <stop offset="0" stop-color="#fff1c4"/><stop offset=".6" stop-color="#f2c160"/><stop offset="1" stop-color="#c58720"/>
+      </radialGradient>
+      <linearGradient id="rose-lapis" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#9ab6ff"/><stop offset="1" stop-color="#2848b8"/>
+      </linearGradient>
+      <linearGradient id="rose-ruby" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ff9cad"/><stop offset="1" stop-color="#a51f3d"/>
+      </linearGradient>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-left" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5C6.5 4.3 9.3 4.3 12 6c2.7-1.7 5.5-1.7 8-.5V19c-2.5-1.2-5.3-1.2-8 .5-2.7-1.7-5.5-1.7-8-.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6v13.5" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><g stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2.8v2.1M12 19.1v2.1M2.8 12h2.1M19.1 12h2.1M5.5 5.5l1.5 1.5M17 17l1.5 1.5M5.5 18.5L7 17M17 7l1.5-1.5"/></g></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11.6 12H21M18 12v3M15 12v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="M4 8h16M4 12.5h11M4 17h13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+      <symbol id="i-interlinear" viewBox="0 0 24 24"><path d="M4 7h7M14 7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 11.5h7M14 11.5h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".55"/><path d="M4 16.5h4.5M14 16.5h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 20h4.5M14 20h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".55"/></symbol>
+      <symbol id="i-read" viewBox="0 0 24 24"><path d="M4 6.5h16M4 11h16M4 15.5h16M4 20h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+      <symbol id="rosette" viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="15.2" class="rose-frame"/>
+        <g class="rose-petals">
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-lapis)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-ruby)" transform="rotate(45 16 16)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-lapis)" transform="rotate(90 16 16)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-ruby)" transform="rotate(135 16 16)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-lapis)" transform="rotate(180 16 16)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-ruby)" transform="rotate(225 16 16)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-lapis)" transform="rotate(270 16 16)"/>
+          <path d="M16 16C13.6 12.6 13.3 7 16 3.3c2.7 3.7 2.4 9.3 0 12.7z" fill="url(#rose-ruby)" transform="rotate(315 16 16)"/>
+        </g>
+        <circle cx="16" cy="16" r="4.1" fill="url(#rose-gold)" class="rose-boss"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="bar" id="bar">
+    <a class="brand" href="./" aria-label="Rootword home">
+      <svg class="rosette" aria-hidden="true"><use href="#rosette"/></svg>
+      <span class="wordmark">Rootword</span>
+    </a>
+
+    <nav class="nav" aria-label="Passage and translation">
+      <div class="pillgroup">
+        <button class="pill" id="passageBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="passagePop">
+          <svg class="ic" aria-hidden="true"><use href="#i-book"/></svg>
+          <span id="passageLabel">John 1</span>
+          <svg class="ic chev" aria-hidden="true"><use href="#i-chev"/></svg>
+        </button>
+        <button class="pill pill-tr" id="trBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="trPop" aria-label="Translation: Berean Standard Bible">
+          <span class="tr-abbr">BSB</span>
+          <svg class="ic chev" aria-hidden="true"><use href="#i-chev"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="search" role="search" id="searchBox">
+      <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="q" type="search" placeholder="Search words, verses, Greek…" aria-label="Search the Bible"
+             aria-controls="searchPanel" aria-expanded="false" autocomplete="off" spellcheck="false">
+      <kbd class="kbd" aria-hidden="true">/</kbd>
+    </div>
+
+    <div class="tools">
+      <div class="seg" role="radiogroup" aria-label="Reading mode" id="modeSeg">
+        <button role="radio" aria-checked="true" data-mode="read" title="Read">
+          <svg class="ic" aria-hidden="true"><use href="#i-read"/></svg><span>Read</span>
+        </button>
+        <button role="radio" aria-checked="false" data-mode="interlinear" title="Interlinear">
+          <svg class="ic" aria-hidden="true"><use href="#i-interlinear"/></svg><span>Interlinear</span>
+        </button>
+      </div>
+      <button class="icon-btn search-trigger" id="searchTrigger" aria-label="Search">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" aria-label="Switch to night theme">
+        <svg class="ic ic-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+        <svg class="ic ic-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="page" id="main">
+    <div class="column">
+      <div class="tabs" role="tablist" aria-label="Open passages" id="passageTabs">
+        <button role="tab" id="tab-nt" aria-selected="true" aria-controls="passage" data-p="nt">
+          <i class="gem gem-lapis" aria-hidden="true"></i>John 1<span class="tab-lang">Greek</span>
+        </button>
+        <button role="tab" id="tab-ot" aria-selected="false" aria-controls="passage" data-p="ot">
+          <i class="gem gem-ruby" aria-hidden="true"></i>Genesis 1 · Psalm 23<span class="tab-lang">Hebrew</span>
+        </button>
+      </div>
+
+      <div class="il-opts" id="ilOpts" role="group" aria-label="Lines shown beneath each word" hidden>
+        <span class="il-label">Beneath each word</span>
+        <button class="chip" data-il="orig" aria-pressed="true" disabled><span class="chip-tick"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><span id="origChipLabel">Greek</span></button>
+        <button class="chip" data-il="gloss" aria-pressed="true"><span class="chip-tick"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>Gloss</button>
+        <button class="chip" data-il="translit" aria-pressed="false"><span class="chip-tick"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>Transliteration</button>
+        <button class="chip" data-il="parsing" aria-pressed="false"><span class="chip-tick"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>Parsing</button>
+        <button class="chip" data-il="lxx" aria-pressed="false" id="lxxChip"><span class="chip-tick"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span>Septuagint</button>
+      </div>
+
+      <article id="passage" class="passage" aria-labelledby="tab-nt" role="tabpanel">
+        <p class="loading">Opening the text…</p>
+      </article>
+
+      <nav class="chapter-nav" aria-label="Chapters">
+        <a href="#" class="cn cn-prev" id="prevCh"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg><span><small>Previous</small><b id="prevLabel">Luke 24</b></span></a>
+        <a href="#" class="cn cn-next" id="nextCh"><span><small>Next</small><b id="nextLabel">John 2</b></span><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></a>
+      </nav>
+
+      <footer class="credits">
+        <p><b>Berean Standard Bible</b> · public domain. Word alignments by Clear Bible / Biblica (CC BY 4.0).
+          Greek: SBL Greek New Testament (CC BY 4.0). Hebrew: Westminster Leningrad Codex (public domain) with Macula Hebrew (CC BY 4.0).
+          Definitions in this concept are placeholders.</p>
+      </footer>
+    </div>
+
+    <aside class="margin" aria-label="Reading key">
+      <section class="key">
+        <h2 class="eyebrow">Reading key</h2>
+        <p class="key-lede">Hover or tap any word to see the original beneath it.</p>
+        <ul class="key-list">
+          <li><span class="sample lit">Word</span><span>linked to the Greek or Hebrew</span></li>
+          <li><span class="sample lit">the beginning</span><span>several English words, one original word</span></li>
+          <li><span class="sample echo">Word</span><span>the same original word, elsewhere in view</span></li>
+          <li><span class="sample sup">is</span><span>supplied by the translators</span></li>
+        </ul>
+        <p class="key-kbd"><kbd>Tab</kbd> into the text, <kbd>←</kbd> <kbd>→</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close.</p>
+      </section>
+      <section class="key key-tr">
+        <h2 class="eyebrow"><i class="gem gem-gold" aria-hidden="true"></i>BSB · hand-aligned</h2>
+        <p>Every English word points to the exact word of the Greek (SBLGNT) or Hebrew (WLC) text it translates.</p>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Mobile reading dock -->
+  <nav class="dock" aria-label="Reading controls">
+    <button class="dock-btn" aria-label="Previous chapter: Luke 24" id="dockPrev"><svg class="ic" aria-hidden="true"><use href="#i-left"/></svg></button>
+    <button class="dock-main" id="dockPassage" aria-haspopup="dialog" aria-controls="passagePop">
+      <span id="dockLabel">John 1</span><span class="dock-tr">BSB</span>
+    </button>
+    <button class="dock-btn" id="dockMode" aria-pressed="false" aria-label="Interlinear">
+      <svg class="ic" aria-hidden="true"><use href="#i-interlinear"/></svg>
+    </button>
+    <button class="dock-btn" aria-label="Next chapter: John 2" id="dockNext"><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg></button>
+  </nav>
+
+  <!-- Word card (one instance, re-used) -->
+  <div id="card" class="card" role="dialog" aria-modal="false" aria-labelledby="cardTitle" hidden></div>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <!-- Popovers -->
+  <div id="passagePop" class="pop pop-books" role="dialog" aria-label="Choose a passage" hidden></div>
+  <div id="trPop" class="pop pop-tr" role="dialog" aria-label="Choose a translation" hidden></div>
+  <div id="searchPanel" class="pop pop-search" role="dialog" aria-label="Search results" hidden></div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

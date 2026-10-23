@@ -300,7 +300,7 @@ export function parseHebrew(code) {
 export const LOVE_BY_BOOK = [14, 5, 2, 2, 22, 2, 4, 2, 10, 11, 7, 0, 3, 13, 1, 5, 1, 3, 160, 33, 4, 19, 13, 12, 2, 5, 1, 15, 1, 2, 0, 2, 4, 0, 0, 1, 0, 3, 1, 11, 4, 11, 39, 0, 16, 15, 12, 5, 14, 5, 6, 7, 5, 7, 6, 4, 3, 6, 4, 7, 2, 26, 4, 3, 4, 7];
 
 export const LOVE_WORDS = [
-  { lang: 'hbo', word: 'חֶסֶד', translit: 'ḥesed', gloss: 'loving devotion, steadfast love', strongs: 'H2617', n: 247 },
+  { lang: 'hbo', word: 'חֶסֶד', translit: 'ḥesed', gloss: 'loving devotion', strongs: 'H2617', n: 247 },
   { lang: 'grc', word: 'ἀγαπάω', translit: 'agapaō', gloss: 'to love', strongs: 'G25', n: 143 },
   { lang: 'grc', word: 'ἀγάπη', translit: 'agapē', gloss: 'love', strongs: 'G26', n: 116 },
   { lang: 'hbo', word: 'אָהַב', translit: 'ʾāhab', gloss: 'to love', strongs: 'H157', n: 215 },

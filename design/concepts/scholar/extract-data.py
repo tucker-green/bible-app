@@ -308,38 +308,32 @@ for b, cnt in rend.items():
 
 # ---------------------------------------------------------------- lexicon digest
 CURATED = {
-    'G3056': ("A word as the expression of thought: a saying, message or account; also reason "
-              "and reckoning. In John's prologue ὁ λόγος is the eternal, personal self-expression "
-              "of God, through whom all things were made.", 'Abbott-Smith, abridged'),
-    'G0746': ("Beginning, origin, the first place or first cause; hence also rule and authority, "
-              "and (plural) rulers. Ἐν ἀρχῇ deliberately echoes the opening words of Genesis "
-              "in the Greek Bible.", 'Abbott-Smith, abridged'),
-    'G2316': ("A god or deity; in the New Testament chiefly the one true God. With the article it "
-              "usually denotes the Father; without it, as in John 1:1c, it can describe what the "
-              "Word is in nature.", 'Abbott-Smith, abridged'),
-    'H0430': ("Plural in form (“gods”), but with singular verbs the ordinary name of the one true "
-              "God — a plural of majesty. Also used of the gods of the nations, and occasionally "
-              "of angels or judges.", 'BDB, abridged'),
-    'H7225': ("Beginning, first; the first or choicest part, as of firstfruits. In Genesis 1:1 the "
-              "absolute beginning of time and of the created order.", 'BDB, abridged'),
-    'H1254': ("To create, shape, form. In the Qal stem its subject is always God: it names divine "
-              "activity that brings into being what did not exist before.", 'BDB, abridged'),
-    'G0025': ("To love: to value, esteem and act in goodwill toward a person; to prize a thing. "
-              "Used of God's love for the world and of the love believers owe to God and to one "
-              "another.", 'Abbott-Smith, abridged'),
-    'H3068': ("The proper, covenant name of the God of Israel, traditionally read aloud as Adonai "
-              "(“Lord”) and printed LORD in small capitals; associated with “I AM WHO I AM” "
-              "(Exod 3:14).", 'BDB, abridged'),
+    'G3056': ("A word as the expression of thought — a saying, message or account; also reason. "
+              "In John’s prologue, the eternal and personal self-expression of God.", 'Abbott-Smith, abridged'),
+    'G0746': ("Beginning, origin, first cause; also rule or authority, and in the plural, rulers. "
+              "Ἐν ἀρχῇ echoes the first words of Genesis in the Greek Bible.", 'Abbott-Smith, abridged'),
+    'G2316': ("A god or deity; in the New Testament chiefly the one true God. Without the article, "
+              "as in John 1:1c, it can describe what the Word is in nature.", 'Abbott-Smith, abridged'),
+    'H0430': ("Plural in form (“gods”), yet with singular verbs the ordinary name of the one true "
+              "God — a plural of majesty. Also used of pagan gods, angels or judges.", 'BDB, abridged'),
+    'H7225': ("Beginning, first; the first or choicest part, as of firstfruits. In Genesis 1:1, the "
+              "absolute beginning of time and of creation.", 'BDB, abridged'),
+    'H1254': ("To create, shape, form. In the Qal its subject is always God: divine activity that "
+              "brings into being what did not exist before.", 'BDB, abridged'),
+    'G0025': ("To love: to value, esteem and act in goodwill toward someone; to prize something. "
+              "Used of God’s love for the world, and of love for God and neighbour.", 'Abbott-Smith, abridged'),
+    'H3068': ("The covenant name of the God of Israel, read aloud as Adonai (“Lord”) and printed "
+              "LORD in small capitals; linked with “I AM” (Exod 3:14).", 'BDB, abridged'),
     'G2222': ("Life — natural life, and above all in John the life that belongs to God and is "
-              "given through the Son: “eternal life.”", 'Abbott-Smith, abridged'),
+              "given through the Son: eternal life.", 'Abbott-Smith, abridged'),
     'G5457': ("Light, as opposed to darkness; figuratively the truth and holiness of God made "
               "known, and the one who makes it known.", 'Abbott-Smith, abridged'),
     'G4653': ("Darkness; figuratively the realm of ignorance and evil that stands opposed to the "
               "light of God.", 'Abbott-Smith, abridged'),
     'H0216': ("Light — daylight, the light of the luminaries, and figuratively life, prosperity "
               "and the presence of God.", 'BDB, abridged'),
-    'H7473': ("To pasture, tend, shepherd a flock; as a participle, “shepherd” — a frequent image "
-              "of a king's care for his people, and of God's.", 'BDB, abridged'),
+    'H7473': ("To pasture, tend or shepherd a flock; as a participle, “shepherd” — an image of a "
+              "king’s care for his people, and of God’s.", 'BDB, abridged'),
 }
 
 
