@@ -28,7 +28,7 @@ The BSB (hand-aligned word for word) is offered second as the most precise align
 - `npm test` — Vitest unit tests (tests/)
 - `npm run e2e` — Playwright tests (e2e/); Chromium is preinstalled at /opt/pw-browsers
 - `npm run data:fetch` — download raw sources to .cache/sources/ (Node fetch needs `NODE_USE_ENV_PROXY=1` behind a proxy)
-- `npm run data:build [-- stage ...]` — regenerate public/data/ (stages: orig bsb lexicon concordance kjv bridged search meta validate)
+- `npm run data:build [-- stage ...]` — regenerate public/data/ (stages: orig bsb kjv bridged concordance lexicon search meta validate)
 
 ## Conventions
 - `src/lib/types.ts` is the contract for every generated JSON file. Change it only deliberately and

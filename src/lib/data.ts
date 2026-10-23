@@ -327,7 +327,8 @@ export function loadConcChunk(id: string): Promise<ConcChunk> {
 
 /**
  * Every verse (packed: bookNum*1e6 + chapter*1e3 + verse, see unpackRef) where a Strong's
- * number occurs, sorted. Extended ids use their base number. [] when unknown.
+ * number occurs, sorted. Hebrew prefix/suffix morpheme ids keep their own list; other extended ids
+ * use their base number. [] when unknown.
  */
 export async function loadConcordance(id: string): Promise<number[]> {
   const norm = normalizeStrongs(id);
@@ -339,7 +340,9 @@ export async function loadConcordance(id: string): Promise<number[]> {
     if (err instanceof DataError && err.status === 404) return [];
     throw err;
   }
-  return chunk[baseStrongs(norm)] ?? [];
+  // Hebrew prefix/suffix morpheme ids (H2050b 'and', H0871a 'in', …) have their own list; other
+  // extended ids fall back to their base number.
+  return chunk[norm] ?? chunk[baseStrongs(norm)] ?? [];
 }
 
 /** public/data/search/{TR}.json (only the most recent corpus is kept; the search worker normally loads these itself). */

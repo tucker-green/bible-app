@@ -240,8 +240,10 @@ export type LexIndex = [id: string, lemma: string, translit: string, gloss: stri
 /* ------------------------------------------------------------------------ */
 
 /**
- * Same chunking as the lexicon. Maps a Strong's id (base id, no extension letter)
- * to the sorted, de-duplicated list of English-versification verses where it occurs.
+ * Same chunking as the lexicon. Maps a Strong's id to the sorted, de-duplicated list of
+ * English-versification verses where it occurs. Keys are base ids (no extension letter), except the
+ * Hebrew prefix/suffix morpheme ids (H2050b 'and', H1886a 'the', H0871a 'in', …), which keep their
+ * full id because their base number is an unrelated word (see usageKey in scripts/data/lexicon.ts).
  * A verse ref is packed as  bookNum * 1_000_000 + chapter * 1_000 + verse.
  */
 export type ConcChunk = Record<string, number[]>;

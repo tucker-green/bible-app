@@ -3,7 +3,7 @@
  * Lexicon entries and concordance counts are loaded separately by the card component.
  */
 import { getBook } from '../../lib/books';
-import { baseStrongs, normalizeStrongs, toWord, wordGroup } from '../../lib/data';
+import { normalizeStrongs, toWord, wordGroup } from '../../lib/data';
 import type { Word } from '../../lib/data';
 import { transliterate } from '../../lib/greek';
 import { describeMorph } from '../../lib/morph';
@@ -243,9 +243,12 @@ function isAramaicWord(orig: NonNullable<ChapterModel['orig']>, i: number): bool
   return Boolean(orig.aramaic?.includes(i));
 }
 
-/** Base Strong's used for concordance / related lookups. */
+/**
+ * Strong's id used for concordance lookups: the full id, so Hebrew prefix/suffix morphemes
+ * (H2050b 'and', H0871a 'in') get their own counts; loadConcordance falls back to the base number.
+ */
 export function cardBaseStrongs(c: CardModel): string {
-  return c.strongs ? baseStrongs(c.strongs) : '';
+  return c.strongs ?? '';
 }
 
 /** A one-line spoken summary for the live region: "λόγος, logos, noun: word". */

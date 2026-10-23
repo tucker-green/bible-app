@@ -54,6 +54,32 @@ export interface Settings {
   headings: boolean;
   /** Raw morphology codes (N-NSM, Ncmpa) beside the plain-English parsing in the word card. */
   morphCodes: boolean;
+
+  /* docs/EXPERIENCE.md — feedback, accessibility and touch preferences */
+  /** Haptic feedback on touch devices (vibration / iOS switch haptic). */
+  haptics: boolean;
+  /** Synthesized sound effects (tick, chime, page turn). Off by default. */
+  sound: boolean;
+  /** Sound effects volume 0–1. */
+  soundVolume: number;
+  /** Reading typeface. */
+  readingFont: 'literata' | 'atkinson' | 'opendyslexic';
+  /** Line spacing multiplier for the reading text (1 = design default). */
+  lineSpacing: number;
+  /** Extra letter spacing in em (0 = design default). */
+  letterSpacing: number;
+  /** Justified reading text. */
+  justify: boolean;
+  /** In-app override: stronger borders/outlines, no tinted-only highlights (also follows prefers-contrast). */
+  highContrast: boolean;
+  /** In-app override of prefers-reduced-motion: 'system' follows the OS. */
+  motion: 'system' | 'reduce' | 'full';
+  /** Swipe left/right on the text to change chapter (touch). */
+  swipeChapters: boolean;
+  /** Red-letter words of Jesus. */
+  redLetter: boolean;
+  /** Text-to-speech voice rate for Listen mode (0.75–1.5). */
+  listenRate: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -64,6 +90,18 @@ export const DEFAULT_SETTINGS: Settings = {
   layout: 'auto',
   headings: true,
   morphCodes: true,
+  haptics: true,
+  sound: false,
+  soundVolume: 0.6,
+  readingFont: 'literata',
+  lineSpacing: 1,
+  letterSpacing: 0,
+  justify: false,
+  highContrast: false,
+  motion: 'system',
+  swipeChapters: true,
+  redLetter: true,
+  listenRate: 1,
 };
 
 /* ------------------------------------------------------------------------ */
@@ -116,6 +154,12 @@ export const readingMode = signal<ReadingMode>(loadMode());
 /** Reading-text size multiplier (0.8–1.5). */
 export const fontScale = signal<number>(loadFontScale());
 export const settings = signal<Settings>(loadSettings());
+
+/** Listen mode: the verse currently being read aloud (the reader highlights and scrolls to it), or null. */
+export const listeningVerse = signal<number | null>(null);
+
+/** The verse whose action sheet is open (cross references, highlight, note, compare, listen…), or null. */
+export const verseSheet = signal<{ key: string; verse: number } | null>(null);
 
 /** The word under the pointer / keyboard focus (card shown as a tooltip). */
 export const activeWord = signal<WordRef | null>(null);
