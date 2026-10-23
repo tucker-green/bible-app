@@ -6,11 +6,15 @@ import './styles/print.css';
 import { render } from 'preact';
 import { App } from './app/App';
 import { startRouter } from './app/router';
+import { initRemoteTranslations } from './app/remote';
 import { initState, meta, metaError, passage } from './app/state';
 import { routeTransition } from './app/transitions';
 import { loadMeta, prefetchChapter } from './lib/data';
+import { initPwa } from './pwa';
 
 initState();
+// Saved API.Bible translations (the NIV…) before the router runs, so #/NIV/… links open cold.
+initRemoteTranslations();
 // Chapter and page changes animate with View Transitions where supported (src/app/transitions.ts).
 startRouter(window, { wrap: routeTransition });
 
@@ -28,3 +32,5 @@ loadMeta().then(
 );
 
 render(<App />, document.getElementById('app')!);
+// Service worker, update toast, offline banner, install prompt (src/pwa.ts).
+initPwa();

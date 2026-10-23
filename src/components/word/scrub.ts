@@ -2,7 +2,7 @@
  * Press-and-slide scrubbing state (docs/EXPERIENCE.md §2.3) shared by the reader controller (which
  * drives it), the loupe (which floats above the finger) and the one-time coach mark.
  */
-import { signal } from '@preact/signals';
+import { computed, signal } from '@preact/signals';
 import { readString, writeString } from '../../app/storage';
 
 export interface ScrubState {
@@ -17,6 +17,11 @@ export interface ScrubState {
 
 /** Non-null while the reader is in scrub mode. */
 export const scrub = signal<ScrubState | null>(null);
+/** True while scrubbing (changes only on engage / lift — cheap to subscribe to). */
+export const scrubbing = computed(() => scrub.value !== null);
+
+/** Visible sheet height (fraction of the viewport) while scrubbing: low, so the text stays free. */
+export const SCRUB_SHEET_PEEK = 0.26;
 
 /** Long-press time before scrubbing engages. */
 export const SCRUB_HOLD_MS = 300;

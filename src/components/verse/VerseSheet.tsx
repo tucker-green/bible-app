@@ -29,7 +29,7 @@ import type { ChapterModel, Unit } from '../reader/model';
 import { unitOrigWords } from '../reader/model';
 import { UiIcon } from '../shell/icons';
 import type { UiIconName } from '../shell/icons';
-import { useBackClose, useSheet } from '../shell/sheet';
+import { useBackClose, useSheet, useSheetClass } from '../shell/sheet';
 import { displayStrongs } from '../word/cardModel';
 import { CompareSection } from './CompareSection';
 import { HighlightSection } from './HighlightSection';
@@ -143,6 +143,7 @@ export function VerseSheet({ model, controller }: { model: ChapterModel | null; 
   const close = () => closeVerseSheet();
   const api = useSheet(ref, { open: open && sheet, enabled: sheet, onClose: close, peek: 0.6 });
   useBackClose(open && sheet, close);
+  useSheetClass(open && sheet);
 
   // Focus in on open; back to the verse number on close.
   useEffect(() => {
@@ -282,7 +283,11 @@ export function VerseSheet({ model, controller }: { model: ChapterModel | null; 
               <UiIcon name="close" />
             </button>
           </header>
-          {text && <blockquote class={`vs-quote${hl ? ` has-hl hl-${hl}` : ''}`}>{text}</blockquote>}
+          {text && (
+            <blockquote class={`vs-quote${hl ? ` has-hl hl-${hl}` : ''}`}>
+              <span class="vs-quote__txt">{text}</span>
+            </blockquote>
+          )}
 
           <div class="vs-acts" role="group" aria-label="Verse actions">
             <Action icon="copy" label="Copy" onClick={doCopy} />

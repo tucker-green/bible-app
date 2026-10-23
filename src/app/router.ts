@@ -200,6 +200,8 @@ export function startRouter(win: Window = window, opts: RouterOptions = {}): () 
     const to = r;
     const update = () => {
       if (mine !== seq) return; // a later hash change superseded this one
+      // Leaving #/search (Back, a link, a typed URL) closes the panel that route opened.
+      if (route.peek().name === 'search' && to.name !== 'search') searchOpen.value = false;
       route.value = to;
       if (to.name === 'read') {
         const prev = passage.value;

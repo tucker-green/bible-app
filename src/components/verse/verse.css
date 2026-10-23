@@ -55,13 +55,13 @@
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 36px; height: 36px; margin: -4px -8px 0 0; border-radius: 8px; color: var(--ink-3);
 }
-.vs-close:hover { background: var(--sunken); color: var(--ink); }
+@media (hover: hover) { .vs-close:hover { background: var(--sunken); color: var(--ink); } }
 .vs-quote {
   margin: 0 0 14px; padding: 10px 12px; border-left: 3px solid var(--rule-2); border-radius: 0 6px 6px 0;
   background: var(--sunken);
   font: 400 15px/1.55 var(--font-read); color: var(--ink);
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden;
 }
+.vs-quote__txt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
 .vs-quote.has-hl { border-left-width: 4px; }
 .vs-quote.hl-yellow { background: var(--hl-yellow); border-left-color: var(--hl-yellow-line); }
 .vs-quote.hl-green { background: var(--hl-green); border-left-color: var(--hl-green-line); border-left-style: double; border-left-width: 5px; }
@@ -79,7 +79,7 @@
   transition: background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
 .vs-act .icon { width: 22px; height: 22px; color: var(--blue); }
-.vs-act:hover { background: var(--sunken); color: var(--ink); }
+@media (hover: hover) { .vs-act:hover { background: var(--sunken); color: var(--ink); } }
 .vs-act:active { background: var(--wash); transform: scale(.96); }
 .vs-act[aria-pressed="true"] { background: var(--wash); }
 .vs-act[aria-pressed="true"] span { font-weight: 700; }
@@ -94,7 +94,7 @@
   display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; padding: 6px 2px;
   border-radius: 8px; border: 1px solid transparent; color: var(--ink-2); font: 500 11.5px/1.2 var(--font-ui);
 }
-.vs-swatch:hover { background: var(--sunken); }
+@media (hover: hover) { .vs-swatch:hover { background: var(--sunken); } }
 .vs-swatch[aria-pressed="true"] { border-color: var(--edge); background: var(--sunken); color: var(--ink); font-weight: 700; }
 .vs-swatch__chip { width: 28px; height: 20px; border-radius: 5px; border: 1px solid var(--rule-2); position: relative; }
 .vs-swatch__chip::after { content: ''; position: absolute; left: 4px; right: 4px; bottom: 3px; border-bottom: 2px solid; }
@@ -134,8 +134,8 @@
 
 @media (pointer: coarse) {
   .vs-close { width: 44px; height: 44px; margin: -8px -12px 0 0; }
-  .vs-word__en { min-height: 44px; display: inline-flex; align-items: center; }
-  .vs-word__sn { padding: 12px 10px; }
+  .vs-word__en { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
+  .vs-word__sn { min-height: 44px; display: inline-flex; align-items: center; padding: 0 10px; }
 }
 @media (forced-colors: active) {
   .vs-act[aria-pressed="true"], .vs-swatch[aria-pressed="true"] { outline: 2px solid Highlight; }

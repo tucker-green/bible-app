@@ -35,6 +35,7 @@ import { nextChapter, prevChapter } from '../../lib/data';
 import { formatChapter, parseReference, refToHash } from '../../lib/reference';
 import { shortName } from '../common/alignment';
 import { BrandMark, Icon } from '../common/Icon';
+import { SEARCH_LISTBOX_ID, searchCombo } from '../search/combobox';
 import { UiIcon } from '../shell/icons';
 import { DisplayPanel } from '../toolbar/DisplayPanel';
 import { BookPicker } from './BookPicker';
@@ -141,7 +142,11 @@ function SearchField() {
           spellcheck={false}
           enterKeyHint="search"
           placeholder="Search words, λόγος, G3056 or Jn 3:16"
-          aria-controls={open ? 'search-panel' : undefined}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open && searchCombo.value.expanded}
+          aria-controls={open ? (searchCombo.value.expanded ? SEARCH_LISTBOX_ID : 'search-panel') : undefined}
+          aria-activedescendant={(open && searchCombo.value.activeId) || undefined}
           value={searchQuery.value}
           onFocus={() => openSearch()}
           onInput={(e) => {
@@ -185,16 +190,10 @@ export function Header() {
   return (
     <header class="masthead" id="masthead">
       <div class="masthead__inner">
-        <a
-          class="brand"
-          href={refToHash(tr, { book: ref.book, chapter: ref.chapter })}
-          title="Rootword — back to reading"
-          aria-label="Rootword — back to reading"
-        >
+        <a class="brand" href={refToHash(tr, { book: ref.book, chapter: ref.chapter })} title="Rootword — back to reading">
           <BrandMark />
-          <span class="brand__word" aria-hidden="true">
-            Rootword
-          </span>
+          <span class="brand__word">Rootword</span>
+          <span class="sr-only">, back to reading</span>
         </a>
         <span class="hdr-sep" aria-hidden="true" />
 

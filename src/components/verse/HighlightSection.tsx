@@ -1,45 +1,65 @@
 /**
- * Verse sheet → Highlight. MINIMAL STUB: the personal-study agent replaces this file (keep the
- * export name and props). It already toggles the `highlights` signal of src/app/study.ts so the
- * reader's decorations can be seen; persistence belongs to study.ts.
- * Each colour has a name and a distinct underline pattern (never colour alone).
+ * Verse sheet → Highlight: five named colours (each with its own underline pattern, so colour is
+ * never the only cue) and "Remove". Pressing the current colour again also removes it.
+ * Writes through setHighlight() in src/app/study.ts (persisted in this browser); the reader's
+ * decorations follow the signal.
  */
-import { highlights, HIGHLIGHT_COLORS, verseKey } from '../../app/study';
+import { HIGHLIGHT_COLORS, HIGHLIGHT_NAMES, HIGHLIGHT_PATTERNS, highlights, setHighlight, verseKey } from '../../app/study';
 import type { HighlightColor } from '../../app/study';
 import { showToast } from '../../app/state';
 import { feedback } from '../../lib/feedback';
+import { formatReference } from '../../lib/reference';
+import { StudyIcon } from '../study/icons';
+import { Swatch } from '../study/Swatch';
+import '../study/study.css';
 import type { VerseSectionProps } from './types';
-
-const NAMES: Record<HighlightColor, string> = { yellow: 'Yellow', green: 'Green', blue: 'Blue', pink: 'Pink', purple: 'Purple' };
 
 export function HighlightSection({ book, chapter, verse }: VerseSectionProps) {
   const key = verseKey(book, chapter, verse);
   const cur = highlights.value[key];
+  const ref = formatReference({ book, chapter, verse });
   const set = (c: HighlightColor | null) => {
-    const next = { ...highlights.value };
-    if (c) next[key] = c;
-    else delete next[key];
-    highlights.value = next;
-    feedback('success');
-    showToast(c ? `Highlighted ${NAMES[c].toLowerCase()}` : 'Highlight removed');
+    if (!setHighlight(key, c)) return;
+    feedback('select');
+    showToast(c ? `${ref} highlighted ${HIGHLIGHT_NAMES[c].toLowerCase()}` : 'Highlight removed');
   };
   return (
-    <section class="vs-sec" aria-labelledby="vs-hl-title">
-      <h3 class="vs-sec__title" id="vs-hl-title">
-        Highlight
-      </h3>
-      <div class="vs-swatches" role="group" aria-label="Highlight colour">
+    <section class="vs-sec ms-hl" aria-labelledby="vs-hl-title">
+      <div class="ms-hl__head">
+        <h3 class="vs-sec__title" id="vs-hl-title">
+          Highlight
+        </h3>
+        {cur && (
+          <button type="button" class="ms-hl__remove" onClick={() => set(null)}>
+            <StudyIcon name="erase" />
+            <span>Remove</span>
+          </button>
+        )}
+      </div>
+      <div class="ms-hl__row" role="group" aria-label="Highlight colour">
         {HIGHLIGHT_COLORS.map((c) => (
           <button
             key={c}
             type="button"
-            class={`vs-swatch vs-swatch--${c}`}
+            class="ms-hl__opt"
+            data-c={c}
             aria-pressed={cur === c}
+            aria-describedby={`ms-hl-pat-${c}`}
             onClick={() => set(cur === c ? null : c)}
           >
-            <span class="vs-swatch__chip" aria-hidden="true" />
-            <span class="vs-swatch__name">{NAMES[c]}</span>
+            <span class="ms-hl__chip">
+              <Swatch color={c} />
+              {cur === c && <StudyIcon name="check" class="ms-hl__tick" />}
+            </span>
+            <span class="ms-hl__name">{HIGHLIGHT_NAMES[c]}</span>
           </button>
+        ))}
+      </div>
+      <div hidden>
+        {HIGHLIGHT_COLORS.map((c) => (
+          <span key={c} id={`ms-hl-pat-${c}`}>
+            {HIGHLIGHT_PATTERNS[c]} underline
+          </span>
         ))}
       </div>
     </section>

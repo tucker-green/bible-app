@@ -196,7 +196,8 @@
 
 /* ---- reading fonts (loaded on demand, see loadReadingFont in src/app/state.ts) ---------------- */
 :root[data-font="atkinson"] { --font-read: 'Atkinson Hyperlegible Next Variable', 'Atkinson Hyperlegible Next', var(--font-ui); }
-:root[data-font="opendyslexic"] { --font-read: 'OpenDyslexic', 'Comic Sans MS', var(--font-ui); }
+:root[data-font="opendyslexic"] { --font-read: 'OpenDyslexic', 'Comic Sans MS', var(--font-ui); --read-size: .88; }
+:root[data-font="atkinson"] { --read-size: 1.02; }
 
 /* ---- high contrast (Settings, or prefers-contrast: more → html[data-contrast="more"]) -----------
    Stronger rules and labels, a heavier focus ring; tinted-only states gain outlines/underlines

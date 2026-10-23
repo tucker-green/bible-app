@@ -40,6 +40,8 @@
 @media (prefers-contrast: more) {
   .speak { border-color: var(--edge); color: var(--ink); }
 }
+:root[data-contrast="more"] .speak { border-color: var(--edge); color: var(--ink); }
+:root[data-contrast="more"] .speak[aria-pressed="true"] { border-width: 2px; border-color: var(--blue); }
 @media (forced-colors: active) {
   .speak { border: 1px solid ButtonText; color: ButtonText; background: ButtonFace; }
   .speak[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }

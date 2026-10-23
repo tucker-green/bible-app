@@ -2,7 +2,7 @@
 // Downloads every raw dataset the data pipeline needs into .cache/sources/.
 // Files already present are skipped; pass --force to re-download.
 //
-// All sources are public domain or openly licensed; see docs/DATA_FORMAT.md#credits.
+// All sources are public domain or openly licensed; see README.md (Data sources & licences) and public/data/meta.json credits.
 import { createWriteStream, existsSync, mkdirSync, renameSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';

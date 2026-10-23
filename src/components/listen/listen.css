@@ -26,7 +26,7 @@
   animation: rw-listen-in var(--dur-2, 200ms) var(--ease-out, ease-out);
   -webkit-tap-highlight-color: transparent;
 }
-.listen.has-auto-bottom { bottom: calc(var(--listen-auto-bottom) + 8px); }
+.listen[data-auto-bottom] { bottom: calc(var(--listen-auto-bottom) + 8px); }
 @keyframes rw-listen-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 @media (pointer: coarse) {
@@ -131,17 +131,6 @@
   .listen__short { display: inline; }
 }
 
-/* "on air" meter: three bars that move while the voice is reading */
-.listen__meter { display: inline-flex; align-items: flex-end; gap: 2px; width: 12px; height: 11px; flex: none; }
-.listen__meter i { display: block; width: 2.5px; height: 4px; border-radius: 1px; background: var(--blue); opacity: .55; transform-origin: 50% 100%; }
-.listen.is-playing .listen__meter i { opacity: 1; animation: rw-listen-meter 1.05s var(--ease) infinite; }
-.listen.is-playing .listen__meter i:nth-child(1) { height: 11px; animation-delay: -.2s; }
-.listen.is-playing .listen__meter i:nth-child(2) { height: 11px; animation-delay: -.55s; }
-.listen.is-playing .listen__meter i:nth-child(3) { height: 11px; animation-delay: -.85s; }
-.listen.is-paused .listen__meter i:nth-child(2), .listen.is-ended .listen__meter i:nth-child(2) { height: 7px; }
-.listen.is-error .listen__meter i { background: var(--accent); }
-@keyframes rw-listen-meter { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
-
 /* ---- options popover (speed + continue) ---------------------------------------------- */
 .listen__menu {
   position: absolute; right: 6px; bottom: calc(100% + 8px);
@@ -211,8 +200,8 @@
     padding: 5px 6px 5px 8px;
     animation-name: rw-listen-in-c;
   }
-  .listen.has-auto-bottom { bottom: calc(var(--listen-auto-bottom) + 12px); }
-  .listen.is-aligned { transform: none; animation-name: rw-listen-in; }
+  .listen[data-auto-bottom] { bottom: calc(var(--listen-auto-bottom) + 12px); }
+  .listen[data-aligned] { transform: none; animation-name: rw-listen-in; }
   .listen__play { margin-right: 10px; }
   .listen__menu { width: 300px; }
 }
@@ -232,18 +221,18 @@
 }
 
 /* ---- docked in the shell's bottom dock (in flow, above the phone toolbar) ---------------- */
-.listen.is-docked, .listen-dock > .listen {
+.listen[data-docked], .listen-dock > .listen {
   position: relative; left: auto; right: auto; bottom: auto; transform: none;
   flex: 1 1 auto; width: auto; min-width: 0;
   margin: 0 8px 8px;
 }
 @media (min-width: 600px) {
-  .listen.is-docked, .listen-dock > .listen { margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .listen[data-docked], .listen-dock > .listen { margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (min-width: 720px) {
-  .listen.is-docked, .listen-dock > .listen { flex: 0 1 auto; width: min(680px, calc(100% - 48px)); margin-left: auto; margin-right: auto; animation-name: rw-listen-in; }
-  .listen.is-docked.is-aligned { width: var(--listen-w); margin-left: var(--listen-x); margin-right: auto; }
-  .listen.is-aligned:not(.is-docked) { left: var(--listen-x); width: var(--listen-w); }
+  .listen[data-docked], .listen-dock > .listen { flex: 0 1 auto; width: min(680px, calc(100% - 48px)); margin-left: auto; margin-right: auto; animation-name: rw-listen-in; }
+  .listen[data-docked][data-aligned] { width: var(--listen-w); margin-left: var(--listen-x); margin-right: auto; }
+  .listen[data-aligned]:not([data-docked]) { left: var(--listen-x); width: var(--listen-w); }
 }
 
 /* ---- make room for the bar ------------------------------------------------------------ */
@@ -254,18 +243,21 @@ html.has-listen-float .toast { bottom: calc(var(--listen-top, 84px) + 12px); }
 /* ---- motion, contrast, forced colours ---------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .listen, .listen__menu { animation-name: rw-listen-fade; }
-  .listen.is-playing .listen__meter i { animation: none; transform: none; }
   .listen__spin { animation: none; border-top-color: color-mix(in srgb, var(--on-blue) 30%, transparent); border-right-color: var(--on-blue); }
 }
 :root[data-motion="reduce"] .listen, :root[data-motion="reduce"] .listen__menu { animation-name: rw-listen-fade; }
-:root[data-motion="reduce"] .listen.is-playing .listen__meter i { animation: none; transform: none; }
 @keyframes rw-listen-fade { from { opacity: 0; } to { opacity: 1; } }
 
+/* stronger edges with prefers-contrast: more or Settings → High contrast (html[data-contrast="more"]) */
 @media (prefers-contrast: more) {
   .listen, .listen__menu { border-color: var(--edge); }
   .listen__progress { background: var(--edge); }
   .listen__btn, .listen__sub, .listen__tr { color: var(--ink); }
 }
+:root[data-contrast="more"] .listen, :root[data-contrast="more"] .listen__menu { border-color: var(--edge); }
+:root[data-contrast="more"] .listen__progress { background: var(--edge); }
+:root[data-contrast="more"] :is(.listen__btn, .listen__sub, .listen__tr) { color: var(--ink); }
+:root[data-contrast="more"] .listen__seg input:checked + span { outline: 2px solid var(--ink); outline-offset: -2px; }
 
 @media (forced-colors: active) {
   .listen, .listen__menu { border: 1px solid CanvasText; }

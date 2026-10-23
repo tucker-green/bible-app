@@ -134,11 +134,6 @@ export function ListenBar() {
       </button>
       <div class="listen__info">
         <p class="listen__title">
-          <span class="listen__meter" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
           <span class="listen__name">
             <span class="listen__long">{chapterName}</span>
             <span class="listen__short" aria-hidden="true">
@@ -306,7 +301,8 @@ function useBarLayout(ref: RefObject<HTMLElement>, visible: boolean): void {
     const el = ref.current;
     if (!el) return;
     const docked = Boolean(el.parentElement?.closest('.listen-dock, .dock'));
-    el.classList.toggle('is-docked', docked);
+    // data-* (not classes): Preact owns `class` and rewrites it on every status change.
+    el.toggleAttribute('data-docked', docked);
     root.classList.add('has-listen');
     if (!docked) root.classList.add('has-listen-float');
     let raf = 0;
@@ -319,14 +315,14 @@ function useBarLayout(ref: RefObject<HTMLElement>, visible: boolean): void {
       if (r && r.width >= 320 && r.left >= 0 && r.right <= vw + 1) {
         el.style.setProperty('--listen-x', `${Math.round(r.left)}px`);
         el.style.setProperty('--listen-w', `${Math.round(r.width)}px`);
-        el.classList.add('is-aligned');
+        el.setAttribute('data-aligned', '');
       } else {
-        el.classList.remove('is-aligned');
+        el.removeAttribute('data-aligned');
       }
       if (docked) return;
       const contract = getComputedStyle(root).getPropertyValue('--bottom-bar-h').trim();
       const auto = contract ? 0 : bottomObstacle(el);
-      el.classList.toggle('has-auto-bottom', auto > 0);
+      el.toggleAttribute('data-auto-bottom', auto > 0);
       el.style.setProperty('--listen-auto-bottom', `${auto}px`);
       const top = window.innerHeight - el.getBoundingClientRect().top;
       if (top > 0 && Number.isFinite(top)) root.style.setProperty('--listen-top', `${Math.round(top)}px`);

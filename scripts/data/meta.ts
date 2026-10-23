@@ -135,14 +135,55 @@ const YLT_CREDIT: Credit = {
   url: 'https://github.com/scrollmapper/bible_databases',
 };
 
-/** Translations / credits for the given set of present translation ids. */
-export function metaFor(present: (id: string) => boolean): Pick<DataMeta, 'translations' | 'credits'> {
+const RED_LETTER_CREDIT: Credit = {
+  name: 'King James Version red-letter markup (eBible.org edition, via open-bibles)',
+  license: 'Public domain',
+  url: OPEN_BIBLES,
+  note: 'The words of Jesus as marked in eng-kjv.osis.xml; carried over to the other translations through the word links.',
+};
+
+const XREF_CREDIT: Credit = {
+  name: 'OpenBible.info cross references',
+  license: 'CC BY',
+  url: 'https://www.openbible.info/labs/cross-references/',
+  note: 'About 340,000 community-voted cross references, derived in part from the Treasury of Scripture Knowledge.',
+};
+
+const NAMES_CREDIT: Credit = {
+  name: 'STEPBible TIPNR — Translators Individualised Proper Names with all References',
+  license: 'CC BY 4.0',
+  url: 'https://github.com/STEPBible/STEPBible-Data',
+  note: 'People, places and family links by Tyndale House, Cambridge (STEPBible.org).',
+};
+
+/** Optional datasets: present when their pipeline stage has produced output. */
+export interface StudyData {
+  /** The redletter stage marked the KJV (TextVerse.wj). */
+  redLetter?: boolean;
+  /** public/data/xref exists. */
+  xrefs?: boolean;
+  /** public/data/names exists. */
+  names?: boolean;
+}
+
+/** Translations / credits for the given set of present translation ids and study datasets. */
+export function metaFor(present: (id: string) => boolean, data: StudyData = {}): Pick<DataMeta, 'translations' | 'credits'> {
   const translations = TRANSLATIONS.filter((t) => present(t.id));
   const credits = [...CORE_CREDITS];
   if (present('KJV')) credits.push(KJV_CREDIT);
   if (['WEB', 'ASV'].some(present)) credits.push(OPEN_BIBLES_CREDIT);
   if (present('YLT')) credits.push(YLT_CREDIT);
+  if (data.redLetter) credits.push(RED_LETTER_CREDIT);
+  if (data.xrefs) credits.push(XREF_CREDIT);
+  if (data.names) credits.push(NAMES_CREDIT);
   return { translations, credits };
+}
+
+/** Which optional datasets public/data/ holds (see StudyData). */
+export function studyDataPresent(): StudyData {
+  const sermon = outPath('text', 'KJV', 'MAT', '5.json');
+  const redLetter = existsSync(sermon) && readJson<TextChapter>(sermon).verses.some((v) => v.wj?.length);
+  return { redLetter, xrefs: existsSync(outPath('xref')), names: existsSync(outPath('names')) };
 }
 
 export function buildMeta(): void {
@@ -159,7 +200,7 @@ export function buildMeta(): void {
   const meta: DataMeta = {
     version: DATA_VERSION,
     generated: new Date().toISOString().slice(0, 10),
-    ...metaFor((id) => existsSync(outPath('text', id))),
+    ...metaFor((id) => existsSync(outPath('text', id)), studyDataPresent()),
     books,
   };
   const bytes = writeJson(outPath('meta.json'), meta);

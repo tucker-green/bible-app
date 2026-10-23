@@ -1,0 +1,54 @@
+/* Harness-only stand-ins for the shell around the listen bar (header, reading column, dock,
+   phone toolbar) and for the word card's placement. Not part of the app. */
+body { background: var(--paper); }
+
+.hx-head {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 16px;
+  height: 56px; padding: 0 16px;
+  background: var(--header-bg); border-bottom: 1px solid var(--rule);
+  backdrop-filter: blur(12px);
+  font: 600 15px/1 var(--font-ui);
+}
+.hx-brand { font-family: var(--font-text); font-size: 20px; }
+.hx-where { color: var(--ink-2); font-weight: 500; }
+@media (max-width: 599.98px) { .hx-brand { display: none; } }
+
+.hx-main { padding: 0 16px calc(var(--hx-dock, 140px)); }
+.hx-text { max-width: 680px; margin: 0 auto; padding-top: 32px; }
+@media (min-width: 1200px) { .hx-text { margin-left: calc(50% - 250px); } }
+.hx-chead { margin-bottom: 28px; }
+.hx-title { font: 400 var(--fs-title)/1 var(--font-text); letter-spacing: -.025em; margin: 10px 0 14px; }
+.hx-title .num { color: var(--accent); font-weight: 250; }
+.hx-rule { display: block; width: 40px; height: 2px; background: var(--ink); margin-bottom: 16px; }
+.hx-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.hx-meta { color: var(--ink-2); font-size: var(--fs-meta); }
+.hx-prose { font: 400 var(--fs-text)/var(--lh-text) var(--font-text); }
+.hx-verse { margin: 0 0 .35em; padding: 2px 6px; margin-inline: -6px; border-radius: 6px; transition: background-color var(--dur-2) var(--ease); }
+.hx-verse.is-listening { background: var(--wash); box-shadow: inset 3px 0 0 var(--blue); }
+.hx-vn { font: 650 .56em/1 var(--font-ui); color: var(--accent); vertical-align: .62em; }
+
+/* the shell's bottom dock (copy of src/app/app.css) */
+.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 55; display: flex; flex-direction: column; pointer-events: none; }
+.listen-dock { pointer-events: none; display: flex; justify-content: center; }
+.listen-dock > * { pointer-events: auto; }
+.listen-dock:empty { display: none; }
+
+.hx-toolbar {
+  display: none; grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+  background: var(--header-bg); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--rule); pointer-events: auto;
+}
+.hx-tb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; color: var(--ink-2); font: 550 11px/1.1 var(--font-ui); }
+.hx-tb-ico { width: 20px; height: 16px; border: 1.6px solid currentColor; border-radius: 4px; }
+@media (max-width: 599.98px) { .hx-toolbar { display: grid; } }
+
+/* word card placement */
+.hx-cards { display: flex; flex-wrap: wrap; gap: 32px; padding: 32px 16px; align-items: flex-start; justify-content: center; }
+.hx-cards .word-card { position: relative; animation: none; }
+.hx-say { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.card__duo .hx-say { margin-top: 2px; }
+.card__duo .hx-say .card__translit { margin-top: 0; }
+.hx-def { padding-bottom: 14px; }
+.hx-sizes { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 12px 0 14px; border-top: 1px solid var(--rule); }

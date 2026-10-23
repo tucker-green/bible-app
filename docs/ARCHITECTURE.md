@@ -14,8 +14,12 @@ scripts/
     bsb.ts                 BSB tokens + manual alignments + headings -> public/data/text/BSB/...
     kjv.ts                 KJV with Strong's -> text/KJV/... (links by Strong's within the verse)
     bridged.ts             WEB / ASV / YLT -> text/{TR}/... aligned through the BSB (src/lib/align)
+    redletter.ts           words of Jesus (KJV OSIS, WEB <wj>, propagated to BSB/ASV/YLT) -> TextVerse.wj
     lexicon.ts             STEPBible TBESG/TBESH + Strong's -> public/data/lex/{G|H}/{NNN}.json
     concordance.ts         Strong's -> verse list -> public/data/conc/{G|H}/{NNN}.json
+    xrefs.ts               OpenBible.info cross references -> public/data/xref/{BOOK}/{C}.json
+    names.ts               STEPBible TIPNR people/places -> public/data/names/ (entities, per-word map, family, index)
+    wordstudy.ts           forms, distribution, LXX bridge, related words -> public/data/study/{G|H}/{NNN}.json
     search.ts              plain-text corpora -> public/data/search/{TR}.json
     meta.ts                public/data/meta.json (books, verse counts, translations, credits)
 src/

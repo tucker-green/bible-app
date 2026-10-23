@@ -119,6 +119,40 @@ function usePageFocus(): void {
   }, [route.value.name, route.value]);
 }
 
+/**
+ * Keep keyboard focus on screen. Long chapters are laid out lazily (content-visibility: auto), so
+ * after the browser scrolls a focused element into view, the blocks around it can render taller
+ * than their placeholders and push it out of sight again (e.g. Tab to the chapter-end links).
+ * Once layout has settled, bring a keyboard-focused element that ended up hidden back into view,
+ * clear of the header and the bottom dock.
+ */
+function useKeepFocusInView(): void {
+  useEffect(() => {
+    let timer = 0;
+    const reveal = (el: HTMLElement) => {
+      if (document.activeElement !== el || !el.isConnected) return;
+      const r = el.getBoundingClientRect();
+      if (!r.width && !r.height) return;
+      const top = Math.max(0, document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0);
+      const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dock-h')) || 0;
+      if (r.top < top || r.bottom > window.innerHeight - dock) el.scrollIntoView({ block: 'center' });
+    };
+    const onFocus = (e: FocusEvent) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement) || !el.matches(':focus-visible')) return;
+      // dialogs, sheets and panels manage their own scrolling
+      if (el.closest('[role="dialog"], [role="tooltip"], #search-panel, .pop')) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => requestAnimationFrame(() => reveal(el)), 120);
+    };
+    document.addEventListener('focusin', onFocus);
+    return () => {
+      document.removeEventListener('focusin', onFocus);
+      window.clearTimeout(timer);
+    };
+  }, []);
+}
+
 function Toast() {
   const toast = toastMessage.value;
   return (
@@ -149,6 +183,7 @@ function Dock() {
 export function App() {
   useGlobalKeys();
   usePageFocus();
+  useKeepFocusInView();
   useEffect(() => startChrome(), []);
   const r = route.value;
   const page =

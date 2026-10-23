@@ -1,7 +1,8 @@
 /**
  * One-time coach mark for press-and-slide scrubbing (docs/EXPERIENCE.md §2.3): after the first
- * word tapped on a touch screen, a one-line tip floats above the sheet. It goes away for good when
- * dismissed, after a few seconds, or once the reader has scrubbed (markScrubLearned).
+ * word tapped on a touch screen, a one-line tip shows at the top of the word sheet (never over the
+ * text). It goes away for good when dismissed, after a few seconds, or once the reader has scrubbed
+ * (markScrubLearned).
  */
 import { useEffect } from 'preact/hooks';
 import { pinnedWord } from '../../app/state';
@@ -17,7 +18,7 @@ export function CoachMark() {
   }, [show]);
   if (!show) return null;
   return (
-    <div class="coach" role="note" data-keep-word>
+    <div class="coach" role="note">
       <span>
         <b>Tip:</b> press and slide across words
       </span>

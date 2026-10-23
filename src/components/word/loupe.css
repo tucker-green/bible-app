@@ -24,20 +24,20 @@
 html.is-scrubbing, html.is-scrubbing .prose { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html.is-scrubbing .prose { touch-action: none; }
 
-/* ---------- Coach mark ("Tip: press and slide across words") ---------------------------------- */
+/* ---------- Coach mark ("Tip: press and slide across words") ----------------------------------
+   Shown inside the word sheet, under its handle, so it never covers the tapped word. */
 .coach {
-  position: fixed; left: 50%; z-index: var(--z-toast);
-  bottom: calc(var(--sheet-visible, 0px) + 12px);
-  transform: translateX(-50%);
   display: flex; align-items: center; gap: 4px;
-  max-width: calc(100vw - 24px);
+  margin: -2px 16px 6px;
   padding: 4px 4px 4px 14px;
   background: var(--ink); color: var(--paper);
-  border-radius: 999px; box-shadow: var(--shadow);
+  border-radius: 999px;
   font: 500 13px/1.3 var(--font-ui);
-  animation: rw-rise var(--dur-2) var(--ease-out) both;
+  animation: rw-coach-in var(--dur-2) var(--ease-out) both;
 }
+.coach > span { flex: 1; }
 .coach b { font-weight: 700; }
+@keyframes rw-coach-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .coach__x {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 36px; height: 36px; border-radius: 50%; color: var(--paper);

@@ -11,7 +11,7 @@
 .doc__title:focus { outline: none; }
 .doc__title :lang(grc), .doc__title :lang(he) { color: var(--blue); }
 .doc__lede { font-size: 19px; line-height: 1.6; color: var(--ink); margin-top: var(--s-4); }
-.page-back { margin-top: var(--s-4); font: 500 13px/1 var(--font-ui); }
+.page-back, .doc .page-back { margin-top: var(--s-4); font: 500 13px/1 var(--font-ui); }
 .page-back a { text-decoration: none; display: inline-flex; align-items: center; min-height: 24px; }
 .page-back a:hover { text-decoration: underline; }
 .doc__soon { padding: var(--s-5); border: 1px dashed var(--rule-2); border-radius: var(--radius-lg); color: var(--ink-3); font: 400 14px/1.55 var(--font-ui); }

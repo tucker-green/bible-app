@@ -5,9 +5,7 @@
   display: none;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 4px max(4px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
-  background: var(--header-bg);
-  backdrop-filter: saturate(1.2) blur(12px);
-  -webkit-backdrop-filter: saturate(1.2) blur(12px);
+  background: var(--paper);
   border-top: 1px solid var(--rule);
   pointer-events: auto;
 }
@@ -23,7 +21,7 @@
 }
 .tb-btn .icon { width: 23px; height: 23px; }
 .tb-lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tb-btn:hover { color: var(--ink); }
+@media (hover: hover) { .tb-btn:hover { color: var(--ink); } }
 .tb-btn:active { background: var(--sunken); transform: scale(.96); }
 .tb-btn[aria-expanded="true"], .tb-btn[aria-pressed="true"] { color: var(--blue); }
 .tb-btn[aria-expanded="true"] .tb-lbl, .tb-btn[aria-pressed="true"] .tb-lbl { font-weight: 700; }
@@ -40,6 +38,9 @@ html:not([data-motion="reduce"]) .tb-btn:active { transform: scale(.96); }
 @media (max-width: 599.98px) and (max-height: 500px) and (pointer: coarse) {
   .toolbar .tb-btn { min-height: 44px; flex-direction: row; gap: 6px; }
   .toolbar .tb-btn .icon { width: 20px; height: 20px; }
+}
+@media (max-width: 359.98px) {
+  .tb-btn { font-size: 10.5px; letter-spacing: 0; padding-left: 0; padding-right: 0; }
 }
 html[data-keyboard="open"] .toolbar { display: none; }
 

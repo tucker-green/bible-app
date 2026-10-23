@@ -31,10 +31,11 @@ import { DefText } from './DefText';
 import type { DefNode } from './definition';
 import { defToText, parseDefinition, splitDefinitionHead } from './definition';
 import { computePlacement } from './placement';
+import { CoachMark } from './CoachMark';
 import { EntitySection } from './EntitySection';
-import { scrub } from './scrub';
+import { SCRUB_SHEET_PEEK, scrub, scrubbing } from './scrub';
 import { SpeakButton } from './SpeakButton';
-import { useBackClose, useSheet } from '../shell/sheet';
+import { useBackClose, useSheet, useSheetClass } from '../shell/sheet';
 import { UiIcon } from '../shell/icons';
 import './card.css';
 
@@ -74,6 +75,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   const [expanded, setExpanded] = useState(false);
   const [retry, setRetry] = useState(0);
   const scrolledFor = useRef('');
+  const scrollTarget = useRef(0);
   const openedAt = useRef(0);
   const tr = model?.tr ?? '';
   const trMeta = translations.value.find((t) => t.id === tr) ?? null;
@@ -92,18 +94,17 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
 
   // While the sheet is open, reserve room below the text so the last lines can scroll above it.
   const sheetOpen = sheet && isPinned;
+  // While scrubbing the sheet stays low (the finger needs the text); it rises to peek on lift.
+  const isScrubbing = scrubbing.value;
   const sheetApi = useSheet(cardRef, {
     open: sheetOpen,
     enabled: sheet,
     onClose: () => closeWord(),
-    peek: 0.45,
+    peek: isScrubbing ? SCRUB_SHEET_PEEK : 0.45,
   });
   const full = sheet && sheetApi.detent === 'full';
   useBackClose(sheetOpen, () => closeWord());
-  useEffect(() => {
-    document.documentElement.classList.toggle('has-sheet', sheetOpen);
-    return () => document.documentElement.classList.remove('has-sheet');
-  }, [sheetOpen]);
+  useSheetClass(sheetOpen);
 
   // Keep the tapped word visible above the sheet, also while the sheet grows (content loading).
   const keepVisible = () => {
@@ -127,6 +128,17 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     return () => ro.disconnect();
   }, [sheet, wordKey]);
 
+  // Lifting the finger after scrubbing: the sheet rises to peek and the word moves above it.
+  const wasScrubbing = useRef(false);
+  useEffect(() => {
+    if (wasScrubbing.current && !isScrubbing && sheetOpen) {
+      openedAt.current = Date.now();
+      sheetApi.setDetent('peek');
+      requestAnimationFrame(keepVisible);
+    }
+    wasScrubbing.current = isScrubbing;
+  }, [isScrubbing]);
+
   // Tell the controller where the card is (pointer travel into it keeps a hover card open).
   useEffect(() => {
     controller.cardEl = cardRef.current;
@@ -137,6 +149,25 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     if (!card || !ref || ref.via === 'hover') return;
     announce(cardSummary(card));
   }, [wordKey]);
+
+  // Content that arrives later inside the card (the people & places block loads on its own) changes
+  // its height without re-rendering WordCard: re-run the placement below when the size changes, so
+  // the popover never runs off the bottom of the viewport.
+  const [, setMeasured] = useState(0);
+  const hasCard = Boolean(card);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || sheet || typeof ResizeObserver === 'undefined') return;
+    let last = el.offsetHeight;
+    const ro = new ResizeObserver(() => {
+      const h = el.offsetHeight;
+      if (Math.abs(h - last) < 2) return;
+      last = h;
+      setMeasured((n) => n + 1);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [sheet, hasCard]);
 
   // Placement (popover form): below the word, flipped above when needed, clamped to the viewport.
   useLayoutEffect(() => {
@@ -186,9 +217,16 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     el.style.setProperty('--notch-x', `${Math.round(p.notchX)}px`);
     if (Number.isFinite(p.maxHeight)) el.style.maxHeight = `${Math.floor(p.maxHeight)}px`;
     el.classList.toggle('is-above', p.side === 'above');
-    if (p.scrollBy > 0 && scrolledFor.current !== wordKey) {
-      scrolledFor.current = wordKey;
-      window.scrollBy({ top: p.scrollBy, behavior: scrollBehavior() });
+    // A pinned card that does not fit scrolls the page (once per word, and further only if the card
+    // grew since: its definition and people block arrive after it opens). The target is absolute,
+    // so a re-placement during a smooth scroll does not add up.
+    if (p.scrollBy > 0) {
+      const target = Math.round(window.scrollY + p.scrollBy);
+      if (scrolledFor.current !== wordKey || target > scrollTarget.current + 1) {
+        scrolledFor.current = wordKey;
+        scrollTarget.current = target;
+        window.scrollTo({ top: target, behavior: scrollBehavior() });
+      }
     }
   });
 
@@ -202,7 +240,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     }
     return () => {
       if (via === 'keyboard' || (sheet && via !== 'touch')) {
-        if (!pinnedWord.value && document.activeElement && el?.contains(document.activeElement)) controller.focusUnit(unit!.id);
+        if (!pinnedWord.value && document.activeElement && el?.contains(document.activeElement)) controller.focusUnit(unit!.id, true);
       }
     };
   }, [wordKey, isPinned, sheet]);
@@ -214,7 +252,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     const hadFocus = cardRef.current?.contains(document.activeElement);
     if (sheetOpen && !refocus) sheetApi.close();
     else closeWord();
-    if (refocus || hadFocus) controller.focusUnit(id);
+    if (refocus || hadFocus) controller.focusUnit(id, true);
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -261,6 +299,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
             <span />
           </div>
         )}
+        {sheet && isPinned && pinned?.via === 'touch' && <CoachMark />}
         <div class="card__inner" key={wordKey}>
           <CardTop card={card} pinned={isPinned || sheet} onClose={() => close(!sheet)} />
           {card.kind === 'supplied' ? (

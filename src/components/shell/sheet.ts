@@ -135,9 +135,8 @@ export function useSheet(ref: { current: HTMLElement | null }, opts: SheetOption
     const s = st.current;
     s.detent = target;
     if (target !== 'closed') setDetentState(target);
-    const to = offsets()[target];
     if (reducedMotion()) {
-      apply(to);
+      apply(offsets()[target]);
       done?.();
       return;
     }
@@ -147,6 +146,8 @@ export function useSheet(ref: { current: HTMLElement | null }, opts: SheetOption
     const tick = (now: number) => {
       const dt = Math.min(1 / 30, Math.max(1 / 240, (now - last) / 1000));
       last = now;
+      // the target follows the content height (e.g. the definition arriving mid-animation)
+      const to = offsets()[target];
       // closing is quicker and never overshoots back into view
       const r = springStep(x, v, to, dt, target === 'closed' ? 700 : 520, target === 'closed' ? 1 : 0.86);
       x = r.x;
@@ -291,7 +292,7 @@ export function useSheet(ref: { current: HTMLElement | null }, opts: SheetOption
     // Keyboard focus below the fold: expand.
     const onFocus = (e: FocusEvent) => {
       const t = e.target as HTMLElement | null;
-      if (!t || st.current.detent === 'full') return;
+      if (!t || t === el || st.current.detent === 'full') return;
       const r = t.getBoundingClientRect();
       if (r.bottom > viewportH() - 4) animateTo('full');
     };
@@ -409,6 +410,24 @@ export function useBackClose(open: boolean, onClose: () => void): void {
         backMarker = null;
         if ((window.history.state as { rwSheet?: string } | null)?.rwSheet === m) window.history.back();
       }, 0);
+    };
+  }, [open]);
+}
+
+let sheetHolds = 0;
+/**
+ * While a bottom sheet is open, <html class="has-sheet"> lets the page reserve room under the text
+ * (so the last lines can scroll above the sheet) and moves toasts above it. Ref-counted, so one
+ * sheet closing while another opens never drops the class.
+ */
+export function useSheetClass(open: boolean): void {
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return;
+    sheetHolds++;
+    document.documentElement.classList.add('has-sheet');
+    return () => {
+      sheetHolds = Math.max(0, sheetHolds - 1);
+      if (!sheetHolds) document.documentElement.classList.remove('has-sheet');
     };
   }, [open]);
 }

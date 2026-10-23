@@ -72,6 +72,8 @@ export class ReaderController {
   private lastTick = 0;
   private scrollRaf = 0;
   private longPressAt = 0;
+  /** The next focus on a word should not open its focus card (focus returning after a close). */
+  private quietFocus = false;
 
   attach(root: HTMLElement): void {
     if (this.root === root) return;
@@ -320,8 +322,10 @@ export class ReaderController {
       const bottom = this.cardEl?.isConnected ? this.cardEl.getBoundingClientRect().top : window.innerHeight;
       const zone = 44;
       let v = 0;
-      if (p.y < top + zone) v = -Math.min(14, ((top + zone - p.y) / zone) * 14);
-      else if (p.y > bottom - zone) v = Math.min(14, ((p.y - (bottom - zone)) / zone) * 14);
+      // only once the finger is deliberately sliding (not where it first pressed)
+      const travelled = Math.hypot(p.x - p.x0, p.y - p.y0) > 24;
+      if (travelled && p.y < top + zone) v = -Math.min(10, ((top + zone - p.y) / zone) * 10);
+      else if (travelled && p.y > bottom - zone) v = Math.min(10, ((p.y - (bottom - zone)) / zone) * 10);
       if (v) {
         window.scrollBy(0, v);
         this.scrubTo(p.x, p.y);
@@ -504,6 +508,10 @@ export class ReaderController {
     const unit = Number(el.dataset.u);
     el.setAttribute('role', 'button');
     el.setAttribute('aria-haspopup', 'dialog');
+    if (this.quietFocus) {
+      this.quietFocus = false;
+      return;
+    }
     let keyboard = false;
     try {
       keyboard = el.matches(':focus-visible');
@@ -644,9 +652,13 @@ export class ReaderController {
     }
   }
 
-  /** Move keyboard focus to a unit. */
-  focusUnit(unit: number): void {
-    this.focusStop(this.els[unit]);
+  /** Move keyboard focus to a unit. `quiet`: do not open its focus card (focus returning after a close). */
+  focusUnit(unit: number, quiet = false): void {
+    const el = this.els[unit];
+    if (!el) return;
+    this.quietFocus = quiet && document.activeElement !== el;
+    this.focusStop(el);
+    this.quietFocus = false;
   }
 
   /** Move keyboard focus to a verse number. */

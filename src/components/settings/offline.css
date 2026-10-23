@@ -1,0 +1,97 @@
+/* ---------- Settings → Offline (OfflineSection.tsx) ------------------------------------------------
+   Built from the sheet's own pieces (settings.css: st-field__lbl, st-btn, st-seg, st-rows, st-confirm);
+   only the status line, book picker, progress bar, saved list and storage meter are new. */
+
+.st-off { display: grid; gap: 18px; padding-bottom: 8px; }
+.st-off .st-field { margin: 0; }
+.st-off .st-rows { margin: 0; }
+
+/* status line */
+.st-off-status {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; border-radius: 8px;
+  background: var(--paper); border: 1px solid var(--rule); border-left: 3px solid var(--edge);
+  font-size: 13.5px; line-height: 1.5; color: var(--ink);
+}
+.st-off-status p { margin: 0; max-width: 62ch; }
+.st-off-status .icon { width: 17px; height: 17px; margin-top: 2px; color: var(--ink-2); }
+.st-off-status.is-ready { border-left-color: var(--ok); }
+.st-off-status.is-ready .icon { color: var(--ok); stroke-width: 2.2; }
+.st-off-status__now { font-weight: 650; color: var(--accent); }
+
+.st-off-installed { margin: 0; }
+.st-off-install .st-field__lbl { margin-bottom: 8px; }
+.st-off-hint { margin: 0; }
+
+/* rows of a button and its hint */
+.st-off-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.st-off-row .st-field__hint { margin: 0; flex: 1 1 220px; }
+
+/* download: book, translations, dictionary switch, button */
+.st-off-dl { display: grid; gap: 12px; }
+.st-off-dl > .st-field__lbl { margin: 0; }
+.st-off-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.st-off-book { display: grid; gap: 6px; min-width: 0; }
+.st-off-book__lbl { font: 600 12.5px/1.2 var(--font-ui); color: var(--ink-2); }
+.st-off-trs .st-field__lbl { font: 600 12.5px/1.2 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--ink-2); margin-bottom: 6px; }
+
+.st-select {
+  width: 100%; min-height: 44px; padding: 0 36px 0 12px;
+  border: 1px solid var(--edge); border-radius: var(--radius);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237f8692' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 10l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center / 18px 18px;
+  color: var(--ink); font: 500 14px/1.2 var(--font-ui);
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.st-select:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; border-color: var(--focus); }
+.st-select option, .st-select optgroup { background: var(--surface); color: var(--ink); }
+
+.st-off-lex { border-top: 1px solid var(--rule); }
+.st-off-lex .st-row:last-child { border-bottom: 1px solid var(--rule); }
+.st-off-est { font-variant-numeric: tabular-nums; }
+
+/* progress */
+.st-progress {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px;
+  padding: 12px 14px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper);
+}
+.st-progress__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font: 500 13px/1.3 var(--font-ui); color: var(--ink); }
+.st-progress__head .tnum { color: var(--ink-2); }
+.st-progress__track {
+  grid-column: 1; position: relative; height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--sunken); box-shadow: inset 0 0 0 1px var(--rule-2);
+}
+.st-progress__track span {
+  position: absolute; inset: 0; transform-origin: left center;
+  background: var(--blue); border-radius: inherit;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.st-progress .st-btn { grid-column: 2; grid-row: 1 / span 2; }
+.st-off-done { margin: 0; }
+.st-off-done.st-ok .icon { flex: none; }
+.st-off .st-error { margin: 0; }
+
+/* saved books */
+.st-off-saved .st-field__lbl { margin-bottom: 4px; }
+.st-saved { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.st-saved__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.st-saved__name { min-width: 0; font: 500 14px/1.3 var(--font-ui); color: var(--ink); }
+.st-saved__name small { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--ink-3); }
+
+/* storage */
+.st-off-storage { display: grid; gap: 8px; }
+.st-off-storage .st-field__lbl, .st-off-storage .st-field__hint { margin: 0; }
+.st-off-usage { margin: 0; font-size: 13.5px; color: var(--ink); }
+.st-off-usage strong { font-weight: 650; }
+.st-meter { position: relative; height: 6px; border-radius: 3px; overflow: hidden; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--rule-2); max-width: 420px; }
+.st-meter span { position: absolute; inset: 0; transform-origin: left center; background: var(--ink-3); }
+.st-off-storage .st-actions { margin-top: 4px; }
+
+html[data-motion="reduce"] .st-progress__track span { transition: none; }
+html[data-contrast="more"] .st-progress__track, html[data-contrast="more"] .st-meter { box-shadow: inset 0 0 0 1px var(--ink); }
+
+@media (forced-colors: active) {
+  .st-off-status, .st-progress { border: 1px solid CanvasText; }
+  .st-progress__track, .st-meter { border: 1px solid CanvasText; }
+  .st-progress__track span, .st-meter span { background: Highlight; }
+  .st-select { border: 1px solid ButtonText; background-image: none; appearance: auto; -webkit-appearance: auto; }
+}

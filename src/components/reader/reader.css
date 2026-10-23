@@ -9,6 +9,9 @@
   align-items: start;
 }
 .rail { position: sticky; top: calc(var(--header-h) + 40px); font-size: var(--fs-meta); color: var(--ink-2); max-height: calc(100dvh - var(--header-h) - 56px); overflow: auto; scrollbar-width: thin; padding-bottom: 8px; }
+/* the rails scroll on their own when taller than the window, so they take keyboard focus */
+.rail:focus { outline: none; }
+.rail:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 4px; }
 .rail section + section { margin-top: var(--s-6); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
 .rail__title { margin-bottom: var(--s-3); }
 .rail__note { margin-top: 10px; padding-left: 12px; font-size: 11.5px; color: var(--ink-3); font-style: italic; }
@@ -40,6 +43,10 @@
 .key li { display: grid; grid-template-columns: 1fr; gap: 4px; line-height: 1.45; }
 .key .sample { font: 400 15px/1.2 var(--font-text); color: var(--ink); justify-self: start; }
 .key .sample .w { cursor: default; }
+.key .sample .vn--sample { position: static; top: 0; font-size: 12px; cursor: default; }
+.key .sample .vn--sample::after { content: none; }
+.key .sample--ui { font: 600 12px/1.2 var(--font-ui); color: var(--blue); }
+@media (hover: hover) and (pointer: fine) { .key__touch { display: none !important; } }
 .key-keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; color: var(--ink-3); }
 .key-keys > span:nth-child(odd) { white-space: nowrap; }
 .edition dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
@@ -71,7 +78,44 @@
 }
 .ch-meta b { color: var(--ink-2); font-weight: 600; }
 .ch-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--rule-2); }
-.ch-tools { display: none; }
+/* chapter tools: Reading / Interlinear (when the header has no room for it) and the rails as drawers */
+.ch-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.ch-tools > * { margin-top: var(--s-5); }
+.ch-tools > .seg { display: none; }
+.rail-btns { display: none; gap: 6px; flex-wrap: wrap; }
+.rail-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 10px;
+  border: 1px solid var(--rule-2); border-radius: 999px;
+  font: 500 12.5px/1 var(--font-ui); color: var(--ink-2);
+}
+.rail-btn .icon { width: 16px; height: 16px; color: var(--ink-3); }
+@media (hover: hover) { .rail-btn:hover { background: var(--sunken); color: var(--ink); } }
+
+/* rails as drawers */
+.drawer-scrim { position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1); background: var(--scrim); animation: rw-fade-in var(--dur-2) var(--ease); }
+.drawer {
+  position: fixed; top: 0; bottom: 0; z-index: var(--z-sheet);
+  width: min(340px, 88vw);
+  padding: calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 20px);
+  background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow);
+  overflow-y: auto; overscroll-behavior: contain;
+  font-size: var(--fs-meta);
+}
+.drawer:focus { outline: none; }
+.drawer--left { left: 0; border-right: 1px solid var(--rule); padding-left: max(20px, env(safe-area-inset-left)); animation: rw-drawer-left var(--dur-3) var(--ease-out) both; }
+.drawer--right { right: 0; border-left: 1px solid var(--rule); padding-right: max(20px, env(safe-area-inset-right)); animation: rw-drawer-right var(--dur-3) var(--ease-out) both; }
+@keyframes rw-drawer-left { from { transform: translateX(-100%); } }
+@keyframes rw-drawer-right { from { transform: translateX(100%); } }
+.drawer__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s-4); }
+.drawer__close { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-right: -8px; border-radius: 8px; color: var(--ink-3); }
+@media (hover: hover) { .drawer__close:hover { background: var(--sunken); color: var(--ink); } }
+.drawer .rail.rail--drawer { display: block; position: static; max-height: none; overflow: visible; padding: 0; }
+.drawer .rail--drawer > section:first-child > .rail__title { display: none; }
+@media (pointer: coarse) {
+  .rail-btn { height: 44px; padding: 0 16px 0 14px; }
+  .drawer__close { width: 44px; height: 44px; }
+}
 
 .approx-banner {
   margin: calc(-1 * var(--s-5)) 0 var(--s-6); padding: 9px 12px; border-radius: 8px;
@@ -99,9 +143,10 @@
 
 /* ---------- Reading text ------------------------------------------------- */
 .prose {
-  font-family: var(--font-text);
-  font-size: var(--fs-text);
-  line-height: var(--lh-text);
+  font-family: var(--font-read);
+  font-size: calc(var(--fs-text) * var(--read-size, 1));
+  line-height: calc(var(--lh-text) * var(--line-spacing, 1));
+  letter-spacing: var(--letter-spacing, 0);
   font-variation-settings: 'opsz' 14;
   font-optical-sizing: auto;
   hanging-punctuation: first;
@@ -111,6 +156,17 @@
 }
 .prose p { margin: 0; }
 .para { text-indent: 1.4em; text-wrap: pretty; }
+:root[data-justify="on"] .para, :root[data-justify="on"] .vl:not(.vl--poetry) { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+
+/* Long chapters (Ps 119: 176 verses, ~2,500 words): blocks off screen skip layout and paint until
+   they come near the viewport; contain-intrinsic-size remembers each block's real height once seen,
+   so scrolling stays stable. Focus, find-in-page and scrollIntoView still reach them. */
+.prose > p, .prose > .il-para, .prose > .sec {
+  content-visibility: auto;
+  contain-intrinsic-size: auto calc(var(--fs-text) * var(--lh-text) * 2.2);
+}
+.prose > .para { contain-intrinsic-size: auto calc(var(--fs-text) * var(--lh-text) * 6); }
+.prose > .il-para { contain-intrinsic-size: auto calc(var(--fs-text) * 10); }
 .para.first { text-indent: 0; }
 .superscription {
   margin: 0 0 var(--s-3);
@@ -127,6 +183,26 @@
   letter-spacing: .01em;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+  border-radius: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+/* a larger, invisible hit area around the small number (inline targets are exempt from 2.5.8, but
+   fingers are not) */
+.vn::after { content: ''; position: absolute; inset: -.7em -.45em -.5em -.55em; }
+.vn:hover { text-decoration: underline; text-underline-offset: 2px; }
+.vn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* study marks before the verse number (decorate.ts inserts <span class="vn__marks">): a bookmark
+   ribbon and / or a note glyph, in ink-blue; the number's accessible name says the same in words. */
+.vn__marks { display: inline-flex; align-items: flex-start; gap: .18em; margin-right: .22em; vertical-align: top; pointer-events: none; }
+.vm { display: inline-block; width: .7em; height: 1.05em; background: var(--blue); }
+.vm--bm { clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+.vm--note {
+  width: .9em; height: 1em; box-sizing: border-box;
+  background: linear-gradient(var(--blue), var(--blue)) .18em .3em / .42em .11em no-repeat,
+              linear-gradient(var(--blue), var(--blue)) .18em .56em / .3em .11em no-repeat;
+  border: .12em solid var(--blue); border-radius: .14em;
 }
 
 /* one verse per line (KJV), the number hanging in the margin */
@@ -141,6 +217,37 @@
 
 /* verse targeting */
 .verse { border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+/* ---------- Highlights (src/app/study.ts → decorate.ts) ---------------------------------------
+   A tint plus a named underline style per colour: never colour alone. */
+.verse[data-hl] {
+  background-color: var(--hl-c);
+  text-decoration-line: underline;
+  text-decoration-color: var(--hl-line);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: .3em;
+  text-decoration-skip-ink: none;
+  padding: .04em 0;
+}
+.verse[data-hl="yellow"] { --hl-c: var(--hl-yellow); --hl-line: var(--hl-yellow-line); text-decoration-style: solid; }
+.verse[data-hl="green"] { --hl-c: var(--hl-green); --hl-line: var(--hl-green-line); text-decoration-style: double; }
+.verse[data-hl="blue"] { --hl-c: var(--hl-blue); --hl-line: var(--hl-blue-line); text-decoration-style: dashed; }
+.verse[data-hl="pink"] { --hl-c: var(--hl-pink); --hl-line: var(--hl-pink-line); text-decoration-style: dotted; text-decoration-thickness: 2px; }
+.verse[data-hl="purple"] { --hl-c: var(--hl-purple); --hl-line: var(--hl-purple-line); text-decoration-style: wavy; text-decoration-thickness: 1px; }
+.verse[data-hl] .vn { text-decoration: none; }
+/* interlinear verses are display: contents — decorate their cells */
+.il-para .verse[data-hl] > .il { background-color: var(--hl-c); box-shadow: inset 0 -2px 0 var(--hl-line); }
+
+/* ---------- Listen mode: the verse being read aloud ------------------------------------------ */
+.verse.is-listening { background-color: var(--listen-wash); box-shadow: -.3em 0 0 var(--listen-wash), .3em 0 0 var(--listen-wash); }
+.vl > .verse.is-listening::before {
+  content: ''; position: absolute; left: -.9em; top: .35em; bottom: .35em; width: 3px; border-radius: 2px; background: var(--accent);
+}
+.il-para .verse.is-listening > .il { background-color: var(--listen-wash); }
+
+/* ---------- Red letter (words of Jesus; settings.redLetter → html[data-red-letter]) --------- */
+:where(html[data-red-letter="on"]) .prose .wj { color: var(--red-letter); }
+:where(html[data-red-letter="on"]) .prose .wj .il__en { color: var(--red-letter); }
 .verse > .sr-only { user-select: none; -webkit-user-select: none; }
 .verse.is-target { animation: rw-target 3s var(--ease) forwards; }
 @keyframes rw-target {
@@ -177,7 +284,7 @@
 .w.is-kin:not(.is-active):not(.is-linked) {
   background-image: linear-gradient(to right, var(--kin) 50%, transparent 0);
   background-size: 4px 1.5px; background-repeat: repeat-x; background-position: 0 94%;
-  animation: rw-fade-kin var(--dur-1) var(--ease) var(--dur-1) both;
+  animation: rw-fade-kin 80ms var(--ease) 80ms both;
 }
 @keyframes rw-fade-kin { from { background-size: 4px 0; } to { background-size: 4px 1.5px; } }
 .w:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; background-color: var(--wash); color: var(--blue); }
@@ -288,28 +395,64 @@
 .colophon a:hover { color: var(--blue); }
 
 /* ---------- Touch ---------------------------------------------------------- */
+.prose { touch-action: manipulation; }
 @media (pointer: coarse) {
-  .prose { --lh-text: 1.78; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .prose { --lh-text: 1.8; -webkit-tap-highlight-color: transparent; }
   .prose--il { line-height: 1.3; }
-  .vgrid a { height: 36px; }
-  .toc a { padding-top: 8px; padding-bottom: 8px; }
+  /* long-press on a word scrubs (interaction.ts); no callout / magnifier for words */
+  .prose .w { -webkit-touch-callout: none; }
+  .vgrid a { height: 44px; }
+  .toc a { padding-top: 10px; padding-bottom: 10px; min-height: 44px; }
+  .ch-nav a { padding-top: 16px; padding-bottom: 12px; min-height: 64px; }
+  .colophon a { display: inline-block; padding: 10px 0; }
+  .chk { min-height: 44px; }
 }
 
+/* ---------- Swipe-to-change-chapter edge affordance (swipe.ts) -------------------------------- */
+.swipe-hint {
+  position: fixed; top: 50%; z-index: var(--z-toast);
+  padding: 10px 14px; border-radius: 999px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule-2); box-shadow: var(--shadow);
+  font: 600 14px/1 var(--font-ui); white-space: nowrap;
+  pointer-events: none;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.swipe-hint[data-dir="next"] { right: 12px; }
+.swipe-hint[data-dir="prev"] { left: 12px; }
+.swipe-hint.is-ready { background: var(--blue); color: var(--on-blue); border-color: var(--blue); }
+
 /* ---------- Responsive --------------------------------------------------- */
-@media (max-width: 1240px) {
-  .page { grid-template-columns: minmax(0, 680px) minmax(190px, 220px); }
-  .rail--left { display: none; }
+/* laptop (1024–1439): contents rail + text; the reading key moves into a drawer */
+@media (max-width: 1439.98px) {
+  .page { grid-template-columns: minmax(170px, 210px) minmax(0, 680px); }
+  .page > .rail--right { display: none; }
+  .rail-btns { display: flex; }
+  .rail-btn--contents { display: none; }
+}
+/* tablet and below: one column, both rails as drawers */
+@media (max-width: 1023.98px) {
+  .page { grid-template-columns: minmax(0, 680px); padding-top: var(--s-7); }
+  .page > .rail--left { display: none; }
+  .rail-btn--contents { display: inline-flex; }
 }
 @media (max-width: 980px) {
-  .page { grid-template-columns: minmax(0, 680px); padding-top: var(--s-7); }
-  .rail--right { display: none; }
-  .ch-tools { display: flex; margin-top: var(--s-5); }
+  .ch-tools > .seg { display: inline-flex; }
+}
+/* tablets (600–1023): wider measure, still one column */
+@media (min-width: 600px) and (max-width: 1023.98px) {
+  .page--read { grid-template-columns: minmax(0, 70ch); }
+  .page--read .prose { max-width: min(70ch, 36em); }
+}
+/* wide screens: cap the content width, keep the measure */
+@media (min-width: 1920px) {
+  .page { max-width: 1680px; }
 }
 @media (max-width: 640px) {
-  .page { padding: var(--s-6) 20px var(--s-7); }
+  .page { padding: var(--s-6) max(20px, env(safe-area-inset-right)) var(--s-7) max(20px, env(safe-area-inset-left)); }
   .ch-head { margin-bottom: var(--s-6); }
   .ch-rule { margin: var(--s-4) 0 var(--s-3); }
-  .ch-tools { margin-top: var(--s-4); }
+  .ch-tools > * { margin-top: var(--s-4); }
   .ch-tools .seg { width: 100%; }
   .ch-tools .seg button { flex: 1; justify-content: center; height: 34px; font-size: 13.5px; }
   .sec { margin-top: var(--s-6); }
@@ -321,4 +464,18 @@
   .il.w { padding: 2px 4px 4px; }
   .vl { padding-left: 1.6em; }
   .ch-nav span { font-size: 19px; }
+}
+@media (max-width: 599.98px) {
+  /* the toolbar has Reading / Interlinear on phones */
+  .page--read .ch-tools > .seg { display: none !important; }
+}
+@media (max-width: 359.98px) {
+  .page { padding-left: 16px; padding-right: 16px; }
+  .ch-meta { gap: 4px 10px; }
+}
+/* phone landscape: tighter head, more text on screen */
+@media (max-height: 500px) and (pointer: coarse) {
+  .page { padding-top: var(--s-5); }
+  .ch-head { margin-bottom: var(--s-5); }
+  .ch-rule { margin: var(--s-3) 0 var(--s-3); }
 }

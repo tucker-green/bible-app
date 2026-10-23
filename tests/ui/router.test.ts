@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HASH, parseRoute, resolveTranslation, routeToHash } from '../../src/app/router';
+import { compareHash, DEFAULT_HASH, parseRoute, resolveTranslation, routeToHash } from '../../src/app/router';
 import type { Route } from '../../src/app/router';
 
 describe('hash routes', () => {
@@ -60,5 +60,45 @@ describe('translation fallback', () => {
 
   it('leaves the request alone while translations are unknown', () => {
     expect(resolveTranslation('NIV', [])).toBe('NIV');
+  });
+});
+
+describe('page routes (extension points)', () => {
+  it('parses word study routes, normalising the Strong’s id', () => {
+    expect(parseRoute('#/word/G3056')).toEqual({ name: 'word', id: 'G3056' });
+    expect(parseRoute('#/word/g26')).toEqual({ name: 'word', id: 'G0026' });
+    expect(parseRoute('#/word/H871a')).toEqual({ name: 'word', id: 'H0871a' });
+    expect(parseRoute('#/word/love')).toMatchObject({ name: 'notfound' });
+  });
+
+  it('parses person, place and lineage routes', () => {
+    expect(parseRoute('#/person/p0685')).toEqual({ name: 'person', id: 'p0685' });
+    expect(parseRoute('#/place/L0123')).toEqual({ name: 'place', id: 'l0123' });
+    expect(parseRoute('#/lineage/p0001/')).toEqual({ name: 'lineage', id: 'p0001' });
+    expect(parseRoute('#/person/abraham')).toMatchObject({ name: 'notfound' });
+  });
+
+  it('parses compare routes with 2–3 translations', () => {
+    expect(parseRoute('#/compare/KJV,BSB/JHN/3')).toEqual({ name: 'compare', trs: ['KJV', 'BSB'], book: 'JHN', chapter: 3 });
+    expect(parseRoute('#/compare/kjv,bsb,web/jhn/3/16')).toEqual({ name: 'compare', trs: ['KJV', 'BSB', 'WEB'], book: 'JHN', chapter: 3, verse: 16 });
+    expect(parseRoute('#/compare/KJV/JHN/3')).toMatchObject({ name: 'notfound' });
+    expect(parseRoute('#/compare/KJV,KJV/JHN/3')).toMatchObject({ name: 'notfound' });
+    expect(parseRoute('#/compare/KJV,BSB,WEB,ASV/JHN/3')).toMatchObject({ name: 'notfound' });
+    expect(parseRoute('#/compare/KJV,BSB/JHN/99')).toMatchObject({ name: 'notfound' });
+    expect(compareHash(['KJV', 'BSB'], 'JHN', 3, 16)).toBe('#/compare/KJV,BSB/JHN/3/16');
+  });
+
+  it('parses my study and round-trips every page route', () => {
+    expect(parseRoute('#/study')).toEqual({ name: 'study' });
+    const routes: Route[] = [
+      { name: 'word', id: 'G3056' },
+      { name: 'person', id: 'p0685' },
+      { name: 'place', id: 'l0123' },
+      { name: 'lineage', id: 'p0685' },
+      { name: 'compare', trs: ['KJV', 'BSB'], book: 'PSA', chapter: 23 },
+      { name: 'compare', trs: ['KJV', 'BSB', 'YLT'], book: 'JHN', chapter: 1, verse: 14 },
+      { name: 'study' },
+    ];
+    for (const r of routes) expect(parseRoute(routeToHash(r))).toEqual(r);
   });
 });

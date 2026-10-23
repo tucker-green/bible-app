@@ -185,7 +185,8 @@
   .mode-hdr { display: none; }
 }
 @media (max-width: 760px) {
-  .brand__word { display: none; }
+  /* the wordmark stays the link's accessible name */
+  .brand__word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .brand { margin-right: 2px; }
   .hdr-sep { display: none; }
   .search { width: auto; position: static; }
@@ -221,7 +222,9 @@
 @media (pointer: coarse) {
   .masthead .btn { height: 44px; }
   .masthead .btn--icon { width: 44px; }
-  .seg button { height: 36px; }
+  .brand { min-height: 44px; min-width: 44px; justify-content: center; }
+  .search__field { height: 44px; }
+  .seg button { height: 44px; }
   .books__grid button { height: 40px; }
   .tr-item { min-height: 52px; }
 }
@@ -231,6 +234,7 @@
 }
 /* ---------- Compact top bar (phones < 600px, docs/EXPERIENCE.md §1) ----------------------------- */
 @media (max-width: 599.98px) {
+  .masthead { background: var(--paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
   .masthead__inner { padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); gap: 4px; justify-content: space-between; }
   .masthead .locator, .masthead .tr-btn, .masthead .theme-btn, .masthead .aa-btn, .masthead .search__btn-mobile, .masthead .hdr-spacer { display: none; }
   .hdr-title { display: flex; align-items: center; gap: 0; min-width: 0; flex: 1; justify-content: center; margin-right: 34px; }

@@ -45,6 +45,7 @@ export function decorateVerses(root: HTMLElement, book: string, chapter: number,
     if (!vn) continue;
     toggleData(vn, 'note', note);
     toggleData(vn, 'bm', bm);
+    setMarks(vn, bm, note);
     const label = verseLabel(v, hl, note, bm);
     if (vn.getAttribute('aria-label') !== label) vn.setAttribute('aria-label', label);
   }
@@ -54,6 +55,25 @@ function toggleData(el: HTMLElement, name: string, on: boolean): void {
   if (on) {
     if (el.dataset[name] !== '') el.dataset[name] = '';
   } else if (name in el.dataset) delete el.dataset[name];
+}
+
+/** The glyphs before the verse number: <span class="vn__marks"><i class="vm vm--bm"/><i class="vm vm--note"/></span>. */
+function setMarks(vn: HTMLElement, bm: boolean, note: boolean): void {
+  let box = vn.querySelector<HTMLElement>(':scope > .vn__marks');
+  const want = `${bm ? 'b' : ''}${note ? 'n' : ''}`;
+  if (!want) {
+    box?.remove();
+    return;
+  }
+  if (box?.dataset.m === want) return;
+  if (!box) {
+    box = document.createElement('span');
+    box.className = 'vn__marks';
+    box.setAttribute('aria-hidden', 'true');
+    vn.insertBefore(box, vn.firstChild);
+  }
+  box.dataset.m = want;
+  box.innerHTML = `${bm ? '<i class="vm vm--bm"></i>' : ''}${note ? '<i class="vm vm--note"></i>' : ''}`;
 }
 
 /** Mark the verse being read aloud; returns its element (or null). */

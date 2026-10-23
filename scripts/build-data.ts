@@ -11,12 +11,22 @@ type Stage = { name: string; run: () => Promise<void> | void };
 const STAGES: Stage[] = [
   { name: 'orig', run: async () => (await import('./data/orig')).buildOrig() },
   { name: 'bsb', run: async () => (await import('./data/bsb')).buildBsb() },
+  // kjv and bridged link through orig + the BSB text (and its translation table).
   { name: 'kjv', run: async () => (await import('./data/kjv')).buildKjv() },
   { name: 'bridged', run: async () => (await import('./data/bridged')).buildBridged() },
+  // redletter rewrites every text/ file in place (TextVerse.wj): it needs all five translations + orig,
+  // and must run before the stages that read the text files.
+  { name: 'redletter', run: async () => void (await import('./data/redletter')).buildRedLetter() },
   // concordance reads orig; lexicon reads conc (verse counts) and the KJV/BSB word links (renderings).
   { name: 'concordance', run: async () => (await import('./data/concordance')).buildConcordance() },
   { name: 'lexicon', run: async () => (await import('./data/lexicon')).buildLexicon() },
+  // Study data. xrefs reads the BSB text (English verse counts); names reads orig + BSB/KJV text;
+  // wordstudy reads orig + the lexicon chunks (which ids are prefix/suffix morphemes).
+  { name: 'xrefs', run: async () => void (await import('./data/xrefs')).buildXrefs() },
+  { name: 'names', run: async () => void (await import('./data/names')).buildNames() },
+  { name: 'wordstudy', run: async () => void (await import('./data/wordstudy')).buildWordStudy() },
   { name: 'search', run: async () => (await import('./data/search')).buildSearch() },
+  // meta lists the translations present and credits for every dataset built above.
   { name: 'meta', run: async () => (await import('./data/meta')).buildMeta() },
   { name: 'validate', run: async () => (await import('./data/validate')).buildValidate() },
 ];
