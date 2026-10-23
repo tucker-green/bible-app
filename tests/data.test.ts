@@ -183,6 +183,9 @@ describe('loaders', () => {
     expect(ch.tr).toBe('NIV');
     expect(source).toHaveBeenCalledWith('JHN', 3);
     expect(fetchMock).not.toHaveBeenCalled();
+    prefetchChapter('NIV', 'JHN', 3); // cached; must not spend API calls on JHN 4
+    await new Promise((r) => setTimeout(r, 0));
+    expect(source).toHaveBeenCalledTimes(1);
     unregisterTextSource('NIV');
     await expect(loadText('NIV', 'JHN', 3)).rejects.toBeInstanceOf(DataError);
   });

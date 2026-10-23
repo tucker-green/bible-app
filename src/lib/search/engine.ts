@@ -11,8 +11,8 @@
  * Sets are sorted Int32Arrays; AND = intersection, OR = union, NOT = difference.
  */
 import { getBook, getBookByNum } from '../books';
-import type { BookId, LexIndex, SearchCorpus } from '../types';
-import { packRef } from '../types';
+import type { BookId, LexIndex, OrigChapter, SearchCorpus, TextChapter } from '../types';
+import { OW, packRef } from '../types';
 import { foldWord } from '../tokenize';
 import { foldGreek, foldHebrew, transliterate, translitKey } from '../greek';
 import { allowedBooks, parseQuery, positiveLeaves } from './query';
@@ -84,15 +84,24 @@ export interface EngineDeps {
   /** Packed verse refs (bookNum*1e6 + chapter*1e3 + verse) where a Strong's id occurs. */
   loadConcordance(id: string): Promise<number[]>;
   loadLexIndex(): Promise<LexIndex>;
+  /** Optional, for highlightLinked(): a translation chapter and its original-language words. */
+  loadText?(tr: string, book: BookId, chapter: number): Promise<TextChapter>;
+  loadOrig?(book: BookId, chapter: number): Promise<OrigChapter>;
 }
+
+/** The fields of a hit that highlightLinked() needs. */
+export type HitRef = Pick<SearchHit, 'book' | 'chapter' | 'verse' | 'text'>;
 
 /** Messages between client.ts and worker.ts. */
 export type WorkerRequest =
   | { id: number; type: 'init'; dataBase: string }
   | { id: number; type: 'search'; query: string; opts: SearchOptions }
-  | { id: number; type: 'warm'; tr: string };
+  | { id: number; type: 'warm'; tr: string }
+  | { id: number; type: 'highlight'; tr: string; hits: HitRef[]; strongs: string[] };
 
-export type WorkerResponse = { id: number; ok: true; result: SearchResponse | null } | { id: number; ok: false; error: string };
+export type WorkerResponse =
+  | { id: number; ok: true; result: SearchResponse | [number, number][][] | null }
+  | { id: number; ok: false; error: string };
 
 /* ------------------------------------------------------------------------ */
 /* Tokenising                                                                */
@@ -550,10 +559,29 @@ interface LemmaTables {
   greek: Map<string, string[]>;
   hebrew: Map<string, string[]>;
   translit: Map<string, string[]>;
+  /** Exact forms (accents / vowel points kept, cantillation dropped) for pointed or accented input. */
+  exact: Map<string, string[]>;
+}
+
+/** Comparison key that keeps Greek accents / Hebrew vowels but ignores cantillation, grave vs acute and case. */
+function exactKey(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0591-\u05AF\u05BD\u034F\u200C\u200D]/g, '') // cantillation, meteg, CGJ, joiners
+    .replace(/\u0300/g, '\u0301') // grave -> acute
+    .replace(/[ςϲ]/g, 'σ')
+    .toLowerCase()
+    .normalize('NFC')
+    .replace(/\s+/g, '');
+}
+
+/** Does the text carry accents / vowel points (so an exact match is meaningful)? */
+function isMarked(s: string): boolean {
+  return /[\u0300-\u036F\u05B0-\u05BC\u05C1\u05C2\u05C7]/.test(s.normalize('NFD'));
 }
 
 function buildLemmaTables(index: LexIndex): LemmaTables {
-  const t: LemmaTables = { rows: new Map(), greek: new Map(), hebrew: new Map(), translit: new Map() };
+  const t: LemmaTables = { rows: new Map(), greek: new Map(), hebrew: new Map(), translit: new Map(), exact: new Map() };
   const push = (m: Map<string, string[]>, k: string, id: string) => {
     if (!k) return;
     const list = m.get(k);
@@ -567,6 +595,7 @@ function buildLemmaTables(index: LexIndex): LemmaTables {
     for (const form of lemma.split(/[,;/]\s*/)) {
       const f = form.trim();
       if (!f) continue;
+      push(t.exact, exactKey(f), id);
       if (isG) {
         push(t.greek, foldGreek(f), id);
         push(t.translit, translitKey(transliterate(f, { iotaSubscript: 'omit' })), id);
@@ -797,6 +826,55 @@ export class SearchEngine {
     return r;
   }
 
+  /**
+   * Highlights for hits found by Strong's / lemma queries (whose English words the corpus cannot
+   * know): loads each hit's chapter (text + original words) and marks the English tokens linked to
+   * any of `strongs` (base ids compared; KJV-style TokenInfo.s counts too). Returns one span list
+   * per hit, [] where the chapter is unavailable or its text differs from the corpus.
+   */
+  async highlightLinked(tr: string, hits: HitRef[], strongs: string[]): Promise<[number, number][][]> {
+    const { loadText, loadOrig } = this.deps;
+    if (!loadText || !loadOrig || !strongs.length) return hits.map(() => []);
+    const targets = new Set(strongs.map((s) => s.slice(0, 5)));
+    const chapters = new Map<string, Promise<{ text: TextChapter; orig: OrigChapter | null } | null>>();
+    for (const h of hits) {
+      const key = `${h.book}/${h.chapter}`;
+      if (!chapters.has(key)) {
+        chapters.set(
+          key,
+          Promise.all([loadText(tr, h.book, h.chapter), loadOrig(h.book, h.chapter).catch(() => null)])
+            .then(([text, orig]) => ({ text, orig }))
+            .catch(() => null),
+        );
+      }
+    }
+    return Promise.all(
+      hits.map(async (h) => {
+        const ch = await chapters.get(`${h.book}/${h.chapter}`);
+        const verse = ch?.text.verses.find((v) => v.v === h.verse);
+        if (!ch || !verse) return [];
+        const spans: [number, number][] = [];
+        let off = 0;
+        for (const t of verse.t) {
+          const s = typeof t === 'string' ? t : t[0];
+          if (typeof t !== 'string') {
+            const linked = t[1].some((i) => targets.has((ch.orig?.words[i]?.[OW.strongs] ?? '').slice(0, 5)));
+            const tagged = t[2]?.s?.some((x) => targets.has(x.slice(0, 5))) ?? false;
+            if (linked || tagged) {
+              const last = spans[spans.length - 1];
+              // join "In the beginning" style runs separated only by spaces
+              if (last && /^\s*$/.test(h.text.slice(last[1], off))) last[1] = off + s.length;
+              else spans.push([off, off + s.length]);
+            }
+          }
+          off += s.length;
+        }
+        // Only trust offsets if the chapter text is the corpus text.
+        return off === h.text.length && verse.t.map((t) => (typeof t === 'string' ? t : t[0])).join('') === h.text ? spans : [];
+      }),
+    );
+  }
+
   private async suggest(parsed: ParsedQuery, res: SearchResponse, idx: CorpusIndex): Promise<SearchSuggestion[]> {
     const out: SearchSuggestion[] = [];
     const root = parsed.root;
@@ -851,7 +929,11 @@ function refsToSet(refs: number[], idx: CorpusIndex): VSet {
 function lookupLemma(t: LemmaTables, leaf: Extract<QueryNode, { kind: 'lemma' }>): string[] {
   let ids: string[] = [];
   if (leaf.by === 'script') {
-    ids = leaf.lang === 'grc' ? t.greek.get(foldGreek(leaf.text)) ?? [] : t.hebrew.get(foldHebrew(leaf.text).replace(/\s+/g, '')) ?? [];
+    // Pointed / accented input: exact form first (שָׁלוֹם is not שִׁלּוּם), then ignore the marks.
+    if (isMarked(leaf.text)) ids = t.exact.get(exactKey(leaf.text)) ?? [];
+    if (!ids.length) {
+      ids = leaf.lang === 'grc' ? t.greek.get(foldGreek(leaf.text)) ?? [] : t.hebrew.get(foldHebrew(leaf.text).replace(/\s+/g, '')) ?? [];
+    }
   } else {
     ids = t.translit.get(translitKey(leaf.text)) ?? [];
     if (leaf.lang !== 'any') ids = ids.filter((id) => (leaf.lang === 'grc') === (id[0] === 'G'));

@@ -20,6 +20,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 const shots = [
   ['desktop-default', '', DESKTOP],
+  ['desktop-ot', '?passage=ot', DESKTOP],
   ['desktop-hover', '?demo=hover', DESKTOP],
   ['desktop-hover-ot', '?demo=hover-ot', DESKTOP],
   ['desktop-interlinear', '?demo=interlinear', DESKTOP],
@@ -60,13 +61,13 @@ for (const [name, url, viewport] of shots) {
   if (only && !only.test(name)) continue;
   const { ctx, page } = await open(url, viewport);
   await page.screenshot({ path: join(out, `${name}.png`) });
-  if (name === 'desktop-default' || name === 'mobile-default') await page.screenshot({ path: join(out, `${name}-full.png`), fullPage: true });
+  if (name === 'desktop-default' || name === 'mobile-default' || name === 'desktop-ot') await page.screenshot({ path: join(out, `${name}-full.png`), fullPage: true });
   await ctx.close();
   console.log('shot', name);
 }
 
 // ---- interaction smoke tests -------------------------------------------------
-if (!only) {
+if (!only || process.env.CHECKS) {
   const { ctx, page } = await open('', DESKTOP);
   const check = (cond, msg) => { if (!cond) problems.push('interaction: ' + msg); };
 
@@ -101,7 +102,7 @@ if (!only) {
   check(!(await page.locator('#gloss').isVisible()), 'Escape did not close the card');
 
   // flip above near the bottom of the viewport
-  await page.setViewportSize({ width: 1440, height: 520 });
+  await page.setViewportSize({ width: 1440, height: 640 });
   await page.evaluate(() => window.scrollTo(0, 0));
   const last = page.locator('.u').last();
   await last.scrollIntoViewIfNeeded();
@@ -138,7 +139,8 @@ if (!only) {
   await m.ctx.close();
 
   // reduced motion: no animation on the card
-  const r = await open('?demo=hover', DESKTOP, { reducedMotion: 'reduce' });
+  const r = await open('', DESKTOP, { reducedMotion: 'reduce' });
+  await r.page.locator('.u', { hasText: /^Word$/ }).first().click();
   const anim = await r.page.evaluate(() => getComputedStyle(document.getElementById('gloss')).animationName);
   check(anim === 'none', `reduced motion still animates (${anim})`);
   await r.ctx.close();

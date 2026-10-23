@@ -247,7 +247,8 @@ export async function loadChapter(
 
 /**
  * Warm the caches for a chapter (and, by default, the next one) without waiting. Errors are
- * swallowed — prefetching must never surface failures.
+ * swallowed — prefetching must never surface failures. For runtime sources (registerTextSource,
+ * e.g. NIV via the reader's API.Bible quota) only the requested chapter's text is fetched.
  */
 export function prefetchChapter(tr: string, book: BookId, chapter: number, opts: { next?: boolean } = {}): void {
   const targets: [BookId, number][] = [[book, chapter]];
@@ -255,10 +256,10 @@ export function prefetchChapter(tr: string, book: BookId, chapter: number, opts:
     const n = nextChapter(book, chapter);
     if (n) targets.push(n);
   }
-  for (const [b, c] of targets) {
-    loadText(tr, b, c).catch(() => undefined);
+  targets.forEach(([b, c], i) => {
+    if (i === 0 || !textSources.has(tr)) loadText(tr, b, c).catch(() => undefined);
     loadOrig(b, c).catch(() => undefined);
-  }
+  });
 }
 
 /** The chapter after (book, chapter) in canonical order, or null after Revelation 22. */

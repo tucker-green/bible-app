@@ -18,7 +18,7 @@
  */
 import { BOOKS } from '../books';
 import { findBook } from '../reference';
-import { foldWord } from '../tokenize';
+import { foldWord, words } from '../tokenize';
 import { hasGreek, hasHebrew } from '../greek';
 
 export type WordMode = 'exact' | 'prefix' | 'forms';
@@ -34,6 +34,9 @@ export type QueryNode =
   | { kind: 'strongs'; raw: string; id: string }
   /** A Greek / Hebrew lemma, in the original script ('script') or transliterated ('translit'). */
   | { kind: 'lemma'; raw: string; text: string; lang: 'grc' | 'hbo' | 'any'; by: 'script' | 'translit' };
+
+/** A leaf of the query tree (word, phrase, Strong's or lemma). */
+export type LeafNode = Exclude<QueryNode, { kind: 'and' | 'or' | 'not' }>;
 
 export interface QueryFilters {
   testament?: 'OT' | 'NT';
@@ -262,7 +265,16 @@ function wordNode(raw: string, filters: QueryFilters, errors: string[]): QueryNo
     mode = 'forms';
     w = w.replace(/^~+|~+$/g, '');
   }
-  const term = foldTerm(w);
+  // Split like corpus text: "3:16" or "word/deed" are several words (a phrase); "seed-bearing" and "God’s" stay one.
+  const pieces = words(w);
+  if (pieces.length > 1) {
+    const terms = pieces.map((p, i) => ({
+      term: foldTerm(p),
+      mode: (i === pieces.length - 1 && mode === 'prefix' ? 'prefix' : 'exact') as 'exact' | 'prefix',
+    }));
+    return { kind: 'phrase', raw, terms: terms.filter((t) => t.term) };
+  }
+  const term = foldTerm(pieces[0] ?? '');
   if (!term) return null;
   if (mode === 'prefix' && term.length < 2) {
     errors.push(`“${raw}” is too short for a wildcard`);
@@ -298,10 +310,12 @@ function applyScope(value: string, filters: QueryFilters, errors: string[]): voi
   }
   // Comma-separated book list: in:John,Rom
   const found: number[] = [];
-  for (const part of v.split(',')) {
-    const b = findBook(part.trim());
+  for (const part of value.split(',')) {
+    const name = part.replace(/[_-]/g, ' ').trim();
+    if (!name) continue;
+    const b = findBook(name);
     if (b) found.push(b.num);
-    else errors.push(`Unknown book “${part.trim()}”`);
+    else errors.push(`Unknown book “${name}”`);
   }
   if (found.length) filters.books = [...(filters.books ?? []), ...found];
 }
@@ -321,7 +335,7 @@ export function allowedBooks(filters: QueryFilters, testament?: 'OT' | 'NT', boo
 }
 
 /** All positive (non-negated) leaf nodes, e.g. for highlighting. */
-export function positiveLeaves(node: QueryNode | null, negated = false, out: QueryNode[] = []): QueryNode[] {
+export function positiveLeaves(node: QueryNode | null, negated = false, out: LeafNode[] = []): LeafNode[] {
   if (!node) return out;
   switch (node.kind) {
     case 'and':

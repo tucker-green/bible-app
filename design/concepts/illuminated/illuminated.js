@@ -79,11 +79,11 @@
   /* Hand-written plain-language definitions for the headline words (placeholders for the
    * curated "short definition" the real lexicon stage could provide). */
   const CURATED = {
-    G3056: 'A word as the expression of a thought — a saying, message or account; also the reason behind it. John makes ὁ λόγος a title: the Word, God’s own self-expression, who was with God and was God.',
-    G0746: 'Beginning, origin — the first point from which something starts; by extension first place, and so rule or ruler. Ἐν ἀρχῇ deliberately echoes the Greek of Genesis 1:1.',
-    G2316: 'God; a god. With the article (ὁ θεός) it normally names the one God of Israel. In 1:1c θεός comes first and without the article, stressing what the Word was rather than who.',
-    H0430: 'God; plural in form (“gods”) but, for the God of Israel, used with singular verbs — a plural of majesty. Also used of other gods, of divine beings and, rarely, of human judges.',
-    H7225: 'Beginning, first; the first or best part of something (as in first-fruits). Here the absolute starting point of creation.',
+    G3056: 'A word that expresses a thought: a saying, message or account; also reason itself. In John, ὁ λόγος is a title — God’s own self-expression.',
+    G0746: 'Beginning, origin: the point from which something starts; also first place, and so rule. Ἐν ἀρχῇ echoes the Greek of Genesis 1:1.',
+    G2316: 'God, a god. With the article (ὁ θεός) usually the God of Israel. In 1:1c it stands first, without the article: it says what the Word was.',
+    H0430: 'God. Plural in form (“gods”) yet used with singular verbs for the God of Israel — a plural of majesty. Also of other gods and divine beings.',
+    H7225: 'Beginning, first; the first or best part of something, as in first-fruits. Here the absolute starting point of creation.',
     H1254: 'To create, to shape anew. In the Bible its subject is always God; it is never used of human making.',
   };
 
@@ -448,10 +448,21 @@
     $$('.seg__opt').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.passage === state.passage)));
     document.title = `${nav.label} · Logos`;
 
+    // typesetting: never leave a single short word alone on a paragraph's last line
+    if (!state.interlinear) $$('.para, .line').forEach(bindLastWords);
+
     state.focusIdx = 0;
     const first = unitEl(0);
     if (first) first.tabIndex = 0;
     renderNotes();
+  }
+
+  function bindLastWords(block) {
+    const units = block.querySelectorAll('.u');
+    const last = units[units.length - 1];
+    if (!last || units.length < 3) return;
+    const prev = last.previousSibling;
+    if (prev && prev.nodeType === 3 && /\s$/.test(prev.nodeValue)) prev.nodeValue = prev.nodeValue.replace(/\s+$/, '\u00a0');
   }
 
   const unitEl = (i) => document.querySelector(`.u[data-u="${i}"]`);
@@ -678,7 +689,8 @@
     const below = r.bottom + gap;
     const fitsBelow = below + H <= innerHeight - 12;
     const fitsAbove = r.top - gap - H >= toolbarBottom + 8;
-    const above = !fitsBelow && fitsAbove;
+    // neither side fits: a hovered card takes the roomier side; a pinned one goes below and scrolls into view
+    const above = fitsBelow ? false : fitsAbove ? true : !state.pinned && r.top - toolbarBottom > innerHeight - r.bottom;
     const top = above ? r.top - gap - H : below;
     gloss.classList.toggle('is-above', above);
     gloss.style.left = `${left - folio.left}px`;

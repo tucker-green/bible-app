@@ -31,6 +31,9 @@
   --gilt-2: #dcbd6e;        /* gold highlight for gradients */
   --gilt-ink: #7f5d1c;      /* gold that is legible as text */
   --lapis: #2f4987;         /* ultramarine: original-language text in interlinear, focus */
+  --lapis-ground: #213a74;  /* ground of illuminated initials */
+  --lapis-ground-2: #34559d;
+  --gold-leaf: linear-gradient(135deg, #f1dc9c 0%, #c99a3f 38%, #f4e2a8 55%, #a8802f 100%);
   --rule: #e0d2b2;          /* hairlines */
   --rule-strong: #cbb68a;   /* control borders */
   --hl: rgba(214, 166, 58, 0.27);      /* gold wash behind linked words */
@@ -77,6 +80,8 @@
   --gilt-2: #e7c97f;
   --gilt-ink: #dcbc72;
   --lapis: #a3b8ee;
+  --lapis-ground: #1a2c58;
+  --lapis-ground-2: #2a4482;
   --rule: #372c20;
   --rule-strong: #57462f;
   --hl: rgba(222, 176, 82, 0.22);
@@ -165,16 +170,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round
 }
 .brand__initial {
   display: inline-grid; place-items: center;
-  width: 38px; height: 38px; margin-right: 3px;
-  color: var(--rubric); font-weight: 600; font-size: 1.9rem; line-height: 1;
-  padding-top: 3px;
-  border: 1px solid var(--gilt);
-  outline: 1px solid color-mix(in srgb, var(--gilt) 55%, transparent);
-  outline-offset: 2px;
+  width: 38px; height: 38px; margin-right: 2px;
+  font-weight: 600; font-size: 1.85rem; line-height: 1;
+  padding-top: 4px;
+  border: 2px solid transparent;
   background:
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--gilt) 16%, transparent) 0 1px, transparent 1px 6px),
-    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--gilt) 16%, transparent) 0 1px, transparent 1px 6px),
-    color-mix(in srgb, var(--gilt-2) 22%, var(--card));
+    repeating-linear-gradient(45deg, rgba(231, 204, 133, 0.16) 0 1px, transparent 1px 7px) padding-box,
+    radial-gradient(circle at 50% 42%, var(--lapis-ground-2), var(--lapis-ground) 75%) padding-box,
+    var(--gold-leaf) border-box;
+  box-shadow: inset 0 0 0 2px var(--lapis-ground), inset 0 0 0 3px rgba(255, 255, 255, 0.25);
+  color: #ecd28b;
 }
 .brand__rest { letter-spacing: 0.015em; }
 
@@ -407,7 +412,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round
   hanging-punctuation: first;
   font-variant-numeric: oldstyle-nums proportional-nums;
 }
-.para { text-align: justify; hyphens: manual; text-wrap: pretty; }
+.para { text-align: left; hyphens: manual; text-wrap: pretty; }
 .para + .para { text-indent: 1.4em; }
 .rubric + .rubric__refs + .para, .rubric--minor + .para, .rubric + .para, .para--first + .para { text-indent: 0; }
 
@@ -422,39 +427,51 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round
   user-select: none;
 }
 
-/* illuminated initial */
+/* illuminated initial: a gold letter on a lapis ground, framed in gold leaf */
 .initial {
   float: left;
+  position: relative;
   display: grid; place-items: center;
   width: 3.85em; height: 3.95em;         /* three lines of text: 2 × line-height + cap height */
-  margin: 0.36em 0.6em 0.05em 0;
-  border: 1px solid var(--gilt);
-  outline: 1px solid color-mix(in srgb, var(--gilt) 55%, transparent);
-  outline-offset: 3px;
+  margin: 0.36em 0.62em 0.05em 0;
+  border: 3px solid transparent;
   background:
-    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--card) 85%, transparent) 0 34%, transparent 70%),
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--gilt) 20%, transparent) 0 1px, transparent 1px 9px),
-    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--gilt) 20%, transparent) 0 1px, transparent 1px 9px),
-    linear-gradient(160deg, color-mix(in srgb, var(--gilt-2) 32%, var(--page)), color-mix(in srgb, var(--gilt) 22%, var(--page)));
-  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--page) 55%, transparent);
-  position: relative;
+    repeating-linear-gradient(45deg, rgba(231, 204, 133, 0.16) 0 1px, transparent 1px 10px) padding-box,
+    repeating-linear-gradient(-45deg, rgba(231, 204, 133, 0.16) 0 1px, transparent 1px 10px) padding-box,
+    radial-gradient(circle at 50% 42%, var(--lapis-ground-2), var(--lapis-ground) 72%) padding-box,
+    var(--gold-leaf) border-box;
+  box-shadow:
+    inset 0 0 0 3px var(--lapis-ground),
+    inset 0 0 0 4px rgba(255, 255, 255, 0.28),     /* white penwork hairline */
+    0 1px 2px rgba(var(--shadow), 0.25);
 }
-/* corner dots of gold */
+/* gold bezants at two corners */
 .initial::before, .initial::after {
-  content: ''; position: absolute; width: 5px; height: 5px; background: var(--gilt); transform: rotate(45deg);
+  content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fbeec4, #d2a64a 55%, #8f6b25);
 }
-.initial::before { top: -6px; left: -6px; }
-.initial::after { bottom: -6px; right: -6px; }
+.initial::before { top: -9px; left: -9px; }
+.initial::after { bottom: -9px; right: -9px; }
 .initial__letter {
-  font-size: 3.5em; line-height: 1; font-weight: 500;
-  color: var(--rubric);
-  padding-top: 0.08em;
-  text-shadow: 0 1px 0 color-mix(in srgb, var(--card) 70%, transparent);
+  font-size: 3.4em; line-height: 1; font-weight: 600;
+  padding-top: 0.1em;
+  color: #e9cf86;
+  background: linear-gradient(180deg, #fbecc0 8%, #e2bd63 48%, #b88a32 78%, #e7c97f);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(10, 18, 45, 0.55));
 }
-.initial--2 { width: 2.6em; height: 2.3em; margin-top: 0.34em; }
-.initial--2 .initial__letter { font-size: 2.05em; }
+/* poetry: a raised initial that sits on the first line, so it never collides with hanging indents */
+.initial--2 {
+  float: none; display: inline-grid; vertical-align: -0.32em;
+  width: 1.95em; height: 1.95em; margin: 0 0.32em 0 0; border-width: 2px;
+}
+.initial--2 .initial__letter { font-size: 1.55em; }
+.initial--2::before { top: -7px; left: -7px; width: 6px; height: 6px; }
+.initial--2::after { bottom: -7px; right: -7px; width: 6px; height: 6px; }
+.poem .line:first-child { margin-top: 0.4em; margin-bottom: 0.15em; }
 .u--initial.is-linked .initial, .u--initial.is-anchor .initial, .u--initial.is-preview .initial {
-  box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--page) 55%, transparent), 0 0 0 6px var(--hl);
+  box-shadow: inset 0 0 0 3px var(--lapis-ground), inset 0 0 0 4px rgba(255, 255, 255, 0.28), 0 0 0 5px var(--hl);
 }
 
 /* linked words */
@@ -564,7 +581,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round
   border-radius: 0 0 2px 0;
 }
 .gloss__handle { display: none; }
-.gloss__inner { position: relative; z-index: 1; padding: 16px 24px 12px; }
+.gloss__inner { position: relative; z-index: 1; padding: 14px 24px 10px; }
 .gloss.is-entering { animation: gloss-in 0.18s cubic-bezier(0.2, 0.7, 0.3, 1); }
 .gloss.is-above.is-entering { animation-name: gloss-in-above; }
 @keyframes gloss-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
