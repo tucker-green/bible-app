@@ -12,11 +12,11 @@ font scale to `<html>`, persists changes) and `startRouter()`.
 | `meta` | `DataMeta \| null` | `public/data/meta.json` once loaded (`metaError` on failure) |
 | `translations` | `computed<TranslationMeta[]>` | picker order: meta.json order (KJV first), then remote ones |
 | `remoteTranslations` | `TranslationMeta[]` | runtime translations (NIV…) — use `registerRemoteTranslation` |
-| `route` | `Route` | parsed hash (`read` / `about` / `search` / `notfound`), set by the router |
+| `route` | `Route` | parsed hash, set by the router: `read`, `about`, `search`, `word`, `person`, `place`, `lineage`, `compare`, `study`, `notfound` (see `Route` in router.ts) |
 | `passage` | `{ tr, ref: VerseRef }` | the chapter being read (kept while on `#/about` or `#/search`) |
 | `theme` | `'light' \| 'dark' \| 'system'` | persisted in localStorage `rootword:theme` (index.html applies it before first paint) |
 | `readingMode` | `'reading' \| 'interlinear'` | persisted `rootword:mode` |
-| `fontScale` | `number` (0.8–1.5) | reading text size multiplier → CSS `--font-scale`; persisted `rootword:fontScale` |
+| `fontScale` | `number` (0.8–2) | reading text size multiplier → CSS `--font-scale`; persisted `rootword:fontScale`; the UI steps through `FONT_SCALES` = 0.9 / 1 / 1.15 / 1.3 / 1.6 / 2 |
 | `settings` | `Settings` | reader preferences, persisted as JSON in `rootword:settings` (see below) |
 | `activeWord` | `WordRef \| null` | word under the pointer / keyboard focus (card shown as tooltip) |
 | `pinnedWord` | `WordRef \| null` | word whose card is pinned (dialog / bottom sheet); wins over `activeWord` |
@@ -27,7 +27,8 @@ font scale to `<html>`, persists changes) and `startRouter()`.
 | `liveMessage` | `string` | polite live region text (use `announce`) |
 | `verseSheet` | `{ key, verse } \| null` | the open verse sheet (`key` = "TR/BOOK/CHAPTER"); `openVerseSheet(key, v)` / `closeVerseSheet()` |
 | `listeningVerse` | `number \| null` | verse being read aloud — the reader highlights it (`.verse.is-listening`) and keeps it in view |
-| `panel` / `panelAnchor` | `'books' \| 'translations' \| 'display' \| null` | header / toolbar panel; `openPanel(id, triggerEl)`, `togglePanel`, `closePanel` (focus returns to `panelAnchor.current`) |
+| `panel` / `panelAnchor` | `'books' \| 'translations' \| 'display' \| null` | header / toolbar panel; `openPanel(id, triggerEl)`, `togglePanel`, `closePanel` (focus returns to `panelAnchor.current` when it would otherwise be lost, unless an arrival focus is pending) |
+| `arrival` | `{ key, verse?, at } \| null` | keyboard focus to move once a navigation lands: `focusOnArrival(tr, ref)` (the passage and translation pickers call it) → the reader focuses the target verse number, else `#chapter-title` |
 | `chromeHidden` | `boolean` | compact top bar (and landscape toolbar) slid away while reading; mirrored to `<html data-chrome>` |
 
 `WordRef = { key: "TR/BOOK/CHAPTER", unit: number, via: 'hover' | 'focus' | 'click' | 'touch' | 'keyboard' }`
@@ -42,12 +43,26 @@ import { navigate, setTranslation, goToHash } from '../app/state';
 navigate({ book: 'JHN', chapter: 3, verse: 16 });          // current translation; scrolls to + highlights 3:16
 navigate({ book: 'PSA', chapter: 23 }, 'BSB');              // another translation
 navigate(ref, tr, { replace: true });                       // without a history entry
-setTranslation('WEB');                                      // same chapter, other translation
+setTranslation('WEB');                                      // same chapter, other translation, same verse on screen
 // or build links: href={refToHash(tr, ref)} from src/lib/reference.ts
 ```
 
 Routes: `#/{TR}/{BOOK}/{CHAPTER}[/{VERSE}[-{END}]]`, `#/about`, `#/search?q=…&tr=…`, and the page
-routes below (`parseRoute` / `routeToHash` in `router.ts`). Unknown translations fall back to the KJV.
+routes below (`parseRoute` / `routeToHash` in `router.ts`). Unknown translations fall back to the KJV;
+a translation id in the wrong case (`#/bsb/…`, `&tr=web`) is simply corrected.
+
+`goToHash` never pushes past a bottom sheet's Back marker (`history.state.rwSheet`, see
+shell/sheet.ts): it replaces that entry, so Back after following a link from a sheet goes straight
+back to the page (in-app `<a href="#/…">` clicks made while a sheet is open are routed through it).
+
+**Keeping the place** (`src/app/place.ts`): every reading history entry remembers the first verse on
+screen and its offset below the header in `history.state.rwPos` — written while scrolling (throttled),
+before in-app navigations and on `pagehide`, and restored by the reader when the entry is shown again
+(Back / Forward, reload, coming back from a page). `setTranslation` hands the place on to the new
+entry. Changes that reflow the text (`setFontScale`, `updateSettings` with a layout / font / spacing /
+interlinear-line key, the Reading ↔ Interlinear switch) keep the first visible word where it was
+(`readerHooks.beforeReflow`; the reader re-checks over a few frames because long chapters lay out
+lazily with `content-visibility`).
 
 **Open search with a query**
 
@@ -128,6 +143,27 @@ this) / `closeSettings()`; the sheet component is `src/components/settings/Setti
 
 **Other actions**: `closeWord()`, `showToast(message)`, `announce(message)`.
 
+## Other app modules
+
+- **`src/app/remote.ts`** — API.Bible translations (NIV…): `initRemoteTranslations()` (startup, from
+  the saved connection), `connectApiBible(key)` → the Bibles the key can read, `saveApiBibles(key, …)`,
+  `removeApiBible(tr)`, `disconnectApiBible()`; `apiBibleConnection` (never render its key);
+  `remoteProblem` (the last chapter that failed: `{ tr, book, chapter, message }`, shown in Settings and
+  in the reader's error notice); `explainApiBibleError(err, { what, tr })` (plain-English message).
+- **`src/app/study.ts`** — highlights, notes, bookmarks: signals `highlights`, `notes`, `bookmarks`,
+  `studyStatus`; actions `setHighlight(key, colour | null)`, `setNote(key, text | null)`,
+  `toggleBookmark(key, tr, label?)`, `setBookmarkLabel`, `verseKey(book, chapter, verse)`; export / import (`serializeStudy`, `migrateStudy`,
+  `mergeStudy`, `applyStudyImport`). Notes: `MAX_NOTE_LENGTH` for typing, `MAX_STORED_NOTE_LENGTH`
+  (twice that) for what loading and merging keep — a merged note is never cut on the next load.
+- **Cross references** (`src/components/xrefs/`): `<XrefRail>` (the desktop rail block following the
+  reading verse, `useReadingVerse`), `<XrefSection>` in the verse sheet, `followXref()` /
+  `goBackXref()` (history-aware, with the "Back to John 3:16" chip `<XrefBack>`),
+  `focusVerseAfterRender(tr, ref)`.
+- **Search** (`src/components/search/`): the header field is the combobox (`role="combobox"`,
+  `aria-activedescendant` from the `searchCombo` signal); `SearchPanel` owns the listbox and drives it
+  through `searchKeys.handler`. Esc closes the search and leaves focus on the field (or the search
+  button where the field hides) — never on `<body>`.
+
 ## Reader internals (for features that touch the text)
 
 - `src/components/reader/model.ts` — `buildChapterModel(text, orig, { alignment, tr })` → units
@@ -140,11 +176,13 @@ this) / `closeSettings()`; the sheet component is `src/components/settings/Setti
 - `src/components/word/` — card model, placement math, definition whitelist renderer, `WordCard`.
 - The last render timing is on `window.__rootwordRender` and `<html data-render-ms>`.
 
-## Page routes and stub pages (extension points)
+## Page routes
 
 Each page is code-split (`src/app/pages.tsx` loads it on first visit and shows a skeleton meanwhile)
-and default-exports a component that receives the parsed route params. Replace the stub files; keep
-the default export and the props interface. Frame every page with `<PageLayout>`
+and default-exports a component that receives the parsed route params (keep the default export and
+the props interface). The routed page is wrapped in `RouteBoundary` (App.tsx): a render error shows a
+notice in `<main>` and the next route change renders afresh, so the shell never goes blank. Frame
+every page with `<PageLayout>`
 (`src/components/layout/PageLayout.tsx`: eyebrow, the page's only `<h1>`, lede, back link, document
 title, optional `wide` column and `aside` rail).
 
@@ -175,10 +213,10 @@ screen-reader-friendly word study). Section slots, rendered in this order, all w
 
 | slot | file | owner |
 |---|---|---|
-| Highlight | `HighlightSection.tsx` (minimal: five named swatches writing `highlights`) | personal study |
-| Note | `NoteSection.tsx` (stub, renders null) | personal study |
-| Cross references | `XrefSection.tsx` (stub) | cross references |
-| Compare translations | `CompareSection.tsx` (stub) | compare |
+| Highlight | `HighlightSection.tsx` (five named swatches writing `highlights`) | personal study |
+| Note | `NoteSection.tsx` (a `<NoteEditor>`: autosaving plain-text note) | personal study |
+| Cross references | `XrefSection.tsx` (the verse's cross references, grouped, with previews; following one keeps a way back) | cross references |
+| Compare translations | `CompareSection.tsx` (the verse in every translation with its alignment meter; a translation without the verse says so and links to the chapter) | compare |
 
 A section renders `<section class="vs-sec" aria-labelledby>` with an `<h3 class="vs-sec__title">`
 (the sheet title is the `<h2>`), or `null`.
@@ -187,9 +225,19 @@ A section renders `<section class="vs-sec" aria-labelledby>` with an `<h3 class=
 
 - `<SpeakButton text lang translit size/>` beside the headword (Greek or Hebrew) and beside the
   Septuagint word (OT).
-- `<EntitySection book chapter origIndices/>` (`EntitySection.tsx`, stub) inside every card between
-  the facts and the definition; `origIndices` = the unit's `OrigChapter.words` indices (`[]` for
-  supplied / lexicon-only words).
+- `<EntitySection book chapter origIndices/>` (`EntitySection.tsx`: people / place chips with their
+  family, linking to the entity pages) inside every card between the facts and the definition;
+  `origIndices` = the unit's `OrigChapter.words` indices (`[]` for supplied / lexicon-only words).
+- Card kinds (`cardModel.ts`): `linked`, `lexicon` (KJV Strong's tag with no word in the critical text:
+  the Textus Receptus note), `supplied`, and `unavailable` (the chapter's Greek / Hebrew didn't load:
+  says so, with "Try again", which refetches it and reopens the word).
+- The hover / focus card is `role="tooltip"`; opened by keyboard focus it is `inert` (no Tab stops) and
+  the word does not point at it with `aria-describedby` (the live region announces a one-line summary).
+  Pinned (click / tap / Enter) it is a `dialog` with reachable links and buttons.
+- Definitions (`DefText.tsx`): whitelisted `<b>`, `<i>`, `<br>`, verse links, plus Strong's numbers linked
+  to their word studies and Greek / Hebrew runs tagged `lang="grc"` / `lang="he" dir="rtl"`
+  (`defRuns.ts`). Entries written for Rootword (Hebrew prefixes / suffixes, `LexEntry.src`) are
+  labelled as such (never as a STEPBible / BDB definition).
 - Footer: "Word study →" (`#/word/{id}`) next to "See all occurrences".
 
 ## Reader decorations (applied imperatively; the chapter HTML is never rebuilt for them)

@@ -142,8 +142,13 @@ function range(a: number, b: number): number[] {
   return out;
 }
 
+/** Longest query parsed (longer input is cut; a search box never needs more). */
+export const MAX_QUERY_LENGTH = 500;
+/** Deepest bracket nesting parsed; deeper "(" are ignored (with one error). */
+export const MAX_QUERY_DEPTH = 32;
+
 export function parseQuery(input: string): ParsedQuery {
-  const toks = lex(input.normalize('NFC'));
+  const toks = lex(input.slice(0, MAX_QUERY_LENGTH).normalize('NFC'));
   const errors: string[] = [];
   const filters: QueryFilters = {};
   let pos = 0;
@@ -189,18 +194,25 @@ export function parseQuery(input: string): ParsedQuery {
   };
 
   const parseUnary = (depth: number): QueryNode | null => {
-    const t = peek();
-    if (!t) return null;
-    if (t.t === 'not') {
+    // NOT NOT … NOT x: counted, not recursed (no stack overflow on pathological input).
+    let nots = 0;
+    while (peek()?.t === 'not') {
       pos++;
-      const n = parseUnary(depth);
-      return n ? { kind: 'not', node: n } : null;
+      nots++;
     }
-    return parsePrimary(depth);
+    if (!peek()) return null;
+    const n = parsePrimary(depth);
+    if (!n) return null;
+    return nots % 2 ? { kind: 'not', node: n } : n;
   };
 
   const parsePrimary = (depth: number): QueryNode | null => {
-    const t = toks[pos++];
+    let t = toks[pos++];
+    // Brackets nested deeper than MAX_QUERY_DEPTH are ignored (iteratively: no recursion).
+    while (t?.t === 'lp' && depth >= MAX_QUERY_DEPTH) {
+      errors.push('Too many nested brackets');
+      t = toks[pos++];
+    }
     if (!t) return null;
     if (t.t === 'lp') {
       const n = parseAnd(depth + 1);
@@ -214,7 +226,8 @@ export function parseQuery(input: string): ParsedQuery {
   };
 
   const root = parseAnd(0);
-  return { root, filters, errors };
+  // Each distinct problem is reported once ("Unmatched “)”" may occur many times).
+  return { root, filters, errors: [...new Set(errors)] };
 }
 
 function phraseNode(text: string): QueryNode | null {

@@ -103,6 +103,9 @@ describe('offline: what a book needs', () => {
 
   it('identifies the data set by version and build date', () => {
     expect(dataStamp({ version: '1', generated: '2026-10-23' })).toBe('1|2026-10-23');
+    // A content hash is the whole identity: the same data rebuilt another day keeps its stamp.
+    expect(dataStamp({ version: '3f2a9c1b7d4e', generated: '2026-10-23' })).toBe('3f2a9c1b7d4e');
+    expect(dataStamp({ version: '3f2a9c1b7d4e', generated: '2026-10-24' })).toBe('3f2a9c1b7d4e');
   });
 });
 

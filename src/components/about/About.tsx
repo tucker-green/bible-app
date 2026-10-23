@@ -132,9 +132,9 @@ export function About() {
             CC BY 4.0: <a href="https://creativecommons.org/licenses/by/4.0/">creativecommons.org/licenses/by/4.0</a>. Alignments © Clear Bible
             and Biblica; SBLGNT © Society of Biblical Literature and Logos Bible Software; Macula Hebrew © Clear Bible; STEPBible lexicons ©
             Tyndale House, Cambridge. Changes: the data were converted to Rootword’s compact format and cantillation marks were removed from the
-            Hebrew; the STEPBible definitions were edited and abridged (bibliographies and apparatus brackets removed, sub-senses folded
-            together), and short entries for Hebrew prefixes and suffixes (and, but, the, in, his…) were written for Rootword and are labelled as
-            such; cross references with no or negative votes (and self-references) were dropped, the rest capped at 40 per verse, and the
+            Hebrew; the STEPBible Greek definitions (Abbott-Smith) were edited and abridged (bibliographies and apparatus brackets removed,
+            sub-senses folded together), and short entries for Hebrew prefixes and suffixes (and, but, the, in, his…) were written for Rootword
+            and are labelled as such; cross references with no or negative votes (and self-references) were dropped, the rest capped at 40 per verse, and the
             ESV’s 3 John 1:15 mapped to 1:14 as numbered in the KJV and BSB; the TIPNR summaries and articles of people and places were
             merged; morphology codes are shown in plain English.
           </p>

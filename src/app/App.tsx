@@ -169,7 +169,10 @@ function usePageFocus(): void {
     prev.current = name;
     if (name === was || name === 'search' || (name === 'read' && was === 'search')) return;
     if (name === 'read') return;
+    const want = route.peek();
     requestAnimationFrame(() => {
+      // A quick Back may already have left this page: never focus (and so scroll to) the reader's title.
+      if (route.peek() !== want) return;
       const h = document.getElementById('page-title') ?? document.querySelector<HTMLElement>('main h1');
       if (h) {
         if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
@@ -255,11 +258,13 @@ export function App() {
         href="#main"
         onClick={(e) => {
           e.preventDefault();
-          const target = document.getElementById('text') ?? document.getElementById('page-title') ?? document.getElementById('main');
+          const article = document.getElementById('text');
+          // Reading: land on the text itself (the next Tab is its first word, past the chapter tools).
+          const target = article?.querySelector<HTMLElement>('.prose') ?? article ?? document.getElementById('page-title') ?? document.getElementById('main');
           if (!target) return;
           if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
-          target.focus();
-          target.scrollIntoView();
+          (article ?? target).scrollIntoView();
+          target.focus({ preventScroll: true });
         }}
       >
         {r.name === 'read' || r.name === 'search' ? 'Skip to the text' : 'Skip to the content'}

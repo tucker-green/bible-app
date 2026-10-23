@@ -9,9 +9,10 @@
  *   rw-search    search corpora (≈ 4 MB each)                  CacheFirst, ≤ 12 entries
  *   rw-meta      meta.json                                     NetworkFirst (fresh online, cached offline)
  *   rw-fonts     web fonts                                     CacheFirst, ≤ 80 entries
- * Data URLs carry ?v=<data version>; the data routes match with ignoreSearch so a file cached under
- * any version string is found offline. When meta.json says the data set changed (version or build
- * date), src/pwa.ts empties the data caches and downloads the saved books again (syncDataStamp).
+ * Data URLs carry ?v=<data version> (a content hash); the data routes match with ignoreSearch so a
+ * file cached under any version string is found offline. When meta.json says the data set changed,
+ * src/pwa.ts empties the data caches — before the app's first data request (src/lib/data.ts
+ * gateData) — and downloads the saved books again (syncDataStamp).
  * No route has a max age: workbox's ExpirationPlugin would refuse a cached file older than that
  * (by its Date header) even while offline, and the data never goes stale under a fixed stamp.
  */
@@ -134,8 +135,14 @@ export function filesToRemove(rec: SavedBook, others: readonly SavedBook[]): str
   return bookFiles(rec.book, rec.chapters, rec.trs).filter((f) => !keep.has(f));
 }
 
-/** Data set identity from meta.json: changes whenever the data is rebuilt with a new version or date. */
-export const dataStamp = (meta: { version: string; generated: string }): string => `${meta.version}|${meta.generated}`;
+/**
+ * Data set identity from meta.json: its `version`, a content hash that changes exactly when the data
+ * does (scripts/data/meta.ts), so a rebuild with new content refreshes the caches even on the same
+ * day, and an identical rebuild on a later day does not. Older data sets (a short version number) fall
+ * back to version + build date.
+ */
+export const dataStamp = (meta: { version: string; generated: string }): string =>
+  /^[0-9a-f]{8,}$/.test(meta.version) ? meta.version : `${meta.version}|${meta.generated}`;
 
 /* ------------------------------------------------------------------------ */
 /* Cache Storage operations                                                  */

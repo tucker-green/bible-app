@@ -177,15 +177,20 @@ export function loadNameIndex(): Promise<NameIndex> {
 /* Words -> entities                                                         */
 /* ------------------------------------------------------------------------ */
 
-/** Entity id named by original word `origIndex` of the chapter, if any. */
-export function entityForWord(nameChapter: NameChapter | null | undefined, origIndex: number): string | undefined {
-  return nameChapter?.words[String(origIndex)];
+/**
+ * Entity id named by original word `origIndex` of the chapter, if any. With `tr`, none when that
+ * translation reads the word as a common noun (NameChapter.except: "accuser", not Satan).
+ */
+export function entityForWord(nameChapter: NameChapter | null | undefined, origIndex: number, tr?: string): string | undefined {
+  const key = String(origIndex);
+  if (tr && nameChapter?.except?.[key]?.includes(tr)) return undefined;
+  return nameChapter?.words[key];
 }
 
 /** Entity named by an English token: the first of its linked original words that names one. */
-export function entityForToken(nameChapter: NameChapter | null | undefined, token: WordToken): string | undefined {
+export function entityForToken(nameChapter: NameChapter | null | undefined, token: WordToken, tr?: string): string | undefined {
   for (const i of token[1]) {
-    const id = entityForWord(nameChapter, i);
+    const id = entityForWord(nameChapter, i, tr);
     if (id) return id;
   }
   return undefined;

@@ -61,6 +61,32 @@ const config: DataConfig = {
 /** Data version from meta.json, appended as ?v= to later requests to bust HTTP caches. */
 let dataVersion = '';
 
+/** While set, every data request except meta.json waits for it (see gateData). */
+let gate: Promise<void> | null = null;
+
+/**
+ * Hold every data request except meta.json until `ready` settles (fulfilled or not). The app's
+ * start-up passes the step that loads meta.json and, when the data set changed, empties the offline
+ * caches (src/pwa.ts prepareData), so no chapter is served from a cache that is about to be cleared
+ * and every URL carries the new ?v=. `null` lifts the gate.
+ */
+export function gateData(ready: Promise<unknown> | null): void {
+  gate = ready ? ready.then(
+      () => undefined,
+      () => undefined,
+    ) : null;
+}
+
+/** The data version (meta.json `version`) once known, else "" (e.g. to hand to a Web Worker). */
+export function currentDataVersion(): string {
+  return dataVersion;
+}
+
+/** Set the data version without loading meta.json (a Web Worker gets it from the page). */
+export function setDataVersion(version: string): void {
+  dataVersion = version;
+}
+
 /** Override configuration (tests, or hosting the data elsewhere). Clears all caches. */
 export function configureData(opts: Partial<DataConfig>): void {
   Object.assign(config, opts);
@@ -107,11 +133,12 @@ export class DataError extends Error {
   }
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  if (gate && path !== 'meta.json') await gate;
   const url = dataUrl(path);
   let res: Response;
   try {
-    res = await config.fetch(url);
+    res = await (init ? config.fetch(url, init) : config.fetch(url));
   } catch (err) {
     throw Object.assign(new DataError(url, 0), { cause: err });
   }
@@ -184,10 +211,13 @@ let concCache = new Lru<string, Promise<unknown>>(config.chunkCacheSize);
 /* Loaders                                                                   */
 /* ------------------------------------------------------------------------ */
 
-/** public/data/meta.json (loaded once). */
+/**
+ * public/data/meta.json (loaded once). Fetched with `cache: 'no-cache'` so the browser revalidates it
+ * (GitHub Pages serves it with max-age=600): a new data set is seen on the next start.
+ */
 export function loadMeta(): Promise<DataMeta> {
   if (!metaPromise) {
-    const p = fetchJson<DataMeta>('meta.json').then((m) => {
+    const p = fetchJson<DataMeta>('meta.json', { cache: 'no-cache' }).then((m) => {
       if (m.version) dataVersion = m.version;
       return m;
     });
@@ -464,16 +494,24 @@ export function toWord(ch: OrigChapter, index: number): Word | undefined {
   };
 }
 
-/** Indices of every morpheme of the written word containing `index` (Greek: just [index]). */
+/**
+ * Indices of every morpheme of the written word containing `index` (Greek: just [index]), in order.
+ * Morphemes start at `group` and are normally contiguous; every word of the same English verse is
+ * scanned anyway, so data with an interrupted word (older builds) still gives the whole word.
+ */
 export function wordGroup(ch: OrigChapter, index: number): number[] {
   const w = ch.words[index];
   if (!w) return [];
   const g = w[OW.group];
   const out: number[] = [];
-  // Morphemes of a word are contiguous and start at `group`.
-  for (let i = g; i < ch.words.length && ch.words[i][OW.group] === g; i++) out.push(i);
+  const verse = ch.words[g]?.[OW.verse] ?? w[OW.verse];
+  for (let i = g; i < ch.words.length; i++) {
+    const x = ch.words[i];
+    if (x[OW.group] === g) out.push(i);
+    else if (x[OW.verse] !== verse && i > index) break;
+  }
   if (!out.includes(index)) out.push(index);
-  return out;
+  return out.sort((a, b) => a - b);
 }
 
 /** Indices of the original words translated in English verse `verse`. */

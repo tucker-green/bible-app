@@ -10,7 +10,7 @@
  * Search only covers bundled translations (public/data/search/{TR}.json); runtime translations
  * such as NIV have no corpus and reject with a DataError (HTTP 404).
  */
-import { dataBaseUrl, loadConcordance, loadLexIndex, loadOrig, loadSearchCorpus, loadText } from '../data';
+import { currentDataVersion, dataBaseUrl, loadConcordance, loadLexIndex, loadOrig, loadSearchCorpus, loadText } from '../data';
 import { SearchEngine } from './engine';
 import type { HitRef, SearchOptions, SearchResponse, WorkerRequest, WorkerResponse } from './engine';
 
@@ -60,7 +60,7 @@ function getBackend(): Backend {
         for (const p of waiting) dispatch(p.msg).then(p.resolve, p.reject);
       };
       backend = { kind: 'worker', worker };
-      worker.postMessage({ id: 0, type: 'init', dataBase: dataBaseUrl(true) } satisfies WorkerRequest);
+      worker.postMessage({ id: 0, type: 'init', dataBase: dataBaseUrl(true), dataVersion: currentDataVersion() } satisfies WorkerRequest);
       return backend;
     } catch {
       /* fall through to local */

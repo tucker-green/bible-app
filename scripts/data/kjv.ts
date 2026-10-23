@@ -401,8 +401,8 @@ const FORMULA_TARGETS: Record<string, readonly string[]> = {
   lo: ['H2009', 'H2005', 'H0431', 'H0718', 'H0718a'],
   saying: ['H0559'],
 };
-/** Words that may stay on a proper name the KJV tags together with it ("the LORD", "O God"). */
-const NAME_COMPANIONS = new Set(['the', 'o']);
+/** Words that may stay on a proper name the KJV tags together with it ("the LORD", "O God", "sons of Japheth"). */
+const NAME_COMPANIONS = new Set(['the', 'o', 'of']);
 
 /**
  * The KJV's Hebrew tagging is phrase-level: a tagged element can run over a whole clause, e.g.
@@ -425,12 +425,18 @@ function rehomePhraseWords(
   words: readonly OrigWord[],
   cand: readonly number[],
   table: TranslationTable,
-  runOf: readonly number[],
 ): void {
   if (!cand.some((j) => /^[\u0590-\u05FF]/.test(words[j][OW.text]))) return; // Hebrew only
   const n = wordPieces.length;
   const lower = wordPieces.map((p) => p.text.toLowerCase());
-  const elem = (wi: number) => `${runOf[wordPieces[wi].entry]}|${entries[wordPieces[wi].entry].lemmaAttr}`;
+  // Tagged element = a block of consecutive words with the same (non-empty) lemma attribute,
+  // punctuation inside notwithstanding ("it came to pass, that, when Abram").
+  const block: number[] = [];
+  wordPieces.forEach((p, wi) => {
+    const attr = entries[p.entry].lemmaAttr;
+    const prev = wi > 0 ? entries[wordPieces[wi - 1].entry].lemmaAttr : '';
+    block.push(wi > 0 && attr && attr === prev ? block[wi - 1] : wi);
+  });
   const baseOf = (j: number) => (words[j][OW.strongs] ? baseStrongs(words[j][OW.strongs]) : '');
   const claimedOutside = (span: ReadonlySet<number>) => {
     const out = new Set<number>();
@@ -441,14 +447,13 @@ function rehomePhraseWords(
   };
   const relPos = (wi: number) => (n > 1 ? wi / (n - 1) : 0.5);
   const candPos = new Map(cand.map((j, r) => [j, cand.length > 1 ? r / (cand.length - 1) : 0.5]));
+  const sameLinks = (a: number, b: number) => wordLinks[a].length === wordLinks[b].length && wordLinks[a].every((j, x) => j === wordLinks[b][x]);
   /** Does word wi share its tagged element with another word linked to the same root (a phrase tag)? */
-  const inPhrase = (wi: number) =>
-    wordLinks[wi].length > 0 &&
-    wordPieces.some((_, k) => k !== wi && elem(k) === elem(wi) && wordLinks[k].length === wordLinks[wi].length && wordLinks[k].every((j, x) => j === wordLinks[wi][x]));
+  const inPhrase = (wi: number) => wordLinks[wi].length > 0 && wordPieces.some((_, k) => k !== wi && block[k] === block[wi] && sameLinks(k, wi));
 
   const relink = (span: number[], targets: readonly string[]) => {
     const set = new Set(span);
-    if (span.every((wi) => wordLinks[wi].length && wordLinks[wi].every((j) => targets.includes(baseOf(j))))) return;
+    if (span.every((wi) => wordLinks[wi].length && wordLinks[wi].every((j) => targets.includes(baseOf(j))))) return -1;
     const taken = claimedOutside(set);
     const mid = relPos(span[0]);
     let best = -1;
@@ -464,69 +469,71 @@ function rehomePhraseWords(
   };
 
   // 1. Formulas.
-  for (let wi = 0; wi + 1 < n; wi++) {
-    if (lower[wi] === 'to' && lower[wi + 1] === 'pass' && wi > 0 && PASS_VERBS.has(lower[wi - 1])) {
-      let a = wi - 1;
-      while (a > 0 && PASS_AUX.has(lower[a - 1])) a--;
-      if (a > 0 && lower[a - 1] === 'it') a--;
-      const span = Array.from({ length: wi + 2 - a }, (_, k) => a + k);
-      const j = relink(span, FORMULA_TARGETS.pass);
-      // "And it came to pass" -> the וַ of וַיְהִי, when "And" rode on the same phrase tag.
-      if (j !== undefined && j >= 0 && a > 0 && lower[a - 1] === 'and' && inPhraseWith(a - 1, span[0])) {
-        const g = words[j][OW.group];
-        const conj = cand.find((k) => k !== j && words[k][OW.group] === g && /^C/.test(words[k][OW.morph]));
-        if (conj !== undefined && !claimedOutside(new Set([a - 1])).has(conj)) wordLinks[a - 1] = [conj];
-      }
-      wi++;
+  for (let wi = 1; wi + 1 < n; wi++) {
+    if (lower[wi] !== 'to' || lower[wi + 1] !== 'pass') continue;
+    let a = wi - 1;
+    if (lower[a] === 'even' && a > 0) a--; // "It came even to pass"
+    if (!PASS_VERBS.has(lower[a])) continue;
+    while (a > 0 && PASS_AUX.has(lower[a - 1])) a--;
+    if (a > 0 && lower[a - 1] === 'it') a--;
+    const span = Array.from({ length: wi + 2 - a }, (_, k) => a + k);
+    const j = relink(span, FORMULA_TARGETS.pass);
+    // "And it came to pass" -> the וַ of וַיְהִי, when "And" rode on the same phrase tag.
+    if (j >= 0 && a > 0 && lower[a - 1] === 'and' && block[a - 1] === block[a] && !span.includes(a - 1)) {
+      const g = words[j][OW.group];
+      const conj = cand.find((k) => k !== j && words[k][OW.group] === g && /^C/.test(words[k][OW.morph]));
+      if (conj !== undefined && !claimedOutside(new Set([a - 1])).has(conj)) wordLinks[a - 1] = [conj];
     }
+    wi++;
   }
   for (let wi = 0; wi < n; wi++) {
     const t = FORMULA_TARGETS[lower[wi]];
     if (t && lower[wi] !== 'pass' && inPhrase(wi)) relink([wi], t);
   }
 
-  function inPhraseWith(a: number, b: number): boolean {
-    return elem(a) === elem(b);
-  }
-
-  // 2. Elements tagged with a proper name only.
-  const seen = new Set<string>();
-  for (let wi = 0; wi < n; wi++) {
-    const key = elem(wi);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const members: number[] = [];
-    for (let k = 0; k < n; k++) if (elem(k) === key) members.push(k);
-    if (members.length < 2) continue;
-    const e = entries[wordPieces[wi].entry];
+  // 2. Other words of a phrase tag. Members of one element still linked to its single root.
+  const members = new Map<number, number[]>();
+  wordPieces.forEach((_, k) => members.set(block[k], [...(members.get(block[k]) ?? []), k]));
+  for (const list of members.values()) {
+    if (list.length < 2) continue;
+    const e = entries[wordPieces[list[0]].entry];
     if (e.tags.length !== 1) continue;
-    const roots = new Set(members.flatMap((k) => wordLinks[k]));
-    const root = [...roots].find((j) => words[j][OW.morph].startsWith('Np') && baseOf(j) === baseStrongs(e.tags[0].strongs));
+    const tagBase = baseStrongs(e.tags[0].strongs);
+    const root = [...new Set(list.flatMap((k) => wordLinks[k]))].find((j) => baseOf(j) === tagBase);
     if (root === undefined) continue;
-    const ownWords = new Set<number>();
+    const isName = (k: number) => /^\p{Lu}/u.test(wordPieces[k].text) && !isFunctionWord(wordPieces[k].text);
+    // A name element spells the name out ("Abram"); "to the grave" (שְׁאוֹל) and "their groves"
+    // (אֲשֵׁרִים) are the KJV's common-noun renderings of a name and are ordinary elements.
+    const nameElement = words[root][OW.morph].startsWith('Np') && list.some(isName);
+    const near = new Set<number>();
     const g = words[root][OW.group];
-    for (const j of cand) {
-      const gj = words[j][OW.group];
-      if (gj === g || Math.abs(gj - g) <= 3) ownWords.add(j);
-    }
-    for (const k of members) {
+    for (const j of cand) if (Math.abs(words[j][OW.group] - g) <= 3) near.add(j);
+    for (const k of list) {
       const text = wordPieces[k].text;
-      if (!wordLinks[k].includes(root) || wordLinks[k].length !== 1) continue; // moved already
-      if (/^\p{Lu}/u.test(text) || NAME_COMPANIONS.has(lower[k])) continue;
-      const taken = claimedOutside(new Set([k]));
-      const fn = isFunctionWord(text);
+      if (wordLinks[k].length !== 1 || wordLinks[k][0] !== root) continue; // moved already
+      if (isName(k) || NAME_COMPANIONS.has(lower[k])) continue;
+      // Prepositions and articles stay with the noun, as in the BSB ("the sons of Japheth"), and so
+      // does a word that renders the root itself ("the grave" = שְׁאוֹל).
+      const cls = wordClass(text);
+      if (cls === 'prep' || cls === 'det') continue;
       const pRoot = table.prob(lem[k], words[root][OW.strongs]);
+      if (pRoot >= (nameElement ? 0.05 : 0.02)) continue;
+      const fn = cls !== 'content';
+      if (!nameElement && fn) continue; // in ordinary elements only content words move
+      const taken = claimedOutside(new Set([k]));
       let best = -1;
       let bestP = 0;
       for (const j of cand) {
-        if (j === root || taken.has(j) || (fn && !ownWords.has(j))) continue;
+        if (j === root || taken.has(j) || (fn ? !near.has(j) : isBoundMorpheme(words, j))) continue;
         const p = table.prob(lem[k], words[j][OW.strongs]);
         if (p > bestP) {
           bestP = p;
           best = j;
         }
       }
-      wordLinks[k] = best >= 0 && bestP >= 0.1 && bestP > 5 * pRoot ? [best] : [];
+      const move = best >= 0 && bestP >= (nameElement ? 0.1 : 0.15) && bestP > 5 * pRoot;
+      if (move) wordLinks[k] = [best];
+      else if (nameElement) wordLinks[k] = [];
     }
   }
 }
@@ -658,7 +665,7 @@ export function linkKjvVerse(
   if (equiv) {
     const taken = new Set(assigned.values());
     for (const [base, list] of byBase) {
-      const rest = list.filter((o) => !assigned.has(o.key));
+      const rest = list.filter((o) => !assigned.has(o.key) && !attachedArticle.has(o.key));
       const eq = rest.length ? equiv.get(base) : undefined;
       if (!eq) continue;
       const seen = new Set<number>();
@@ -788,7 +795,7 @@ export function linkKjvVerse(
         }
       }
     }
-    rehomePhraseWords(entries, wordPieces, wordLinks, lem, words, cand, table, runOf);
+    rehomePhraseWords(entries, wordPieces, wordLinks, lem, words, cand, table);
   }
 
   let tags = 0;
@@ -885,8 +892,9 @@ export function bsbTable(origOf: (book: BookId, chapter: number) => OrigChapter)
 
 /**
  * Lemma groups (Greek only): for each lemma of the SBLGNT words, the Strong's ids used for it (each at
- * least `min` times and 5% of the lemma's occurrences). Hebrew is left out: Macula gives every
- * pronominal suffix the lemma הוּא, which would make "fathers" (H1) match the suffix נוּ.
+ * least `min` times): the form-numbers of one word (οὗτος G3778 / τούτου G5127; εἰμί G1510 / G2075).
+ * Hebrew is left out: Macula gives every pronominal suffix the lemma הוּא, which would make "fathers"
+ * (H1) match the suffix נוּ.
  */
 export function lemmaGroups(chapters: Iterable<OrigChapter>, min = 5): Map<string, string[]> {
   const counts = new Map<string, Map<string, number>>();
@@ -902,8 +910,7 @@ export function lemmaGroups(chapters: Iterable<OrigChapter>, min = 5): Map<strin
   }
   const out = new Map<string, string[]>();
   for (const [lemma, m] of counts) {
-    const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const ids = [...m].filter(([, n]) => n >= min && n >= 0.05 * total).map(([s]) => s);
+    const ids = [...m].filter(([, n]) => n >= min).map(([s]) => s);
     if (ids.length > 1) out.set(lemma, ids);
   }
   return out;
@@ -944,7 +951,9 @@ export function learnEquivalences(stats: readonly { unlinked: string[]; free: st
   for (const [s, m] of c) {
     const ns = n.get(s)!;
     const ids = [...m]
-      .filter(([f, k]) => f !== s && k >= 5 && k / ns >= 0.3 && k / ns / ((fv.get(f) ?? 0) / V) >= 5 && f[0] === s[0])
+      // Never to or from the Greek article: an unlinked noun "co-occurs" with some free article in
+      // most verses (G3772 "heaven" -> G3588 put 1 John 5:7 "heaven" on οἱ).
+      .filter(([f, k]) => f !== s && f !== ARTICLE && s !== ARTICLE && k >= 5 && k / ns >= 0.3 && k / ns / ((fv.get(f) ?? 0) / V) >= 5 && f[0] === s[0])
       .sort((a, b) => b[1] - a[1])
       .map(([f]) => f);
     if (ids.length) out.set(s, ids);

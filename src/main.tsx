@@ -9,8 +9,8 @@ import { startRouter } from './app/router';
 import { initRemoteTranslations } from './app/remote';
 import { initState, meta, metaError, passage, route } from './app/state';
 import { routeTransition } from './app/transitions';
-import { loadMeta, prefetchChapter } from './lib/data';
-import { initPwa } from './pwa';
+import { gateData, loadMeta, prefetchChapter } from './lib/data';
+import { initPwa, prepareData } from './pwa';
 
 initState();
 // Saved API.Bible translations (the NIV…) before the router runs, so #/NIV/… links open cold.
@@ -18,8 +18,12 @@ initRemoteTranslations();
 // Chapter and page changes animate with View Transitions where supported (src/app/transitions.ts).
 startRouter(window, { wrap: routeTransition });
 
-// Fetch meta.json and the first chapter in parallel (the reader waits for meta to validate the
-// translation; the chapter request is already in flight by then). Only when the reader is what
+// Every data request waits for meta.json and, after a data update, for the stale offline caches to be
+// emptied (src/pwa.ts prepareData), so the first load already shows the new data.
+gateData(prepareData());
+
+// Ask for meta.json and the first chapter now (the chapter request goes out as soon as meta.json is
+// in, through the gate above; the reader waits for meta anyway to validate the translation). Only when the reader is what
 // opens: a cold #/word/… link must not fetch (or spend API.Bible quota on) the last-read chapter.
 const { tr, ref } = passage.peek();
 if (route.peek().name === 'read' || route.peek().name === 'search') prefetchChapter(tr, ref.book, ref.chapter, { next: false });

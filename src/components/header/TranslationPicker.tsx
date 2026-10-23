@@ -9,7 +9,7 @@
  */
 import type { RefObject } from 'preact';
 import { compareHash } from '../../app/router';
-import { focusOnArrival, openSettings, passage, route, setTranslation, translations } from '../../app/state';
+import { openSettings, passage, route, setTranslation, translations } from '../../app/state';
 import { verseAtReadingLine } from '../xrefs/readingVerse';
 import { Icon } from '../common/Icon';
 import { UiIcon } from '../shell/icons';
@@ -29,8 +29,9 @@ export function TranslationPicker({ open, onClose, anchor }: { open: boolean; on
   const reading = open && route.value.name === 'read' && typeof window !== 'undefined' && window.scrollY > 4 ? verseAtReadingLine() : null;
   const compareTo = partner ? compareHash([cur, partner], ref.book, ref.chapter, reading ?? ref.verse) : null;
 
+  // Focus goes back to the trigger (closePanel): the reader keeps its place in the text, and moving
+  // focus into the text (e.g. to the title) would scroll it away.
   const choose = (id: string) => {
-    if (id !== cur) focusOnArrival(id, { book: ref.book, chapter: ref.chapter });
     onClose();
     if (id !== cur) setTranslation(id);
   };

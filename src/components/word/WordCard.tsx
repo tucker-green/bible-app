@@ -327,7 +327,7 @@ export function WordCard({
               {card.approx && <ApproxNote card={card} trMeta={trMeta} />}
             </>
           )}
-          <EntitySection book={model.book} chapter={model.chapter} origIndices={unit?.links ?? []} />
+          <EntitySection book={model.book} chapter={model.chapter} origIndices={unit?.links ?? []} tr={model.tr} />
           {card.kind !== 'supplied' && (card.kind !== 'unavailable' || Boolean(card.strongs)) && (
             <Definition
               card={card}
@@ -666,7 +666,7 @@ function Definition({
       ? 'Rootword (Hebrew grammar note)'
       : card.strongs.startsWith('G')
         ? 'Abbott-Smith via STEPBible'
-        : 'BDB (abridged) via STEPBible';
+        : 'STEPBible';
   return (
     <div class="card__def">
       <div ref={txtRef} class={`card__def-txt${expanded ? ' is-open' : ''}`}>

@@ -94,7 +94,7 @@ export type HitRef = Pick<SearchHit, 'book' | 'chapter' | 'verse' | 'text'>;
 
 /** Messages between client.ts and worker.ts. */
 export type WorkerRequest =
-  | { id: number; type: 'init'; dataBase: string }
+  | { id: number; type: 'init'; dataBase: string; dataVersion?: string }
   | { id: number; type: 'search'; query: string; opts: SearchOptions }
   | { id: number; type: 'warm'; tr: string }
   | { id: number; type: 'highlight'; tr: string; hits: HitRef[]; strongs: string[] };

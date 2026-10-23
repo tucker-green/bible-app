@@ -139,7 +139,7 @@ describe('search client (worker)', () => {
     expect(FakeWorker.instances).toHaveLength(1);
     expect(w.opts).toMatchObject({ type: 'module' });
     expect(String(w.url)).toMatch(/worker\.ts/);
-    expect(w.received[0]).toEqual({ id: 0, type: 'init', dataBase: 'http://test.local/data/' });
+    expect(w.received[0]).toEqual({ id: 0, type: 'init', dataBase: 'http://test.local/data/', dataVersion: '' });
     expect(w.received.slice(1).map((m) => m.type)).toEqual(['search', 'search']);
   });
 

@@ -38,6 +38,7 @@ import type {
   NameIndex,
   OrigChapter,
   TextChapter,
+  Token,
 } from '../../src/lib/types';
 import { OW, packRef } from '../../src/lib/types';
 import { BOOKS, baseStrongs, cleanOut, log, normStrongs, outPath, srcPath, writeJson } from './common';
@@ -391,7 +392,7 @@ export function cleanForm(strong: string, form: string): string {
  */
 export function sanitizeTipnrHtml(raw: string): string {
   // A "<" that cannot start a tag ("a < b") is text, not the start of an element.
-  let s = (raw ?? '').replace(/^\s*#/, '').replace(/<(?![A-Za-z/!])/g, '&lt;');
+  let s = cleanTipnrMarkup((raw ?? '').replace(/^\s*#/, '')).replace(/<(?![A-Za-z/!])/g, '&lt;');
   // "first mentioned at <ref…>Gen.11.26</ref>) <br>" — a stray ")" in every TIPNR summary.
   s = s.replace(/(<\/ref>)\)/gi, (m, close: string, at: number) => {
     const before = s.slice(0, at);
@@ -400,12 +401,43 @@ export function sanitizeTipnrHtml(raw: string): string {
     return opens > closes ? m : close;
   });
   s = s.replace(/<BR\s*\/?>/g, '<br>');
-  const html = stripCantillation(sanitizeStepDef(s, 'H'))
-    .replace(/<br>\s*([;,.])/g, '$1<br>')
-    .replace(/\s+([;,.])(?=<br>|$)/g, '$1')
-    .replace(/<b>\s*<\/b>/g, '');
+  const html = tidyTipnrHtml(
+    stripCantillation(sanitizeStepDef(s, 'H'))
+      .replace(/<br>\s*([;,.])/g, '$1<br>')
+      .replace(/\s+([;,.])(?=<br>|$)/g, '$1')
+      .replace(/<b>\s*<\/b>/g, ''),
+  );
   if (!isSafeDefHtml(html)) return escapeHtml(html.replace(/<[^>]*>/g, ''));
   return html;
+}
+
+/**
+ * Repair TIPNR's broken pseudo-markup before sanitising: a lone "<>" ("referred to as <><strong…>
+ * Corban"), a <strong="…"> whose attribute swallowed other ids (`<strong="H3844J <H3293I H1004K">`),
+ * a <ref="…"> attribute or a word with a stray ">" (`<ref="Jer.48.1 also known as>">`,
+ * "Testament>;"). Well-formed tags are kept; any other "<" / ">" is dropped (but not a spaced "a < b").
+ */
+export function cleanTipnrMarkup(raw: string): string {
+  return raw
+    .replace(/<strong="([^"<>]*)(?:<[^>]*)?"?>/g, (_m, id: string) => `<strong="${id.trim().split(/\s+/)[0] ?? ''}">`)
+    .replace(/<ref="([^"]*)">/g, (_m, a: string) => `<ref="${a.replace(/[<>]/g, '').trim()}">`)
+    .replace(/(<[A-Za-z/][^<>]*>)|<(?! )|(?<! )>/g, (_m, tag?: string) => tag ?? '')
+    .replace(/<(strong|ref)\b[^>]*>\s*<\/\1>/g, '');
+}
+
+/**
+ * Final tidy of a sanitised summary: TIPNR's unique names inside names ("a_wife_of_Hezron",
+ * "Brook_of_the_Arabah") read with spaces, name parts lose the "/" that marks the Hebrew word
+ * boundary ("House of/ the Forest"), and escaped pseudo-markup the sanitiser could not use
+ * ("&lt;ref=…&gt;", "&lt;&gt;") is removed.
+ */
+export function tidyTipnrHtml(html: string): string {
+  return html
+    .replace(/&lt;\/?(?:ref|strong)\b(?:(?!&gt;)[^<])*(?:&gt;)?/g, '')
+    .replace(/&lt;&gt;|&lt;(?=[\p{L}/"])|(?<=[\p{L}"'.)])&gt;/gu, '')
+    .replace(/(?<=\p{L})_(?=\p{L})/gu, ' ')
+    .replace(/(?<=\p{L})\/ (?=\p{L})/gu, ' ')
+    .replace(/ {2,}/g, ' ');
 }
 
 /* ======================================================================== */
@@ -552,6 +584,38 @@ export interface ClaimIndex {
   /** Explicit refs per entity id (packed). */
   refs: Map<string, Set<number>>;
   badRefs: string[];
+  /**
+   * "(same form with alt. meaning)" claims: "bookNum.chapter.verse|H7854|entity id" -> the common-noun
+   * renderings some Bibles use there instead of the name ("accuser" for Satan, Ps 109:6).
+   */
+  alts?: Map<string, AltMeaning>;
+}
+
+/** The common-noun readings of an "alt. meaning" TIPNR line. */
+export interface AltMeaning {
+  /** Lower-case words of the common renderings ("accuser", "emperor", "the man" -> "man"). */
+  words: string[];
+  /** Bibles TIPNR says read it that way ("ESV", "NIV", "KJV"); ["*"] when the line names none. */
+  bibles: string[];
+}
+
+/**
+ * Parse the English column of an alt-meaning line: "Satan =KJV; accuser =ESV,NIV" -> words
+ * ["accuser"], bibles ["ESV", "NIV"]; "week" -> words ["week"], bibles ["*"]. Only renderings that
+ * start lower-case are common nouns.
+ */
+export function parseAltMeaning(english: string): AltMeaning {
+  const words = new Set<string>();
+  const bibles = new Set<string>();
+  for (const part of english.split(';')) {
+    const [rendering, list] = part.split('=');
+    const r = (rendering ?? '').replace(/[()[\]]/g, '').trim();
+    if (!r || !/^\p{Ll}/u.test(r)) continue;
+    for (const w of r.toLowerCase().split(/[^\p{L}]+/u)) if (w.length > 2 && !['the', 'and', 'their', 'his', 'her'].includes(w)) words.add(w);
+    const bs = (list ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    for (const b of bs.length ? bs : ['*']) bibles.add(b);
+  }
+  return { words: [...words], bibles: [...bibles] };
 }
 
 /**
@@ -572,6 +636,7 @@ export function buildClaims(records: TipnrRecord[], ids: Map<string, string>): C
   const everywhere = new Map<string, string>();
   const refs = new Map<string, Set<number>>();
   const badRefs: string[] = [];
+  const alts = new Map<string, AltMeaning>();
   for (const rec of records) {
     const id = ids.get(rec.uniqueName);
     if (!id) continue;
@@ -592,9 +657,11 @@ export function buildClaims(records: TipnrRecord[], ids: Map<string, string>): C
       }
       const prio = parts.size > 1 ? 2 : 3;
       const rank = /alt\. meaning/.test(sub.kind) ? 0 : sub.uniqueName.includes('|') ? 1 : 2;
+      const alt = rank === 0 ? parseAltMeaning(sub.english) : undefined;
       const partList = [...parts.keys()];
       for (const r of parsed.refs) {
         const vk = `${r.book.num}.${r.chapter}.${r.verse}`;
+        if (alt?.words.length) for (const b of parts.keys()) alts.set(`${vk}|${b}|${id}`, alt);
         for (const [b, forms] of parts) {
           const key = `${vk}|${b}`;
           let list = claims.get(key);
@@ -614,7 +681,7 @@ export function buildClaims(records: TipnrRecord[], ids: Map<string, string>): C
   }
   const everywhereById = new Map<string, Set<string>>();
   for (const [b, id] of everywhere) everywhereById.set(id, new Set([...(everywhereById.get(id) ?? []), b]));
-  return { claims, byVerse, everywhere, everywhereById, refs, badRefs };
+  return { claims, byVerse, everywhere, everywhereById, refs, badRefs, alts };
 }
 
 export interface MapStats {
@@ -1192,6 +1259,8 @@ export interface NamesResult {
   stats: MapStats;
   links: LinkReport;
   badRefs: string[];
+  /** Alt-meaning words unmapped / mapped with per-translation exceptions; words re-assigned by ENTITY_OVERRIDES. */
+  alt?: { dropped: number; excepted: number; overridden: number };
 }
 
 /** Capitalised words that do not mark a name: BSB capitalises pronouns referring to God ("His bride"). */
@@ -1219,10 +1288,53 @@ export function capitalisedWords(text: TextChapter, into: Set<number> = new Set(
   return into;
 }
 
+/** Translations the app shows besides the bundled ones whose readings TIPNR names (API.Bible NIV). */
+const TIPNR_BIBLES = ['KJV', 'NIV'];
+
+/** A token text that renders a word as a common noun: lower-case, or one of the alt-meaning words ("Emperor"). */
+export function isCommonRendering(word: string, alt: AltMeaning): boolean {
+  if (/^\p{Ll}/u.test(word)) return true;
+  const w = word.toLowerCase().replace(/(?:’s|'s)$/, '');
+  return alt.words.some((a) => w === a || w === `${a}s` || w === `${a}es` || (a.endsWith('y') && w === `${a.slice(0, -1)}ies`));
+}
+
+/**
+ * Translations in which mapped word `index` is NOT the entity: the alt-meaning line's Bibles (KJV / NIV)
+ * plus every bundled translation whose linked English renders it as a common noun ("accuser",
+ * "casks of wine", "the Emperor"), minus a bundled translation that renders it as a name.
+ */
+export function altExceptions(index: number, alt: AltMeaning, texts: ReadonlyMap<string, TextChapter>): string[] {
+  const out = new Set(alt.bibles.filter((b) => TIPNR_BIBLES.includes(b) || b === '*'));
+  for (const [tr, text] of texts) {
+    const linked: string[] = [];
+    const scan = (tokens: readonly Token[]) => {
+      for (const t of tokens) if (typeof t !== 'string' && t[1].includes(index)) linked.push(t[0]);
+    };
+    if (text.superscription) scan(text.superscription);
+    for (const v of text.verses) scan(v.t);
+    if (!linked.length) continue;
+    if (linked.every((w) => isCommonRendering(w, alt))) out.add(tr);
+    else out.delete(tr);
+  }
+  return [...out].sort();
+}
+
+/**
+ * Words TIPNR files under the wrong person: "Caesar" in Luke 3:1 is Tiberius (filed under Augustus);
+ * in Acts 25–28 the emperor Paul appeals to is Nero (filed under Claudius), and so is "Augustus"
+ * (σεβαστός, the emperor's title) in Acts 25:21, 25.
+ */
+export const ENTITY_OVERRIDES: { book: string; from: number; to: number; verses?: number[]; strongs: string; entity: string }[] = [
+  { book: 'LUK', from: 3, to: 3, verses: [1], strongs: 'G2541', entity: 'Tiberius@' },
+  { book: 'ACT', from: 25, to: 28, strongs: 'G2541', entity: 'Nero@' },
+  { book: 'ACT', from: 25, to: 25, verses: [21, 25], strongs: 'G4575', entity: 'Nero@' },
+];
+
 export function assembleNames(
   text: string,
   loadOrig: (book: string, chapter: number) => OrigChapter | null,
   loadEnglish?: (book: string, chapter: number) => ReadonlySet<number> | undefined,
+  loadTexts?: (book: string, chapter: number) => ReadonlyMap<string, TextChapter>,
 ): NamesResult {
   const records = parseTipnr(text);
   const built = buildEntities(records);
@@ -1235,6 +1347,9 @@ export function assembleNames(
   const byId = new Map(built.map((e) => [e.id, e]));
 
   const stats = newMapStats();
+  let altDropped = 0;
+  let altExcepted = 0;
+  let overridden = 0;
   const chapters: NameChapter[] = [];
   const refSets = new Map<string, Set<number>>();
   for (const [id, set] of claimIdx.refs) refSets.set(id, new Set(set));
@@ -1243,12 +1358,49 @@ export function assembleNames(
       const orig = loadOrig(book.id, c);
       if (!orig) continue;
       const words = mapChapter(orig, book.num, claimIdx, stats, loadEnglish?.(book.id, c));
+      // Common-noun readings of an alt-meaning claim: per-translation exceptions (or no mapping at all).
+      const except: Record<string, string[]> = {};
+      let texts: ReadonlyMap<string, TextChapter> | undefined;
+      for (const [i, id] of Object.entries(words)) {
+        const w = orig.words[+i];
+        const alt = claimIdx.alts?.get(`${book.num}.${c}.${w[OW.verse]}|${baseStrongs(w[OW.strongs])}|${id}`);
+        if (!alt) continue;
+        texts ??= loadTexts?.(book.id, c) ?? new Map();
+        const trs = altExceptions(+i, alt, texts);
+        const all = trs.includes('*') || ([...texts.keys(), ...TIPNR_BIBLES].every((tr) => trs.includes(tr)) && texts.size > 0);
+        if (all) {
+          delete words[i];
+          stats.mapped--;
+          altDropped++;
+        } else if (trs.length) {
+          except[i] = trs;
+          altExcepted++;
+        }
+      }
+      // TIPNR misfilings (Caesar in Luke 3:1 / Acts 25–28).
+      for (const o of ENTITY_OVERRIDES) {
+        if (o.book !== book.id || c < o.from || c > o.to) continue;
+        const target = built.find((e) => e.uniqueName.startsWith(o.entity));
+        if (!target) continue;
+        orig.words.forEach((w, i) => {
+          if (baseStrongs(w[OW.strongs]) !== o.strongs || (o.verses && !o.verses.includes(w[OW.verse]))) return;
+          const old = words[String(i)];
+          if (old === target.id) return;
+          if (old) refSets.get(old)?.delete(packRef(book.num, c, w[OW.verse]));
+          else stats.mapped++;
+          words[String(i)] = target.id;
+          delete except[String(i)];
+          overridden++;
+        });
+      }
       for (const [i, id] of Object.entries(words)) {
         let set = refSets.get(id);
         if (!set) refSets.set(id, (set = new Set()));
         set.add(packRef(book.num, c, orig.words[+i][OW.verse]));
       }
-      chapters.push({ book: book.id, chapter: c, words });
+      const nc: NameChapter = { book: book.id, chapter: c, words };
+      if (Object.keys(except).length) nc.except = except;
+      chapters.push(nc);
     }
   }
 
@@ -1266,7 +1418,7 @@ export function assembleNames(
       return [e.id, e.name, e.brief, people(e.parents), people(e.children), people(e.partners), people(e.siblings)];
     });
   const index: NameIndex = entities.map((e) => [e.id, e.name, e.kind, e.brief, e.refs.length]);
-  return { entities, chapters, family, index, stats, links, badRefs: claimIdx.badRefs };
+  return { entities, chapters, family, index, stats, links, badRefs: claimIdx.badRefs, alt: { dropped: altDropped, excepted: altExcepted, overridden } };
 }
 
 export function buildNames(): NamesResult {
@@ -1285,7 +1437,16 @@ export function buildNames(): NamesResult {
     }
     return out;
   };
-  const res = assembleNames(text, loadOrig, loadEnglish);
+  // Every bundled translation's text, for the alt-meaning exceptions (only chapters that need them).
+  const loadTexts = (book: string, chapter: number): Map<string, TextChapter> => {
+    const out = new Map<string, TextChapter>();
+    for (const tr of ['KJV', 'BSB', 'WEB', 'ASV', 'YLT']) {
+      const p = outPath('text', tr, book, `${chapter}.json`);
+      if (existsSync(p)) out.set(tr, JSON.parse(readFileSync(p, 'utf8')) as TextChapter);
+    }
+    return out;
+  };
+  const res = assembleNames(text, loadOrig, loadEnglish, loadTexts);
 
   cleanOut('names');
   const chunks = new Map<string, NameEntityChunk>();
@@ -1307,7 +1468,8 @@ export function buildNames(): NamesResult {
     `${res.entities.length} entities (${Object.entries(kinds)
       .map(([k, n]) => `${n} ${k}`)
       .join(', ')}), ${res.stats.mapped} words mapped in ${res.chapters.length} chapters, ` +
-      `${res.links.resolved} family links (${res.links.unresolved.length} unresolved, ${res.links.uncertain.length} uncertain "(?)" left out, ${res.links.uncertainKept.length} kept), ${(bytes / 1e6).toFixed(1)} MB`,
+      `${res.links.resolved} family links (${res.links.unresolved.length} unresolved, ${res.links.uncertain.length} uncertain "(?)" left out, ${res.links.uncertainKept.length} kept); ` +
+      `alt-meaning words: ${res.alt?.excepted ?? 0} with per-translation exceptions, ${res.alt?.dropped ?? 0} unmapped; ${res.alt?.overridden ?? 0} re-assigned (Caesar); ${(bytes / 1e6).toFixed(1)} MB`,
   );
   return res;
 }

@@ -160,6 +160,8 @@
   overflow-wrap: break-word;
 }
 .prose p { margin: 0; }
+/* the skip link's target (focused, not operable): no ring around the whole text */
+.prose:focus { outline: none; }
 .para { text-indent: 1.4em; text-wrap: pretty; }
 :root[data-justify="on"] .para, :root[data-justify="on"] .vl:not(.vl--poetry) { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
 

@@ -59,14 +59,17 @@ export interface TranslationMeta {
 
 /** public/data/meta.json */
 export interface DataMeta {
-  /** Bumped whenever the data format changes; the app uses it to bust caches. */
+  /**
+   * Content identity of the data set (a short hash over every other file under public/data/): changes
+   * whenever the data does. The app appends it to data URLs (?v=) and empties its offline caches when it changes.
+   */
   version: string;
   /** ISO date the data was generated. */
   generated: string;
   translations: TranslationMeta[];
   books: BookMeta[];
-  /** Credits for every dataset used, shown on the About page. */
-  credits: { name: string; license: string; url: string; note?: string }[];
+  /** Credits for every dataset used, shown on the About page (`licenseUrl`: the licence's text, when there is one). */
+  credits: { name: string; license: string; url: string; note?: string; licenseUrl?: string }[];
 }
 
 /* ------------------------------------------------------------------------ */
@@ -212,9 +215,14 @@ export interface LexEntry {
   pos: string;
   /** Short gloss, e.g. "love". */
   gloss: string;
-  /** Brief definition (STEPBible: Abbott-Smith for Greek, abridged BDB for Hebrew). Sanitised HTML: only <b>, <i>, <br>, <span class="ref"> allowed. */
+  /**
+   * Brief definition (STEPBible TBESG: Abbott-Smith) for Greek; "" when there is none. Hebrew entries carry
+   * no STEP definition (TBESH's are Online Bible's Abridged BDB, not licensed for reuse), only the
+   * Rootword-written prefix / suffix notes (`src: 'rootword'`). Sanitised HTML: only <b>, <i>, <br>,
+   * <span class="ref"> allowed.
+   */
   def: string;
-  /** Strong's own definition (public domain). */
+  /** Strong's own definition (OpenScriptures JSON edition, CC BY-SA; from Strong's public-domain dictionaries). */
   strongsDef?: string;
   /** How the KJV renders the word ("KJV usage"). */
   kjv?: string;
@@ -322,6 +330,11 @@ export interface NameChapter {
   book: BookId;
   chapter: number;
   words: Record<string, string>;
+  /**
+   * Word index -> translation ids in which that word is NOT the entity: they render it as a common
+   * noun (Ps 109:6 שָׂטָן is "Satan" in the KJV but "an accuser" in the BSB / NIV). Omitted when none.
+   */
+  except?: Record<string, string[]>;
 }
 
 /**

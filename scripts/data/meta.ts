@@ -1,16 +1,50 @@
 /**
  * Stage "meta": public/data/meta.json (DataMeta) — books with verse counts, the bundled
- * translations, and credits for every dataset.
+ * translations, credits for every dataset, and the data set's identity.
  *
- * Verse counts come from the BSB text files: verses[c - 1] is the highest verse number in chapter c
- * (the BSB omits a few verses, e.g. Matt 17:21, so this is not always the number of verses present).
+ * Verse counts: verses[c - 1] is the highest verse number any bundled translation has in chapter c
+ * (the BSB omits a few verses, e.g. Matt 17:21; the WEB has Rom 14:24–26), so a reference to any
+ * verse that exists in some translation is valid.
+ * `version` is a content hash of every other file under public/data/ (paths, sizes and contents), so
+ * it changes whenever the data does and never otherwise: the app appends it to data URLs (?v=) and
+ * clears its offline caches when it changes (src/lib/offline.ts dataStamp, src/pwa.ts).
  * A translation is listed only when public/data/text/{ID} exists.
  */
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import type { BookMeta, DataMeta, TextChapter, TranslationMeta } from '../../src/lib/types';
 import { BOOKS, log, outPath, readJson, writeJson } from './common';
 
-export const DATA_VERSION = '1';
+/** Data format generation; part of the content identity (bump to force a refresh without content changes). */
+export const DATA_FORMAT = '2';
+
+/** Every file under `dir` (relative paths with "/", sorted), meta.json excluded. */
+export function dataFiles(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (d: string) => {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else out.push(relative(dir, p).split(sep).join('/'));
+    }
+  };
+  if (existsSync(dir)) walk(dir);
+  return out.filter((f) => f !== 'meta.json').sort();
+}
+
+/**
+ * Content identity of the data set: the first 12 hex digits of a SHA-256 over the format generation
+ * and each file's path, size and SHA-1 (meta.json itself excluded).
+ */
+export function dataVersion(dir: string, files: readonly string[] = dataFiles(dir), extra = ''): string {
+  const h = createHash('sha256').update(`rootword-data ${DATA_FORMAT}\n${extra}\n`);
+  for (const f of files) {
+    const buf = readFileSync(join(dir, f));
+    h.update(`${f}\t${buf.length}\t${createHash('sha1').update(buf).digest('hex')}\n`);
+  }
+  return h.digest('hex').slice(0, 12);
+}
 
 const OPEN_BIBLES = 'https://github.com/seven1m/open-bibles';
 
@@ -21,7 +55,7 @@ export const TRANSLATIONS: TranslationMeta[] = [
     name: 'King James Version',
     abbr: 'KJV',
     year: '1769',
-    license: 'Public domain',
+    license: 'Public domain (Crown copyright in the UK)',
     alignment: 'strongs',
     description:
       'The classic 1611 translation in its 1769 Oxford edition. Words are linked through the Strong’s numbers tagged in the CrossWire text.',
@@ -75,18 +109,22 @@ export const TRANSLATIONS: TranslationMeta[] = [
 
 type Credit = DataMeta['credits'][number];
 
+const CC_BY_4 = 'https://creativecommons.org/licenses/by/4.0/';
+
 /** Credits always shown (core text, alignments, original-language data, lexicons). */
 const CORE_CREDITS: Credit[] = [
   { name: 'Berean Standard Bible', license: 'Public domain', url: 'https://berean.bible' },
   {
     name: 'Clear-Bible Alignments (BSB ↔ Greek / Hebrew)',
     license: 'CC BY 4.0',
+    licenseUrl: CC_BY_4,
     url: 'https://github.com/Clear-Bible/Alignments',
-    note: 'Hand-made word alignment of the BSB to the SBLGNT and WLC by Clear Bible / Biblica.',
+    note: 'Hand-made word alignment of the BSB to the SBLGNT and WLC by Clear Bible / Biblica. About 750 verses whose records pair each word with a neighbour’s English were re-paired automatically by Rootword (marked as approximate links).',
   },
   {
     name: 'SBL Greek New Testament (SBLGNT)',
     license: 'CC BY 4.0',
+    licenseUrl: CC_BY_4,
     url: 'https://sblgnt.com',
     note: 'Society of Biblical Literature and Logos Bible Software; word list, lemmas and parsing via Clear-Bible.',
   },
@@ -97,30 +135,50 @@ const CORE_CREDITS: Credit[] = [
     note: 'Hebrew and Aramaic text of the Old Testament, morpheme-segmented edition via Clear-Bible.',
   },
   {
-    name: 'Macula Hebrew',
+    name: 'MACULA Hebrew Linguistic Datasets',
     license: 'CC BY 4.0',
-    url: 'https://github.com/Clear-Bible/macula-hebrew',
-    note: 'Lemmas, morphology, transliteration, glosses and Septuagint-equivalent Greek words.',
+    licenseUrl: CC_BY_4,
+    url: 'https://github.com/Clear-Bible/macula-hebrew/',
+    note: 'MACULA Hebrew Linguistic Datasets © 2022–2024 Biblica, Inc., available at https://github.com/Clear-Bible/macula-hebrew/. Lemmas, transliteration, glosses and Septuagint-equivalent Greek words (Rootword corrects the Greek column’s swapped χ / ξ and strips CATSS markup).',
+  },
+  {
+    name: 'Open Scriptures Hebrew Bible morphology (via MACULA Hebrew)',
+    license: 'CC BY 4.0',
+    licenseUrl: CC_BY_4,
+    url: 'https://hb.openscriptures.org',
+    note: 'The Hebrew morphology codes shown as grammar.',
+  },
+  {
+    name: 'Cherith Glosses for the Hebrew Old Testament (via MACULA Hebrew)',
+    license: 'CC BY 4.0',
+    licenseUrl: CC_BY_4,
+    url: 'https://github.com/Clear-Bible/macula-hebrew/',
+    note: 'By Andi Wu, © 2022 Cherith Analytics: the English glosses of Hebrew words.',
   },
   {
     name: 'STEPBible lexicons (TBESG, TBESH)',
     license: 'CC BY 4.0',
-    url: 'https://www.stepbible.org',
-    note: 'Brief Greek and Hebrew lexicons by Tyndale House, Cambridge.',
+    licenseUrl: CC_BY_4,
+    url: 'https://github.com/STEPBible/STEPBible-Data',
+    note:
+      'Tyndale House, Cambridge (STEPBible.org). Greek: brief definitions from Abbott-Smith’s Manual Greek Lexicon. Hebrew: glosses and parts of speech only — TBESH’s definitions are Online Bible’s Abridged BDB (© Larry Pierce), which needs Online Bible’s permission, so Rootword does not include them.',
   },
   {
-    name: 'Strong’s Greek and Hebrew dictionaries',
-    license: 'Public domain',
+    name: 'Strong’s Greek and Hebrew dictionaries (OpenScriptures JSON edition)',
+    license: 'CC BY-SA',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
     url: 'https://github.com/openscriptures/strongs',
-    note: 'OpenScriptures edition.',
+    note:
+      'JSON edition © Open Scriptures (Greek 2009, Hebrew 2010; Hebrew data cleaned by David Instone-Brewer, corrections and transliterations by David Troidl), marked CC BY-SA (no version stated), based on Strong’s 1890 dictionaries (public domain). Shared alike: the Strong’s fields of Rootword’s lexicon files (strongsDef, kjv, deriv) are under CC BY-SA.',
   },
 ];
 
 const KJV_CREDIT: Credit = {
-  name: 'King James Version with Strong’s numbers',
-  license: 'Public domain',
+  name: 'King James Version with Strong’s numbers (CrossWire)',
+  license: 'Public domain text; tagging: CrossWire general licence',
   url: 'https://crosswire.org',
-  note: 'CrossWire Bible Society KJV module.',
+  note:
+    'KJV text public domain outside the UK (Crown copyright, administered by Cambridge University Press, within the UK). Strong’s and morphology tagging © CrossWire Bible Society 2003–2023 (OT Strong’s from the Bible Foundation, NT from the KJV2003 Project), licensed for any purpose. Via npm @metaxia/scriptures-source-crosswire-kjv.',
 };
 
 const OPEN_BIBLES_CREDIT: Credit = {
@@ -136,22 +194,24 @@ const YLT_CREDIT: Credit = {
 };
 
 const RED_LETTER_CREDIT: Credit = {
-  name: 'King James Version red-letter markup (eBible.org edition, via open-bibles)',
+  name: 'King James Version red-letter markup and Psalm titles (eBible.org edition, via open-bibles)',
   license: 'Public domain',
   url: OPEN_BIBLES,
-  note: 'The words of Jesus as marked in eng-kjv.osis.xml; carried over to the other translations through the word links.',
+  note: 'The words of Jesus as marked in eng-kjv.osis.xml, carried over to the other translations through the word links; the KJV’s Psalm titles, which the CrossWire module lacks.',
 };
 
 const XREF_CREDIT: Credit = {
   name: 'OpenBible.info cross references',
   license: 'CC BY',
+  licenseUrl: CC_BY_4,
   url: 'https://www.openbible.info/labs/cross-references/',
-  note: 'About 340,000 community-voted cross references, derived in part from the Treasury of Scripture Knowledge.',
+  note: 'About 340,000 community-voted cross references, derived in part from the Treasury of Scripture Knowledge, under a Creative Commons Attribution licence (the file is marked “CC-BY”); downloaded via the scrollmapper/bible_databases mirror.',
 };
 
 const NAMES_CREDIT: Credit = {
   name: 'STEPBible TIPNR — Translators Individualised Proper Names with all References',
   license: 'CC BY 4.0',
+  licenseUrl: CC_BY_4,
   url: 'https://github.com/STEPBible/STEPBible-Data',
   note: 'People, places and family links by Tyndale House, Cambridge (STEPBible.org).',
 };
@@ -186,24 +246,42 @@ export function studyDataPresent(): StudyData {
   return { redLetter, xrefs: existsSync(outPath('xref')), names: existsSync(outPath('names')) };
 }
 
-export function buildMeta(): void {
-  const books: BookMeta[] = BOOKS.map((b) => {
+/** Highest verse number per chapter of each book, over every bundled translation present. */
+export function verseCounts(present: readonly string[]): BookMeta[] {
+  return BOOKS.map((b) => {
     const verses: number[] = [];
     for (let c = 1; c <= b.chapters; c++) {
       const p = outPath('text', 'BSB', b.id, `${c}.json`);
       if (!existsSync(p)) throw new Error(`Missing ${p}; run the bsb stage first.`);
-      const ch = readJson<TextChapter>(p);
-      verses.push(ch.verses.reduce((m, v) => Math.max(m, v.v), 0));
+      let max = 0;
+      for (const tr of present) {
+        const f = outPath('text', tr, b.id, `${c}.json`);
+        if (!existsSync(f)) continue;
+        for (const v of readJson<TextChapter>(f).verses) max = Math.max(max, v.v);
+      }
+      verses.push(max);
     }
     return { id: b.id, num: b.num, name: b.name, short: b.short, testament: b.testament, verses };
   });
+}
+
+export function buildMeta(): void {
+  const present = TRANSLATIONS.map((t) => t.id).filter((id) => existsSync(outPath('text', id)));
+  const books = verseCounts(present);
+  const files = dataFiles(outPath());
   const meta: DataMeta = {
-    version: DATA_VERSION,
+    version: '',
     generated: new Date().toISOString().slice(0, 10),
-    ...metaFor((id) => existsSync(outPath('text', id)), studyDataPresent()),
+    ...metaFor((id) => present.includes(id), studyDataPresent()),
     books,
   };
+  // The identity covers meta.json's own content too (credits, verse counts), minus the version itself.
+  meta.version = dataVersion(outPath(), files, JSON.stringify({ ...meta, generated: '' }));
   const bytes = writeJson(outPath('meta.json'), meta);
   const totalVerses = books.reduce((n, b) => n + b.verses.reduce((a, v) => a + v, 0), 0);
-  log('meta', `${books.length} books, ${totalVerses} verse slots; translations: ${meta.translations.map((t) => t.id).join(', ')}; ${bytes} bytes`);
+  log(
+    'meta',
+    `${books.length} books, ${totalVerses} verse slots; translations: ${meta.translations.map((t) => t.id).join(', ')}; ` +
+      `data version ${meta.version} over ${files.length} files; ${bytes} bytes`,
+  );
 }

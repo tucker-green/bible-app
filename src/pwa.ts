@@ -115,8 +115,7 @@ const hasCaches = () => typeof caches !== 'undefined';
 export function initPwa(): void {
   if (started || typeof window === 'undefined') return;
   started = true;
-  savedBooks.value = readJson<SavedBook[]>(SAVED_KEY, []).filter((s) => s && typeof s.book === 'string' && Array.isArray(s.trs));
-  lexiconSaved.value = readString(LEXICON_KEY) === '1';
+  loadSavedState();
   online.value = navigator.onLine !== false;
   installed.value = isStandalone();
 
@@ -147,10 +146,39 @@ export function initPwa(): void {
   } else {
     void registerServiceWorker();
   }
-  loadMeta().then(
-    (m) => void syncDataStamp(dataStamp(m)),
-    () => undefined,
-  );
+  void prepareData();
+}
+
+let savedLoaded = false;
+/** Saved books / dictionary flags from localStorage (once). */
+function loadSavedState(): void {
+  if (savedLoaded) return;
+  savedLoaded = true;
+  savedBooks.value = readJson<SavedBook[]>(SAVED_KEY, []).filter((s) => s && typeof s.book === 'string' && Array.isArray(s.trs));
+  lexiconSaved.value = readString(LEXICON_KEY) === '1';
+}
+
+let preparing: Promise<void> | null = null;
+
+/**
+ * Start-up step that runs before the app's first data request (main.tsx passes it to
+ * src/lib/data.ts gateData): load meta.json and, when it names a different data set than the one
+ * cached (a new content hash), empty the data caches and queue the saved books for download again
+ * (syncDataStamp) — so the first load after a data update already reads fresh chapters. Runs once;
+ * never rejects.
+ */
+export function prepareData(): Promise<void> {
+  if (!preparing) {
+    loadSavedState();
+    preparing = loadMeta().then(
+      (m) => syncDataStamp(dataStamp(m)).then(
+        () => undefined,
+        () => undefined,
+      ),
+      () => undefined,
+    );
+  }
+  return preparing;
 }
 
 function isStandalone(): boolean {

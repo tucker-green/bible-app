@@ -32,6 +32,8 @@ export interface EntitySectionProps {
   book: string;
   chapter: number;
   origIndices: number[];
+  /** Translation on screen: a word it reads as a common noun ("accuser") names nobody (NameChapter.except). */
+  tr?: string;
 }
 
 interface Found {
@@ -45,8 +47,8 @@ interface Found {
 /** At most two entities per word (e.g. "Jesus Christ" linked as one unit). */
 const MAX = 2;
 
-export function EntitySection({ book, chapter, origIndices }: EntitySectionProps) {
-  const key = `${book}/${chapter}:${origIndices.join(',')}`;
+export function EntitySection({ book, chapter, origIndices, tr }: EntitySectionProps) {
+  const key = `${tr ?? ''}/${book}/${chapter}:${origIndices.join(',')}`;
   const [state, setState] = useState<{ key: string; found: Found[] } | null>(null);
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export function EntitySection({ book, chapter, origIndices }: EntitySectionProps
       }
       const ids: { id: string; index: number }[] = [];
       for (const i of origIndices) {
-        const id = entityForWord(names, i);
+        const id = entityForWord(names, i, tr);
         if (id && !ids.some((x) => x.id === id)) ids.push({ id, index: i });
       }
       if (off) return;

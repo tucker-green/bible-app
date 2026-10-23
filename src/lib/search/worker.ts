@@ -4,14 +4,15 @@
  * Spawned by client.ts with `new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })`.
  *
  * Protocol (see WorkerRequest / WorkerResponse in engine.ts):
- *   { id, type: 'init', dataBase }      absolute URL of public/data/ (workers resolve relative URLs
- *                                        against their own script, so the client must send this first)
+ *   { id, type: 'init', dataBase, dataVersion? }  absolute URL of public/data/ (workers resolve relative
+ *                                        URLs against their own script, so the client must send this
+ *                                        first) and the page's data version (meta.json) for ?v=
  *   { id, type: 'warm', tr }            build the index for a translation ahead of time
  *   { id, type: 'search', query, opts } -> { id, ok: true, result: SearchResponse }
  *   { id, type: 'highlight', tr, hits, strongs } -> { id, ok: true, result: [start, end][][] }
  * Errors come back as { id, ok: false, error }.
  */
-import { configureData, loadConcordance, loadLexIndex, loadOrig, loadSearchCorpus, loadText } from '../data';
+import { configureData, loadConcordance, loadLexIndex, loadOrig, loadSearchCorpus, loadText, setDataVersion } from '../data';
 import { SearchEngine } from './engine';
 import type { WorkerRequest, WorkerResponse } from './engine';
 
@@ -31,6 +32,8 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   try {
     if (msg.type === 'init') {
       configureData({ base: msg.dataBase });
+      // The page's data version, so the worker's requests carry the same ?v= (fresh after a data update).
+      if (msg.dataVersion) setDataVersion(msg.dataVersion);
       reply = { id: msg.id, ok: true, result: null };
     } else if (msg.type === 'warm') {
       await engine.warm(msg.tr);

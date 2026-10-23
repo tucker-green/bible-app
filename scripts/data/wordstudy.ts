@@ -280,11 +280,14 @@ export function parseStrongsDictionary(text: string): Map<string, Record<string,
  * Phrases of a derivation note that name a word only as context, not as an etymological relative:
  * "a deity, especially (with G3588 (ὁ)) the supreme Divinity", "(with G1093 (γῆ) implied)",
  * "(with or without G3588 (ὁ))", "(often in connection with H376 (אִישׁ), H802 (אִשָּׁה)…)".
+ * G1 (Α) "as a negative particle" / "as a particle of union" is the prefix ἀ-, not the word Alpha.
  * ("identical with", "compound of G3588 with G2245" and the like are kept.)
  */
 const CONTEXT_ONLY = [
   /\((?:\w+\s+)?with(?:\s+or\s+without)?\s(?:[^()]|\([^()]*\))*\)/gi,
   /\bin connection with\b(?:[^;()]|\([^()]*\))*/gi,
+  // α- as a prefix, not the word "Alpha": "from G1 (Α) (as a negative particle) and G1492 (εἴδω)".
+  /\bG0*1\b\s*(?:\([^()]*\)\s*)?\(as (?:a )?(?:negative|connective|particle)[^()]*/gi,
 ];
 
 /**

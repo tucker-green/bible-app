@@ -123,14 +123,15 @@ let settleGen = 0;
  * (content-visibility: auto), so the blocks near the viewport take their real height a frame or two
  * after a change and push the text around; one scroll correction is not enough. `measure` returns how
  * far the anchor is from where it belongs (px, positive = too low), or null to give up. Corrects every
- * frame until two frames agree (or `frames` have passed); the reader's own scrolling stops it.
+ * frame until three frames agree (after at least ~120 ms, at most `ms`); the reader's own scrolling
+ * stops it.
  */
-function settle(measure: () => number | null, opts: { immediate?: boolean; frames?: number } = {}): void {
+function settle(measure: () => number | null, opts: { immediate?: boolean; ms?: number } = {}): void {
   cancelSettle?.();
   let raf = 0;
-  let frames = 0;
   let stable = 0;
   let done = false;
+  const t0 = performance.now();
   const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
   settleGen++;
   const stop = (e?: Event) => {
@@ -149,7 +150,9 @@ function settle(measure: () => number | null, opts: { immediate?: boolean; frame
       window.scrollBy(0, dy);
       stable = 0;
     } else stable++;
-    if (++frames >= (opts.frames ?? 14) || stable >= 2) return stop();
+    // Time-based, not frame-based: on a busy device the lazily laid-out blocks can take a while.
+    const t = performance.now() - t0;
+    if (t >= (opts.ms ?? 900) || (stable >= 3 && t >= 120)) return stop();
     raf = requestAnimationFrame(step);
   };
   cancelSettle = stop;
@@ -374,7 +377,14 @@ export function Reader() {
     loadChapter(tr, ref.book, ref.chapter)
       // Building the model is part of loading: data of an unexpected shape (e.g. an old cached app
       // with newer data) shows the error notice with "Try again", not an endless skeleton.
-      .then(({ text, orig }) => buildChapterModel(text, orig, { alignment: trMeta?.alignment, tr }))
+      .then(({ text, orig }) => {
+        try {
+          return buildChapterModel(text, orig, { alignment: trMeta?.alignment, tr });
+        } catch (err) {
+          console.warn(`Rootword: ${key} has data this version can’t read`, err);
+          throw err;
+        }
+      })
       .then(
         (model) => {
           if (off) return;
@@ -389,9 +399,7 @@ export function Reader() {
             }, 400);
         },
         (error: unknown) => {
-          if (off) return;
-          if (!(error instanceof ApiBibleError)) console.error(`Rootword: ${key} didn’t load`, error);
-          setSt({ key, status: 'error', model: null, error });
+          if (!off) setSt({ key, status: 'error', model: null, error });
         },
       );
     return () => {
@@ -481,6 +489,13 @@ export function Reader() {
       return p ? { key: mdl.key, ...p } : null;
     };
     readerHooks.capture = capture;
+    // The reader restores its own place (above); the browser's restoration, applied while the page
+    // under it is still a skeleton or another route, would only fight it.
+    try {
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    } catch {
+      /* not allowed: harmless */
+    }
     readerHooks.beforeReflow = () => {
       const el = proseRef.current;
       if (!el || !modelRef.current || window.scrollY < 4) return;
@@ -644,6 +659,8 @@ export function Reader() {
       requestAnimationFrame(() => {
         if (alt) verseBox(alt).scrollIntoView({ block: 'center' });
         else window.scrollTo(0, 0);
+        const active = document.activeElement;
+        if (near && (!active || active === document.body)) controller.vn(near)?.focus({ preventScroll: true });
       });
       return;
     }
@@ -1186,7 +1203,7 @@ function RightRail({ trMeta, testament, inDrawer = false }: { trMeta: Translatio
           <dt>Links</dt>
           <dd>{align.long}</dd>
           <dt>Lexicon</dt>
-          <dd>{testament === 'NT' ? 'Abbott-Smith · Strong’s' : 'BDB (abridged) · Strong’s · prefix and suffix notes by Rootword'}</dd>
+          <dd>{testament === 'NT' ? 'Abbott-Smith · Strong’s' : 'STEPBible glosses · Strong’s · prefix and suffix notes by Rootword'}</dd>
         </dl>
       </section>
     </aside>
