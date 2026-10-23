@@ -38,10 +38,12 @@ e2e/                       Playwright end-to-end tests
 
 ## Translations
 
+The KJV is the default translation (first in `meta.json` and in the picker).
+
 | id  | alignment | how the Greek/Hebrew link is made |
 |-----|-----------|------------------------------------|
+| KJV (default) | strongs | CrossWire KJV carries Strong's numbers on each English word; linked to the original word in the same verse with that number (TR-only words keep their Strong's for lexicon lookup). |
 | BSB | manual    | Clear-Bible's hand-made BSB↔SBLGNT/WLC alignment: every English word points at the exact original word(s). |
-| KJV | strongs   | CrossWire KJV carries Strong's numbers on each English word; linked to the original word in the same verse with that number (TR-only words keep their Strong's for lexicon lookup). |
 | WEB, ASV, YLT | bridged | Automatic: each word is matched to the BSB word(s) of the same verse and inherits their links, using a translation table learned from the BSB and KJV alignments. Shown as approximate. |
 | NIV (and others) | bridged, remote | Copyrighted; not bundled. Users with an API.Bible key can read them; the same bridge alignment runs in the browser. |
 

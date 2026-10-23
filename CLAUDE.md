@@ -3,6 +3,12 @@
 Static website: read/search the Bible in several translations; hovering an English word shows the
 Greek (NT) or Hebrew (OT) word behind it, with a definition. See docs/ARCHITECTURE.md.
 
+**The KJV is the default translation** (owner's decision): it opens first, is listed first in
+`meta.json` and every translation picker, and is the fallback whenever a saved/linked translation is
+unavailable. Its Greek/Hebrew links (via the KJV's own Strong's tags) therefore get the most
+scrutiny: every tagged KJV word should resolve to an original word or at least a lexicon entry.
+The BSB (hand-aligned word for word) is offered second as the most precise alignment.
+
 ## Commands
 - `npm run dev` — Vite dev server
 - `npm run build` — typecheck + production build to dist/
