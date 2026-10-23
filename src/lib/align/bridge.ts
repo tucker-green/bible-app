@@ -59,6 +59,9 @@ const DIRECT_MIN: Record<WordClass, number> = {
  */
 const SUFFIX_MIN = 0.03;
 
+/** Raw score of a link made by gap filling (phase 1b). */
+const GAP_SCORE = 0.42;
+
 /** Minimum P(Strong's | lemma) for a function word that a BSB word of the same lemma also links there. */
 const LEX_FN_MIN = 0.03;
 
@@ -82,12 +85,28 @@ interface BsbWord {
   pos: number;
 }
 
+/** How a link was made. */
+export type LinkKind = 'lex' | 'table' | 'gloss' | 'gap' | 'attach' | 'aux';
+
 interface Choice {
   /** The original word this choice is about (claimed). */
   j: number;
   /** Links to emit (j, or the whole link set of the matching BSB word). */
   links: number[];
   score: number;
+  kind: LinkKind;
+}
+
+/** One target word as aligned by `alignVerse`. */
+export interface AlignedWord {
+  text: string;
+  cls: WordClass;
+  links: number[];
+  /** Raw score (0 when unlinked). */
+  score: number;
+  /** Calibrated confidence written to TokenInfo.c (0 when unlinked). */
+  conf: number;
+  kind?: LinkKind;
 }
 
 const GLOSS_STOP = new Set(['[direct', 'object]', '*']);
@@ -133,6 +152,18 @@ export function bridgeVerse(
   table: TranslationTable,
   options: Partial<BridgeOptions> = {},
 ): Token[] {
+  return alignVerse(text, bsb, orig, verse, table, options).tokens;
+}
+
+/** `bridgeVerse` with the per-word details (link kind, raw score) used by the evaluation and tests. */
+export function alignVerse(
+  text: string,
+  bsb: readonly Token[] | undefined,
+  orig: OrigChapter,
+  verse: number,
+  table: TranslationTable,
+  options: Partial<BridgeOptions> = {},
+): { tokens: Token[]; words: AlignedWord[] } {
   const opt = { ...DEFAULT_BRIDGE_OPTIONS, ...options };
   const words = orig.words;
   const hebrew = orig.lang === 'hbo';
@@ -156,7 +187,9 @@ export function bridgeVerse(
   }));
   for (const b of B) for (const j of b.links) candSet.add(j);
   const cand = [...candSet].sort((a, b) => a - b);
-  if (!T.length || !cand.length) return text ? [text] : [];
+  if (!T.length || !cand.length) {
+    return { tokens: text ? [text] : [], words: T.map((t) => ({ text: t.text, cls: t.cls, links: [], score: 0, conf: 0 })) };
+  }
   const inCand = new Set(cand);
 
   const anchor = anchors(cand, B);
@@ -237,6 +270,9 @@ export function bridgeVerse(
       const pj = posSim(t.pos, anchor.get(j)!, opt.sigma);
       const score = ev * (0.4 + 0.6 * pj);
       if (score < (fn ? opt.minFunction : opt.minContent)) continue;
+      // A content link resting on a weak lexical bridge alone (far-off position, frequent word the
+      // table never pairs with this number) is right only about half the time: leave it.
+      if (!fn && lex >= 0.5 && tab < 0.02 && !gl && score < 0.4) continue;
       // Content words take the matching BSB word's link set, minus the parts the table says this
       // word does not render (the וְ / suffix of "and brought him", the μή of "shall not perish"),
       // which are left for the function words. Function words take only the original word itself.
@@ -244,7 +280,7 @@ export function bridgeVerse(
         !fn && lex >= 0.5 && lexLinks
           ? lexLinks.filter((k) => inCand.has(k) && (k === j || prob(i, k) >= (bound.has(k) ? 0.3 : 0.1)))
           : [j];
-      list.push({ j, links, score });
+      list.push({ j, links, score, kind: lex >= 0.5 ? 'lex' : gl && tab < 0.3 ? 'gloss' : 'table' });
     }
     return list;
   };
@@ -271,7 +307,40 @@ export function bridgeVerse(
 
   // Phase 1: content words. Phase 2: function words with direct evidence.
   compete(T.map((_, i) => i).filter((i) => T[i].cls === 'content'));
+  fillGaps();
   compete(T.map((_, i) => i).filter((i) => T[i].cls !== 'content'));
+
+  /**
+   * Phase 1b: an unlinked content word between two linked content words (within 3 words, no other
+   * unlinked content word in between) takes the one unclaimed content word lying between their
+   * original words, if there is exactly one ("God made the firmament, and divided the waters" —
+   * "divided" is the only verb left between אֱלֹהִים… and הַמַּיִם).
+   */
+  function fillGaps() {
+    const isContentOrig = (j: number) => (hebrew ? /^[NVA]/ : /^(?:N-|V-|A-)/).test(words[j][OW.morph]) && !bound.has(j);
+    for (let i = 0; i < T.length; i++) {
+      if (chosen[i] || T[i].cls !== 'content') continue;
+      let l = -1;
+      for (let k = i - 1; k >= Math.max(0, i - 3); k--) {
+        if (T[k].cls !== 'content') continue;
+        if (chosen[k]) l = k;
+        break;
+      }
+      let r = -1;
+      for (let k = i + 1; k <= Math.min(T.length - 1, i + 3); k++) {
+        if (T[k].cls !== 'content') continue;
+        if (chosen[k]) r = k;
+        break;
+      }
+      if (l < 0 || r < 0) continue;
+      const lo = Math.min(chosen[l]!.j, chosen[r]!.j);
+      const hi = Math.max(chosen[l]!.j, chosen[r]!.j);
+      if (hi - lo > 8) continue;
+      const between = cand.filter((j) => j > lo && j < hi && isContentOrig(j) && !claimedBy.has(j));
+      if (between.length !== 1) continue;
+      claim(i, { j: between[0], links: [between[0]], score: GAP_SCORE, kind: 'gap' });
+    }
+  }
 
   // Phase 3: attachment of the remaining function words.
   const headAfter = (i: number, contentOnly = true) => {
@@ -303,7 +372,7 @@ export function bridgeVerse(
     return bp >= min ? [bj, bp] : [-1, 0];
   };
   const attachTo = (i: number, head: number, j: number, p: number) => {
-    claim(i, { j, links: [j], score: Math.min(chosen[head]!.score, 0.45 + p / 2) });
+    claim(i, { j, links: [j], score: Math.min(chosen[head]!.score, 0.45 + p / 2), kind: 'attach' });
   };
 
   T.forEach((t, i) => {
@@ -399,7 +468,7 @@ export function bridgeVerse(
         if (h < 0 || h > i + 2) return;
         const root = chosen[h]!.j;
         if (!isVerb(words[root])) return;
-        chosen[i] = { j: root, links: [root], score: chosen[h]!.score * 0.85 };
+        chosen[i] = { j: root, links: [root], score: chosen[h]!.score * 0.85, kind: 'aux' };
         return;
       }
       default:
@@ -408,6 +477,11 @@ export function bridgeVerse(
   });
 
   // Tokens.
+  const aligned: AlignedWord[] = T.map((t, i) => {
+    const c = chosen[i];
+    if (!c || !c.links.length) return { text: t.text, cls: t.cls, links: [], score: 0, conf: 0 };
+    return { text: t.text, cls: t.cls, links: [...c.links].sort((a, b) => a - b), score: c.score, conf: confidence(c.kind, t.cls, c.score), kind: c.kind };
+  });
   const out: Token[] = [];
   const push = (s: string) => {
     if (!s) return;
@@ -421,20 +495,45 @@ export function bridgeVerse(
       push(s.text);
       continue;
     }
-    const c = chosen[wi++];
-    if (!c || !c.links.length) {
+    const a = aligned[wi++];
+    if (!a.links.length) {
       push(s.text);
       continue;
     }
-    const tok: WordToken = [s.text, [...c.links].sort((a, b) => a - b), { c: confidence(c.score) }];
+    const tok: WordToken = [s.text, a.links, { c: a.conf }];
     out.push(tok);
   }
-  return out;
+  return { tokens: out, words: aligned };
 }
 
-/** Calibrated confidence from a raw score (see eval-bridge.ts). */
-function confidence(score: number): number {
-  return Math.round(Math.max(0, Math.min(1, score)) * 100) / 100;
+/**
+ * Confidence written to TokenInfo.c: the precision measured for links of this kind and raw score by
+ * scripts/data/eval-bridge.ts (KJV as held-out test text; midpoint of the strict and the
+ * "verifiable" precision, see there), so 0.9 means "about 9 in 10 such links are right".
+ */
+function confidence(kind: LinkKind, cls: WordClass, score: number): number {
+  if (cls === 'content') {
+    switch (kind) {
+      case 'lex':
+        return score < 0.5 ? 0.75 : score < 0.9 ? 0.91 : 0.97;
+      case 'table':
+        return score < 0.5 ? 0.94 : score < 0.8 ? 0.96 : 0.98;
+      case 'gloss':
+        return score < 0.4 ? 0.82 : 0.9;
+      default:
+        return 0.82; // gap
+    }
+  }
+  switch (kind) {
+    case 'attach':
+      return score >= 0.8 ? 0.97 : 0.92;
+    case 'aux':
+      return score < 0.5 ? 0.88 : 0.96;
+    case 'lex':
+      return score < 0.7 ? 0.75 : score < 0.9 ? 0.8 : 0.85;
+    default:
+      return score < 0.5 ? 0.75 : score < 0.6 ? 0.88 : 0.95; // table
+  }
 }
 
 /** Greek words within `d` positions of j (pronouns that go with a noun or verb). */

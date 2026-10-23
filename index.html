@@ -2,9 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rootword — Bible with Greek &amp; Hebrew</title>
-    <meta name="description" content="Read and search the Bible in several translations. Hover any English word to see the Greek or Hebrew behind it." />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Rootword — Read the Bible with Greek &amp; Hebrew</title>
+    <meta name="description" content="Read and search the Bible in several translations. Hover or tap any English word to see the Greek or Hebrew word behind it, with its dictionary form, grammar and definition." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101319" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <script>
+      // Apply the saved theme before first paint (no flash of the wrong theme).
+      // localStorage 'rootword:theme' = 'light' | 'dark' | 'system' (default 'system').
+      (function () {
+        var t = 'system';
+        try { t = localStorage.getItem('rootword:theme') || 'system'; } catch (e) {}
+        var root = document.documentElement;
+        if (t === 'light' || t === 'dark') {
+          root.setAttribute('data-theme', t);
+          var c = t === 'dark' ? '#101319' : '#fafaf7';
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', c);
+        }
+        try {
+          var s = parseFloat(localStorage.getItem('rootword:fontScale') || '');
+          if (s >= 0.8 && s <= 1.5) root.style.setProperty('--font-scale', String(s));
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

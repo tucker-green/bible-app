@@ -22,7 +22,7 @@
  *               (same written word in Hebrew).
  */
 import { existsSync } from 'node:fs';
-import { bridgeVerse } from '../../src/lib/align/bridge';
+import { alignVerse, type AlignedWord } from '../../src/lib/align/bridge';
 import { isFunctionWord, wordClass } from '../../src/lib/align/normalize';
 import { TableBuilder, tokenWords, type TranslationTable } from '../../src/lib/align/table';
 import type { OrigChapter, TextChapter, Token } from '../../src/lib/types';
@@ -69,6 +69,8 @@ export interface EvalOptions {
   errors?: boolean | 'content';
   /** Print metrics per testament and word class. */
   classes?: boolean;
+  /** Print precision per link kind and raw-score bin (for calibrating confidence). */
+  kinds?: boolean;
   /** Print a random sample of verses where this (lower-case) word got a link. */
   word?: string;
   /** Restrict --word / --errors samples to one testament. */
@@ -86,6 +88,8 @@ export interface EvalResult {
   bins: Map<number, Counts>;
   /** "NT det", "OT prep"… (word classes of normalize.ts) */
   byClass: Map<string, Counts>;
+  /** "content lex 0.9"… (word kind, link kind, raw score bin) */
+  byKind: Map<string, Counts>;
   /** Lower-cased word -> [predicted, wrong] (with --errors). */
   byWord: Map<string, [number, number]>;
   /** Lower-cased word -> gold-linkable occurrences not recalled (with --errors). */
@@ -137,6 +141,7 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
     otContent: zero(),
     bins: new Map(),
     byClass: new Map(),
+    byKind: new Map(),
     byWord: new Map(),
     missed: new Map(),
     ms: 0,
@@ -167,7 +172,8 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
     };
     const hit = (gold: ReadonlySet<string>, id: string) => !!id && (gold.has(id) || gold.has(`~${baseStrongs(id)}`));
     const t0 = performance.now();
-    const preds = d.kjv.verses.map((v) => bridgeVerse(plainText(v.t), bsbVerse.get(v.v), d.orig, v.v, table));
+    const details = d.kjv.verses.map((v) => alignVerse(plainText(v.t), bsbVerse.get(v.v), d.orig, v.v, table));
+    const preds = details.map((x) => x.tokens);
     res.ms += performance.now() - t0;
 
     d.kjv.verses.forEach((v, vi) => {
@@ -230,6 +236,13 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
         const cc = res.byClass.get(ck) ?? zero();
         add(cc, c);
         res.byClass.set(ck, cc);
+        if (predicted) {
+          const aw: AlignedWord = details[vi].words[i];
+          const kk = `${fn ? 'fn' : 'content'} ${aw.kind} ${(Math.min(9, Math.floor(aw.score * 10)) / 10).toFixed(1)}`;
+          const kc = res.byKind.get(kk) ?? zero();
+          add(kc, c);
+          res.byKind.set(kk, kc);
+        }
         if (linkable && !correct && opts.errors && (!opts.testament || opts.testament === book.testament)) {
           const key = g.text.toLowerCase();
           res.missed.set(key, (res.missed.get(key) ?? 0) + 1);
@@ -276,6 +289,11 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
     console.log(fmt('NT content', res.ntContent));
     console.log(fmt('OT content', res.otContent));
     if (opts.classes) for (const [k, c] of [...res.byClass].sort()) console.log(fmt(k, c));
+    if (opts.kinds) {
+      for (const [k, c] of [...res.byKind].sort()) {
+        console.log(`${k.padEnd(20)} n ${String(c.predicted).padStart(6)}  P ${(c.correct / c.predicted).toFixed(3)}  verifiable P ${(c.correct / Math.max(1, c.predicted - c.unverifiable)).toFixed(3)}`);
+      }
+    }
     const bins = [...res.bins].sort((a, b) => a[0] - b[0]);
     console.log('precision by confidence: ' + bins.map(([b, c]) => `${(b / 10).toFixed(1)}:${(c.correct / c.predicted).toFixed(2)}(${c.predicted})`).join('  '));
     if (opts.errors) {
@@ -300,6 +318,7 @@ if (isMain) {
     show: arg('show')?.split(','),
     errors: process.argv.includes('--errors') || (process.argv.includes('--errors=content') ? 'content' : false),
     classes: process.argv.includes('--classes'),
+    kinds: process.argv.includes('--kinds'),
     word: arg('word'),
     testament: arg('testament') === 'NT' ? 'NT' : arg('testament') === 'OT' ? 'OT' : undefined,
   });

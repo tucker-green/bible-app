@@ -11,6 +11,11 @@ editorial, critical-edition look. It must ship with BOTH a light and a dark them
 a theme toggle (light / dark / follow system) that is remembered per browser, and no flash of the
 wrong theme on load. Grafts from other concepts are fine only where they fit Scholar's language.
 
+**Hyper mobile-friendly and accessible** (owner's brief): docs/EXPERIENCE.md is binding for every UI
+change — screen-size matrix, the touch model (tap → bottom sheet, press-and-slide scrubbing as the
+touch version of hover), haptic + audible feedback (src/lib/feedback.ts), pronunciation and
+listen mode, WCAG 2.2 AA, reduced motion / high contrast / forced colours, motion tokens, PWA.
+
 **The KJV is the default translation** (owner's decision): it opens first, is listed first in
 `meta.json` and every translation picker, and is the fallback whenever a saved/linked translation is
 unavailable. Its Greek/Hebrew links (via the KJV's own Strong's tags) therefore get the most
