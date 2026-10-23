@@ -234,6 +234,12 @@ export function alignVerse(
       });
     }
   }
+  /** Drop bound morphemes whose written word's root is not among `links`. */
+  const keepBoundWithRoot = (links: number[]): number[] => {
+    if (!hebrew) return links;
+    const roots = links.filter((k) => !bound.has(k));
+    return links.filter((k) => !bound.has(k) || roots.some((r) => words[r][OW.group] === words[k][OW.group]));
+  };
   const bsbBy = new Map<string, BsbWord[]>();
   for (const b of B) {
     if (!b.links.length) continue;
@@ -266,8 +272,9 @@ export function alignVerse(
       // "the" may also follow the BSB onto a definite noun without an article ("the LORD").
       if ((t.cls === 'det' && !hebrew) || (fn && tab < Math.min(min, LEX_FN_MIN))) continue;
       // Hebrew prefixes and suffixes are reached only by attachment (phase 3): which of a verse's
-      // many וְ / לְ / ־וֹ an "and" / "to" / "him" renders depends on the word it goes with.
-      if (fn && hebrew && bound.has(j)) continue;
+      // many וְ / לְ / ־וֹ an "and" / "to" / "him" renders depends on the word it goes with. A content
+      // word ("coat") never links to one alone (1 Sam 17:5 "coat" is שִׁרְיוֹן, not its וְ).
+      if (hebrew && bound.has(j)) continue;
       let lex = 0;
       let lexLinks: number[] | undefined;
       for (const b of lexB) {
@@ -298,9 +305,10 @@ export function alignVerse(
       // Content words take the matching BSB word's link set, minus the parts the table says this
       // word does not render (the וְ / suffix of "and brought him", the μή of "shall not perish"),
       // which are left for the function words. Function words take only the original word itself.
+      // A bound morpheme comes along only with the root of its own written word.
       const links =
         !fn && lex >= 0.5 && lexLinks
-          ? lexLinks.filter((k) => inCand.has(k) && (k === j || prob(i, k) >= (bound.has(k) ? 0.3 : 0.1)))
+          ? keepBoundWithRoot(lexLinks.filter((k) => inCand.has(k) && (k === j || prob(i, k) >= (bound.has(k) ? 0.3 : 0.1))))
           : [j];
       list.push({ j, links, score, kind: lex >= 0.5 ? 'lex' : gl && tab < 0.3 ? 'gloss' : 'table' });
     }

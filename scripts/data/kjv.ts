@@ -15,6 +15,8 @@
  * the prefix / suffix morpheme they translate when the BSB-trained table says so ("And" -> וְ).
  * Numbers that cannot be linked (TR-only words, other lexical choices) stay on the token as
  * TokenInfo.s (+ m morphology, o TR form) so the word card can still show a lexicon entry.
+ * Psalm titles (absent from the CrossWire module) come from the eBible KJV OSIS and are linked like
+ * the bridged translations, through the BSB title (`parseKjvPsalmTitles`).
  * Italic (translator-supplied) words get TokenInfo.i = 1. "Lord"/"God" tagged as the divine name
  * (H3068/H3069/H3050) are printed "LORD"/"GOD" as in printed KJVs. Pauline subscriptions
  * (colophons) are left out of the verse text.
@@ -24,6 +26,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fitsMorpheme, isFunctionWord, lemmas, wordClass } from '../../src/lib/align/normalize';
 import { TableBuilder, type TranslationTable } from '../../src/lib/align/table';
+import { bridgeText, type PlainText } from './bridged';
 import { segment } from '../../src/lib/tokenize';
 import type { BookId, OrigChapter, OrigWord, TextChapter, TextVerse, Token, TokenInfo, WordToken } from '../../src/lib/types';
 import { OW } from '../../src/lib/types';
@@ -161,6 +164,52 @@ export function readKjv(): Map<string, KjvVerse[]> {
       verses.sort((a, b) => a.verse - b.verse);
       out.set(`${book} ${Number(c)}`, verses);
     }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Psalm titles                                                              */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Psalm titles (superscriptions) of the KJV. The CrossWire module has none, so they come from the
+ * eBible KJV OSIS (.cache/sources/kjv.osis.xml, public domain, also the red-letter source): the
+ * `<title type="psalm" canonical="true">` right after a Psalm's `<chapter sID>`, before its first
+ * verse. Ps 119's acrostic letters (ALEPH, BETH…) are section headings, not titles. Words inside
+ * `<transChange type="added">` (italics) are returned as supplied character ranges.
+ */
+export function parseKjvPsalmTitles(xml: string): Map<number, PlainText> {
+  const out = new Map<number, PlainText>();
+  const re = /<chapter\b[^>]*\bsID="Ps\.(\d+)\.[^"]*"[^>]*\/>([\s\S]*?)<verse\b[^>]*\bsID=/g;
+  for (const m of xml.matchAll(re)) {
+    const title = /<title\b[^>]*\btype="psalm"[^>]*>([\s\S]*?)<\/title>/.exec(m[2]);
+    if (!title) continue;
+    // Mark italics with control characters, drop other markup, collapse whitespace, then read the
+    // marks back as character ranges.
+    const marked = title[1]
+      .replace(/<transChange\b[^>]*type="added"[^>]*>([\s\S]*?)<\/transChange>/g, (_x, inner: string) => `\u0001${inner.replace(/<[^>]+>/g, '')}\u0002`)
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\u0001\s+/g, ' \u0001')
+      .replace(/\s+\u0002/g, '\u0002 ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    let text = '';
+    const supplied: [number, number][] = [];
+    let open = -1;
+    for (const ch of marked) {
+      if (ch === '\u0001') open = text.length;
+      else if (ch === '\u0002') {
+        if (open >= 0) supplied.push([open, text.length]);
+        open = -1;
+      } else text += ch;
+    }
+    if (!text || /^[A-Z]+\.?$/.test(text)) continue;
+    const p: PlainText = { text };
+    const ranges = supplied.filter(([a, b]) => b > a && b <= text.length);
+    if (ranges.length) p.supplied = ranges;
+    out.set(Number(m[1]), p);
   }
   return out;
 }
@@ -338,6 +387,146 @@ function movePronouns(
       wordLinks[w] = [j];
       linkedIdx.add(j);
       moved.add(w);
+    }
+  }
+}
+
+/** Verbs of the "it came to pass" formula, and the auxiliaries before them ("it shall come to pass"). */
+const PASS_VERBS = new Set(['came', 'come', 'cometh', 'comes']);
+const PASS_AUX = new Set(['shall', 'will', 'should', 'would', 'may', 'might', 'must', 'hath', 'had', 'is', 'was', 'be']);
+/** Formulaic English words and the Strong's numbers they render. */
+const FORMULA_TARGETS: Record<string, readonly string[]> = {
+  pass: ['H1961', 'H1934'],
+  behold: ['H2009', 'H2005', 'H0431', 'H0718', 'H0718a'],
+  lo: ['H2009', 'H2005', 'H0431', 'H0718', 'H0718a'],
+  saying: ['H0559'],
+};
+/** Words that may stay on a proper name the KJV tags together with it ("the LORD", "O God"). */
+const NAME_COMPANIONS = new Set(['the', 'o']);
+
+/**
+ * The KJV's Hebrew tagging is phrase-level: a tagged element can run over a whole clause, e.g.
+ * "it came to pass, that Cain" = H7014 (Gen 4:3), "And it came to pass, that, when Abram" = H87
+ * (Gen 12:14). After the function words went to their prefixes / suffixes:
+ *  1. formulas go to the word they render, when the verse has it unclaimed: "(it) came / shall come
+ *     to pass" -> וַיְהִי / וְהָיָה (H1961; a leading "And" -> its וַ), "behold" / "lo" -> הִנֵּה
+ *     (H2009 / H2005), "saying" -> לֵאמֹר (H559); otherwise they are left unlinked rather than on the
+ *     element's noun;
+ *  2. in an element tagged with a proper name only, the other lowercase words ("that", "when",
+ *     "came") go where the BSB-trained table says they belong among the verse's unclaimed words (a
+ *     function word only within the name's written word or its neighbours), else they are unlinked:
+ *     no person / place card for "And it came to pass, that, when".
+ */
+function rehomePhraseWords(
+  entries: readonly KjvEntry[],
+  wordPieces: readonly { text: string; entry: number }[],
+  wordLinks: number[][],
+  lem: readonly string[],
+  words: readonly OrigWord[],
+  cand: readonly number[],
+  table: TranslationTable,
+  runOf: readonly number[],
+): void {
+  if (!cand.some((j) => /^[\u0590-\u05FF]/.test(words[j][OW.text]))) return; // Hebrew only
+  const n = wordPieces.length;
+  const lower = wordPieces.map((p) => p.text.toLowerCase());
+  const elem = (wi: number) => `${runOf[wordPieces[wi].entry]}|${entries[wordPieces[wi].entry].lemmaAttr}`;
+  const baseOf = (j: number) => (words[j][OW.strongs] ? baseStrongs(words[j][OW.strongs]) : '');
+  const claimedOutside = (span: ReadonlySet<number>) => {
+    const out = new Set<number>();
+    wordLinks.forEach((l, wi) => {
+      if (!span.has(wi)) for (const j of l) out.add(j);
+    });
+    return out;
+  };
+  const relPos = (wi: number) => (n > 1 ? wi / (n - 1) : 0.5);
+  const candPos = new Map(cand.map((j, r) => [j, cand.length > 1 ? r / (cand.length - 1) : 0.5]));
+  /** Does word wi share its tagged element with another word linked to the same root (a phrase tag)? */
+  const inPhrase = (wi: number) =>
+    wordLinks[wi].length > 0 &&
+    wordPieces.some((_, k) => k !== wi && elem(k) === elem(wi) && wordLinks[k].length === wordLinks[wi].length && wordLinks[k].every((j, x) => j === wordLinks[wi][x]));
+
+  const relink = (span: number[], targets: readonly string[]) => {
+    const set = new Set(span);
+    if (span.every((wi) => wordLinks[wi].length && wordLinks[wi].every((j) => targets.includes(baseOf(j))))) return;
+    const taken = claimedOutside(set);
+    const mid = relPos(span[0]);
+    let best = -1;
+    for (const j of cand) {
+      if (taken.has(j) || !targets.includes(baseOf(j)) || isBoundMorpheme(words, j)) continue;
+      if (best < 0 || Math.abs(candPos.get(j)! - mid) < Math.abs(candPos.get(best)! - mid)) best = j;
+    }
+    for (const wi of span) {
+      if (best >= 0) wordLinks[wi] = [best];
+      else if (inPhrase(wi) || wordLinks[wi].every((j) => !targets.includes(baseOf(j)))) wordLinks[wi] = [];
+    }
+    return best;
+  };
+
+  // 1. Formulas.
+  for (let wi = 0; wi + 1 < n; wi++) {
+    if (lower[wi] === 'to' && lower[wi + 1] === 'pass' && wi > 0 && PASS_VERBS.has(lower[wi - 1])) {
+      let a = wi - 1;
+      while (a > 0 && PASS_AUX.has(lower[a - 1])) a--;
+      if (a > 0 && lower[a - 1] === 'it') a--;
+      const span = Array.from({ length: wi + 2 - a }, (_, k) => a + k);
+      const j = relink(span, FORMULA_TARGETS.pass);
+      // "And it came to pass" -> the וַ of וַיְהִי, when "And" rode on the same phrase tag.
+      if (j !== undefined && j >= 0 && a > 0 && lower[a - 1] === 'and' && inPhraseWith(a - 1, span[0])) {
+        const g = words[j][OW.group];
+        const conj = cand.find((k) => k !== j && words[k][OW.group] === g && /^C/.test(words[k][OW.morph]));
+        if (conj !== undefined && !claimedOutside(new Set([a - 1])).has(conj)) wordLinks[a - 1] = [conj];
+      }
+      wi++;
+    }
+  }
+  for (let wi = 0; wi < n; wi++) {
+    const t = FORMULA_TARGETS[lower[wi]];
+    if (t && lower[wi] !== 'pass' && inPhrase(wi)) relink([wi], t);
+  }
+
+  function inPhraseWith(a: number, b: number): boolean {
+    return elem(a) === elem(b);
+  }
+
+  // 2. Elements tagged with a proper name only.
+  const seen = new Set<string>();
+  for (let wi = 0; wi < n; wi++) {
+    const key = elem(wi);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const members: number[] = [];
+    for (let k = 0; k < n; k++) if (elem(k) === key) members.push(k);
+    if (members.length < 2) continue;
+    const e = entries[wordPieces[wi].entry];
+    if (e.tags.length !== 1) continue;
+    const roots = new Set(members.flatMap((k) => wordLinks[k]));
+    const root = [...roots].find((j) => words[j][OW.morph].startsWith('Np') && baseOf(j) === baseStrongs(e.tags[0].strongs));
+    if (root === undefined) continue;
+    const ownWords = new Set<number>();
+    const g = words[root][OW.group];
+    for (const j of cand) {
+      const gj = words[j][OW.group];
+      if (gj === g || Math.abs(gj - g) <= 3) ownWords.add(j);
+    }
+    for (const k of members) {
+      const text = wordPieces[k].text;
+      if (!wordLinks[k].includes(root) || wordLinks[k].length !== 1) continue; // moved already
+      if (/^\p{Lu}/u.test(text) || NAME_COMPANIONS.has(lower[k])) continue;
+      const taken = claimedOutside(new Set([k]));
+      const fn = isFunctionWord(text);
+      const pRoot = table.prob(lem[k], words[root][OW.strongs]);
+      let best = -1;
+      let bestP = 0;
+      for (const j of cand) {
+        if (j === root || taken.has(j) || (fn && !ownWords.has(j))) continue;
+        const p = table.prob(lem[k], words[j][OW.strongs]);
+        if (p > bestP) {
+          bestP = p;
+          best = j;
+        }
+      }
+      wordLinks[k] = best >= 0 && bestP >= 0.1 && bestP > 5 * pRoot ? [best] : [];
     }
   }
 }
@@ -599,6 +788,7 @@ export function linkKjvVerse(
         }
       }
     }
+    rehomePhraseWords(entries, wordPieces, wordLinks, lem, words, cand, table, runOf);
   }
 
   let tags = 0;
@@ -796,6 +986,8 @@ export function buildKjv(): void {
   const equiv = learnEquivalences(stats);
   log('kjv', `learned ${equiv.size} Strong's equivalences, e.g. ${[...equiv].slice(0, 8).map(([s, e]) => `${s}->${e.join('/')}`).join(', ')}`);
 
+  const titles = parseKjvPsalmTitles(readFileSync(srcPath('kjv.osis.xml'), 'utf8'));
+  let titled = 0;
   cleanOut('text', 'KJV');
   let files = 0;
   let bytes = 0;
@@ -815,6 +1007,12 @@ export function buildKjv(): void {
     for (const v of bsbVerses) if (!kjvVerses.has(v)) notInKjv.push(`${book.id} ${chapter}:${v}`);
 
     const out: TextChapter = { tr: 'KJV', book: book.id, chapter, verses: [] };
+    const title = book.id === 'PSA' ? titles.get(chapter) : undefined;
+    if (title) {
+      // Linked like the bridged translations (approximate), through the BSB title's links.
+      out.superscription = bridgeText(title, bsb.superscription, orig, 0, table);
+      titled++;
+    }
     for (const v of vs) {
       const res = linkKjvVerse(v.entries, orig.words, cand.get(v.verse) ?? [], { table, keysOf, equiv });
       const tv: TextVerse = { v: v.verse, t: piecesToTokens(res.pieces) };
@@ -835,7 +1033,8 @@ export function buildKjv(): void {
   log(
     'kjv',
     `${files} chapters, ${verses} verses, ${words} words; ${linked}/${tagged} tagged words linked to an original word ` +
-      `(${((100 * linked) / tagged).toFixed(1)}%), ${unlinkedTags} Strong's tags kept as lexicon-only; ${italic} italic words; ${(bytes / 1e6).toFixed(1)} MB`,
+      `(${((100 * linked) / tagged).toFixed(1)}%), ${unlinkedTags} Strong's tags kept as lexicon-only; ${italic} italic words; ` +
+      `${titled} Psalm titles (eBible OSIS, bridged links); ${(bytes / 1e6).toFixed(1)} MB`,
   );
   log('kjv', `verses not in the BSB (${notInBsb.length}): ${notInBsb.join(', ')}`);
   log('kjv', `BSB verses not in the KJV (${notInKjv.length}): ${notInKjv.join(', ') || 'none'}`);

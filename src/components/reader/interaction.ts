@@ -388,7 +388,9 @@ export class ReaderController {
     const el = unitEl(e.target, this.root);
     if (!el) return;
     clearTimeout(this.closeTimer);
-    if (!this.hoverEnabled() || pinnedWord.value) return; // :hover still shows a preview wash
+    // :hover still shows a preview wash; no hover card while a card is pinned or the (modal) verse
+    // panel is open — e.g. when the page steps aside for the panel and a word slides under the pointer.
+    if (!this.hoverEnabled() || pinnedWord.value || verseSheet.value) return;
     const unit = Number(el.dataset.u);
     const cur = activeWord.value;
     if (cur && cur.key === this.key && cur.unit === unit) return;

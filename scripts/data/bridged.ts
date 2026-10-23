@@ -317,10 +317,13 @@ export function parseYlt(json: YltJson): PlainBible {
   return bible;
 }
 
-/** Sentence boundaries where a Psalm title merged into verse 1 may end (index of the verse text's start). */
-function titleSplits(text: string): number[] {
+/**
+ * Sentence boundaries where a Psalm title merged into verse 1 may end (index of the verse text's
+ * start), also after a closing quotation mark (YLT Ps 38 "A Psalm of David, ‘To cause to remember.’").
+ */
+export function titleSplits(text: string): number[] {
   const out: number[] = [];
-  for (const m of text.matchAll(/[.;:!?]\s+|—/g)) out.push((m.index ?? 0) + m[0].length);
+  for (const m of text.matchAll(/[.;:!?][’”'"]?\s+|—/g)) out.push((m.index ?? 0) + m[0].length);
   return out.filter((k) => k > 0 && k < text.length);
 }
 
