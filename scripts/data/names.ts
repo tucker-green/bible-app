@@ -294,9 +294,18 @@ export function parseCoords(...urls: (string | undefined)[]): [number, number] |
   return undefined;
 }
 
-/** Display name from a unique name: "a_wife_of_Solomon@1Ki.4.11" -> "A wife of Solomon". */
+/**
+ * Display name from a unique name: "a_wife_of_Solomon@1Ki.4.11" -> "A wife of Solomon". TIPNR's
+ * placeholder ancestors ("Unnamed#3@Mat.1.15", inserted where a genealogy skips generations) -> "Unnamed".
+ */
 export function displayName(uniqueName: string): string {
-  const base = uniqueName.split('@')[0].split('|')[0].replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  const base = uniqueName
+    .split('@')[0]
+    .split('|')[0]
+    .replace(/^Unnamed#\d+$/, 'Unnamed')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   return base ? base[0].toUpperCase() + base.slice(1) : uniqueName;
 }
 
@@ -432,7 +441,8 @@ function buildEntity(rec: TipnrRecord, id: string): BuiltEntity {
     forms,
     refs: [],
     _links: {
-      parents: kind === 'person' || kind === 'group' ? parseLinks(f[1]) : [],
+      // Places: the "Founder / origin" column ("Salma … the father of Bethlehem").
+      parents: kind === 'other' ? [] : parseLinks(f[1]),
       siblings: kind === 'person' || kind === 'group' ? parseLinks(f[2]) : [],
       partners: kind === 'person' ? parseLinks(f[3]) : [],
       children: kind === 'person' || kind === 'group' ? parseLinks(f[4]) : [],
@@ -754,6 +764,8 @@ const INVERSE: Record<Rel, Rel> = { parents: 'children', children: 'parents', si
 export interface LinkReport {
   resolved: number;
   unresolved: string[];
+  /** Links TIPNR marks as uncertain "(?)", left out (e.g. Naamah as Noah's wife and Shem's mother). */
+  uncertain: string[];
   /** Links added to make the graph symmetric (A parent of B => B child of A, …). */
   added: number;
 }
@@ -776,7 +788,7 @@ export function resolveLinks(entities: BuiltEntity[]): LinkReport {
     list.push(e);
     byStem.set(k, list);
   }
-  const report: LinkReport = { resolved: 0, unresolved: [], added: 0 };
+  const report: LinkReport = { resolved: 0, unresolved: [], uncertain: [], added: 0 };
   const sets = new Map<string, Record<Rel, Set<string>>>();
   const relsOf = (id: string) => {
     let r = sets.get(id);
@@ -786,6 +798,10 @@ export function resolveLinks(entities: BuiltEntity[]): LinkReport {
   for (const e of entities) {
     for (const rel of ['parents', 'siblings', 'partners', 'children'] as Rel[]) {
       for (const link of e._links[rel]) {
+        if (link.flag.includes('?')) {
+          report.uncertain.push(`${e.uniqueName} ${rel}: ${link.name}(?)`);
+          continue;
+        }
         const name = link.name.split('|').pop()!.trim();
         let target = byUnique.get(name);
         if (!target) {
@@ -919,7 +935,7 @@ export function buildNames(): NamesResult {
     `${res.entities.length} entities (${Object.entries(kinds)
       .map(([k, n]) => `${n} ${k}`)
       .join(', ')}), ${res.stats.mapped} words mapped in ${res.chapters.length} chapters, ` +
-      `${res.links.resolved} family links (${res.links.unresolved.length} unresolved), ${(bytes / 1e6).toFixed(1)} MB`,
+      `${res.links.resolved} family links (${res.links.unresolved.length} unresolved, ${res.links.uncertain.length} uncertain "(?)" left out), ${(bytes / 1e6).toFixed(1)} MB`,
   );
   return res;
 }

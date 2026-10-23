@@ -1417,7 +1417,7 @@ const KIND_WORDS: Partial<Record<WordKind, ReadonlySet<string>>> = {
   ]),
 };
 /** Every function word: a rendering made only of these says nothing about a content word ("over all"). */
-const FUNCTION = set(WEAK, LEAD_PREP, QUANT, KIND_WORDS.conj!, KIND_WORDS.prep!, KIND_WORDS.pron!, ['therefore', 'thus', 'surely']);
+const FUNCTION = set(WEAK, LEAD_PREP, KIND_WORDS.conj!, KIND_WORDS.prep!, KIND_WORDS.pron!);
 /** Context words dropped before the span of a rendering that matches the word's gloss. */
 const SPAN_LEAD = FUNCTION;
 
@@ -1573,10 +1573,14 @@ export function attributeUnit(words: readonly EnWord[], sources: readonly UnitSo
   }
   const contentAll = sources.map((_, i) => i).filter((i) => CONTENT_KINDS.has(sources[i].kind));
   const fallback = contentAll.length === 1 ? contentAll[0] : -1;
+  const accepts = (kind: WordKind, word: string): boolean => {
+    const own = KIND_WORDS[kind];
+    if (own) return own.has(word);
+    return kind !== 'part' || !WEAK.has(word);
+  };
   words.forEach((w, j) => {
     if (owners[j].length) return;
-    const accepts = heir >= 0 && (KIND_WORDS[sources[heir].kind]?.has(lowerOf(w)) ?? (sources[heir].kind !== 'part' || !WEAK.has(lowerOf(w))));
-    const to = accepts ? heir : fallback;
+    const to = heir >= 0 && accepts(sources[heir].kind, lowerOf(w)) ? heir : fallback;
     if (to >= 0) owners[j] = [to];
   });
   return sources.map((_, i) => words.filter((_w, j) => owners[j].includes(i)));
@@ -1706,10 +1710,10 @@ export class RenderingCounter {
   }
 
   /**
-   * Top `limit` renderings per key and translation, most frequent first, without the rare ones
-   * (see minRenderingCount). A rendering is shown
-   * capitalised only when it is consistently capitalised where capitals are meaningful (≥ 80%:
-   * "God", "LORD", "Jesus", "I"), or, never seen mid-sentence, when `proper(key)` says it is a name.
+   * Top `limit` renderings per key and translation, most frequent first, without the rare ones (see
+   * minRenderingCount). A rendering is shown capitalised only when it is consistently capitalised
+   * where capitals are meaningful (≥ 80%: "God", "LORD", "Jesus", "I"), or, never seen mid-sentence,
+   * when `proper(key)` says it is a name.
    */
   result(limit = 6, proper: (key: string) => boolean = () => false): Map<string, Record<string, [string, number][]>> {
     const out = new Map<string, Record<string, [string, number][]>>();
@@ -1749,10 +1753,13 @@ function displayForm(lower: string, st: RenderStat, proper: boolean): string {
 
 /**
  * Store LexEntry.verses and LexEntry.renderings on every entry. Both are looked up by the entry's
- * key: verses by usageKey (the concordance key), renderings by the key itself (base number, morpheme
- * id, or a lettered id's own counts). Canonical keys go first and base aliases last: an alias shares
- * its entry object with a lettered variant, and that object is what every plain-number word in the
- * texts resolves to, so it carries the base-number figures. Absent data removes the field.
+ * key: verses by usageKey (the concordance key, so the count matches the concordance list),
+ * renderings by the key itself (base number, morpheme id, or a lettered id's own counts). Canonical
+ * keys go first and base aliases last: an alias shares its entry object with a lettered variant, and
+ * that object is what every plain-number word in the texts resolves to, so it carries the
+ * base-number figures. A lettered entry of its own that the original texts never use (e.g. H1121b
+ * "Beno", filed under H1121 "son") gets no verse count rather than its base number's. Absent data
+ * removes the field. `used` = every Strong's id in public/data/orig (omit to skip that check).
  */
 export function attachUsage(
   entries: Map<string, LexEntry>,
@@ -1760,17 +1767,22 @@ export function attachUsage(
   morphemes: ReadonlySet<string>,
   verseCounts: ReadonlyMap<string, number>,
   renderings: ReadonlyMap<string, Record<string, [string, number][]>>,
+  used?: ReadonlySet<string>,
   order: readonly string[] = ['KJV', 'BSB'],
 ): void {
   const keys = [...entries.keys()].sort((a, b) => Number(!canonical.has(a)) - Number(!canonical.has(b)));
   for (const key of keys) {
     const e = entries.get(key)!;
-    const v = verseCounts.get(usageKey(key, morphemes));
+    const base = baseStrongs(key);
+    const unusedVariant =
+      !!used && key !== base && !morphemes.has(key) && entries.get(base) !== e && !used.has(key);
+    const v = unusedVariant ? undefined : verseCounts.get(usageKey(key, morphemes));
     if (v) e.verses = v;
     else delete e.verses;
-    const r = renderings.get(key);
-    const trs = r ? [...order.filter((t) => r[t]?.length), ...Object.keys(r).filter((t) => !order.includes(t) && r[t].length)] : [];
-    if (r && trs.length) e.renderings = Object.fromEntries(trs.map((t) => [t, r[t]]));
+    const r = renderings.get(key) ?? {};
+    // Translations in `order` first (the KJV is the default translation), then any others.
+    const trs = [...order, ...Object.keys(r).filter((t) => !order.includes(t))].filter((t) => r[t]?.length);
+    if (trs.length) e.renderings = Object.fromEntries(trs.map((t) => [t, r[t]]));
     else delete e.renderings;
   }
 }
@@ -1875,13 +1887,15 @@ export const RENDERING_TRANSLATIONS = ['KJV', 'BSB'] as const;
  * Count renderings in every bundled translation of RENDERING_TRANSLATIONS that exists. A chapter file
  * that is missing or unreadable (e.g. being rewritten by a concurrent kjv run) is skipped and reported.
  */
-function collectRenderings(counter: RenderingCounter): { trs: string[]; skipped: string[] } {
+function collectRenderings(counter: RenderingCounter): { trs: string[]; skipped: string[]; used: Set<string> } {
   const trs = RENDERING_TRANSLATIONS.filter((tr) => existsSync(outPath('text', tr)));
   const skipped: string[] = [];
+  const used = new Set<string>();
   for (const { book, chapter } of allChapters()) {
     let orig: OrigChapter | null = null;
     try {
       orig = readJson<OrigChapter>(outPath('orig', book.id, `${chapter}.json`));
+      for (const w of orig.words) if (w[OW.strongs]) used.add(w[OW.strongs]);
     } catch {
       orig = null;
     }
@@ -1897,7 +1911,7 @@ function collectRenderings(counter: RenderingCounter): { trs: string[]; skipped:
       for (const v of text.verses) counter.addVerse(tr, v.t, orig);
     }
   }
-  return { trs: [...trs], skipped };
+  return { trs: [...trs], skipped, used };
 }
 
 export function buildLexicon(): void {
@@ -1909,9 +1923,9 @@ export function buildLexicon(): void {
   const verseCounts = readVerseCounts();
   const entryOf = (id: string) => entries.get(id) ?? entries.get(baseStrongs(id));
   const counter = new RenderingCounter(morphemes, (id) => posKind(entryOf(id)?.pos ?? ''));
-  const { trs, skipped } = collectRenderings(counter);
+  const { trs, skipped, used: origIds } = collectRenderings(counter);
   const renderings = counter.result(6, (key) => /^Proper noun/.test(entryOf(key)?.pos ?? ''));
-  attachUsage(entries, canonical, morphemes, verseCounts, renderings);
+  attachUsage(entries, canonical, morphemes, verseCounts, renderings, origIds.size ? origIds : undefined);
   let withVerses = 0;
   const withRenderings: Record<string, number> = {};
   for (const [key, e] of entries) {
