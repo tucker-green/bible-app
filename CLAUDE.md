@@ -29,6 +29,9 @@ The BSB (hand-aligned word for word) is offered second as the most precise align
   `.cache/sources/` or earlier stages' output in `public/data/`, and log a one-line summary.
 - Generated data (public/data/) is NOT committed (it is ~100 MB and changes wholesale on every rebuild).
   Run `npm run data` once after cloning; CI runs it on every deploy (raw sources cached between runs).
+- Never put API keys in the repo, the build, tests or fixtures. Runtime keys (API.Bible for the NIV)
+  are typed by the user into Settings and stored only in their browser (localStorage); tests use
+  obviously fake keys like `test-key`.
 - TypeScript strict mode; no `any` without a comment saying why.
 - Prefer small pure functions with unit tests in `tests/` mirroring `src/lib/` paths.
 - UI: Preact function components + @preact/signals; CSS lives in `src/styles/` (design tokens as

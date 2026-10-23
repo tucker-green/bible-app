@@ -15,6 +15,7 @@
   const DATA = window.ILLUM_DATA || { lex: {}, search: null };
   const LEX = DATA.lex;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const narrowMQ = matchMedia('(max-width: 1100px)');
   const mobileMQ = matchMedia('(max-width: 640px)');
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -897,21 +898,21 @@
   function ribbonHTML(S) {
     const books = S.perBook;
     const max = Math.max(...books.map((b) => b[3]));
-    const W = 640, H = 58, base = 46, gapT = 14, bar = (W - gapT) / books.length;
+    const W = 640, H = 62, base = 52, gapT = 14, bar = (W - gapT) / books.length;
     let x = 0, bars = '', labels = '';
-    const top = books.slice().sort((a, b) => b[3] - a[3]).slice(0, 2).map((b) => b[0]);
+    const maxOf = (t) => books.filter((b) => b[2] === t).sort((a, b) => b[3] - a[3])[0][0];
+    const top = [maxOf('OT'), maxOf('NT')];
     books.forEach((b, i) => {
       if (i === 39) x += gapT;
       const h = b[3] ? Math.max(2, (b[3] / max) * (base - 6)) : 0;
       const bx = x + 1;
       bars += `<rect class="ribbon__hit" x="${x.toFixed(1)}" y="0" width="${bar.toFixed(1)}" height="${H}" data-tip="${esc(b[1])} · ${b[3]} verse${b[3] === 1 ? '' : 's'}"/>`;
       if (h) bars += `<rect class="ribbon__bar ribbon__bar--${b[2].toLowerCase()}" x="${bx.toFixed(1)}" y="${(base - h).toFixed(1)}" width="${(bar - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="1.2"/>`;
-      else bars += `<rect class="ribbon__zero" x="${bx.toFixed(1)}" y="${base - 1}" width="${(bar - 2).toFixed(1)}" height="1"/>`;
       if (top.includes(b[0])) labels += `<text class="ribbon__val" x="${(bx + (bar - 2) / 2).toFixed(1)}" y="${(base - h - 4).toFixed(1)}" text-anchor="middle">${b[3]}</text>`;
       x += bar;
     });
     const ntStart = 39 * bar + gapT;
-    const desc = `Distribution of matching verses across the 66 books. Highest: ${top.map((id) => { const b = books.find((r) => r[0] === id); return `${b[1]} (${b[3]})`; }).join(', ')}.`;
+    const desc = `Distribution of matching verses across the 66 books. Highest in each testament: ${top.map((id) => { const b = books.find((r) => r[0] === id); return `${b[1]} (${b[3]})`; }).join(', ')}.`;
     return `<figure class="ribbon">
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(desc)}" preserveAspectRatio="none">
         <line class="ribbon__base" x1="0" x2="${W}" y1="${base + 0.5}" y2="${base + 0.5}"/>
@@ -1166,6 +1167,13 @@
     flashTimer = setTimeout(() => el.classList.remove('is-on'), 2600);
   }
 
+  /** Wide screens: the marginalia sit in the page's outer margin. Narrow: they move into the page, before the colophon. */
+  function placeMarginalia() {
+    const aside = $('.marginalia');
+    if (narrowMQ.matches) $('#folio').insertBefore(aside, $('.colophon'));
+    else $('.stage__grid').appendChild(aside);
+  }
+
   /* ------------------------------------------------------------------ boot */
 
   async function boot() {
@@ -1178,6 +1186,8 @@
       return;
     }
     $$('.tr[role="radio"]').forEach((b) => { b.tabIndex = b.dataset.tr === 'BSB' ? 0 : -1; });
+    placeMarginalia();
+    narrowMQ.addEventListener('change', placeMarginalia);
     bindChrome();
     bindText();
     bindSearch();
