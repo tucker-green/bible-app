@@ -25,7 +25,7 @@ describe('hash routes', () => {
     expect(parseRoute('')).toBeNull();
     expect(parseRoute('#')).toBeNull();
     expect(parseRoute('#/')).toBeNull();
-    expect(DEFAULT_HASH).toBe('#/KJV/JHN/1');
+    expect(DEFAULT_HASH).toBe('#/KJV/GEN/1');
   });
 
   it('reports unknown routes and impossible chapters as not found', () => {

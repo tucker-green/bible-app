@@ -5,12 +5,12 @@ test.beforeEach(async ({ context }) => {
   await freshStorage(context);
 });
 
-test('opens the KJV at John 1 by default', async ({ page }) => {
+test('opens the KJV at Genesis 1 by default', async ({ page }) => {
   await page.goto('./');
-  await expect(page).toHaveURL(/#\/KJV\/JHN\/1$/);
-  await expect(page.locator('#chapter-title')).toContainText('John');
+  await expect(page).toHaveURL(/#\/KJV\/GEN\/1$/);
+  await expect(page.locator('#chapter-title')).toContainText('Genesis');
   await expect(page.locator('.tr-btn__abbr')).toHaveText('KJV');
-  await expect(page.locator('#v1')).toContainText('In the beginning was the Word');
+  await expect(page.locator('#v1')).toContainText('In the beginning God created the heaven and the earth');
   await expect(page).toHaveTitle(/Rootword/);
 });
 

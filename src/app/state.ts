@@ -149,9 +149,9 @@ export const translations = computed<TranslationMeta[]>(() => {
 });
 
 /** The parsed location hash (set by the router). */
-export const route = signal<Route>({ name: 'read', tr: 'KJV', ref: { book: 'JHN', chapter: 1 } });
+export const route = signal<Route>({ name: 'read', tr: 'KJV', ref: { book: 'GEN', chapter: 1 } });
 /** The chapter being read (also shown under #/search and kept while on #/about). */
-export const passage = signal<Passage>({ tr: 'KJV', ref: { book: 'JHN', chapter: 1 } });
+export const passage = signal<Passage>({ tr: 'KJV', ref: { book: 'GEN', chapter: 1 } });
 
 export const theme = signal<Theme>(loadTheme());
 export const readingMode = signal<ReadingMode>(loadMode());

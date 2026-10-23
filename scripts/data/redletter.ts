@@ -622,6 +622,12 @@ export function resetVerse(v: TextVerse): TextVerse {
   return { ...rest, t: mergeStrings(v.t) };
 }
 
+/**
+ * KJV verses where the eBible source lacks the words of Jesus that the WEB marks (Matt 13:57 "A
+ * prophet is not without honour…"): re-derived from WEB's markup, like the runaway spans below.
+ */
+export const KJV_SOURCE_GAPS: ReadonlySet<string> = new Set(['MAT 13:57']);
+
 /** Weight of an aligned word of the translation's own source markup (never outvoted by smoothing). */
 const SOURCE_WEIGHT = 3;
 
@@ -667,6 +673,173 @@ export function checkVerse(before: TextVerse, after: TextVerse, where: string): 
     if (!(Number.isInteger(s) && Number.isInteger(e) && s >= prevEnd && e > s && e <= after.t.length)) throw new Error(`${where}: bad wj range [${s}, ${e})`);
     prevEnd = e;
   }
+}
+
+/* ======================================================================== */
+/* Finishing: whole quotations, never the narrator                           */
+/* ======================================================================== */
+
+/** Third-person verbs that introduce speech ("And Jesus answering said unto him, ‘Simon…’"). */
+const SPEECH_VERB = /^(?:said|saith|says|saying|answered|answering|answereth|asked|asketh|asking|spake|spoke|speaketh|cried|crieth|replied|rebuked|told|tells|charged|commanded|declared)$/i;
+/** Words that may sit between a speech verb and the speech ("said unto them,"). */
+const SPEECH_OBJECT = /^(?:unto|to|him|her|them|me|us|you|thee|it|his|the|disciples|again|also|and)$/i;
+
+/** One stretch of a verse's words between quotation marks / speech openings. */
+export interface SpeechSegment {
+  from: number;
+  /** End word index (exclusive). */
+  to: number;
+  /** Narrative introducing the speech that follows (ends with a speech verb before the speech). */
+  narrator: boolean;
+  /** Inside quotation marks (opened in this verse). */
+  quoted: boolean;
+}
+
+const OPEN_MARK = /[“‘«]/;
+const CLOSE_MARK = /[”»]|’(?=\s|$)/;
+
+/**
+ * Split a verse's words into speech segments: at quotation marks (translations that print them), and
+ * after a speech verb with its comma / colon ("saying, Neither go…" in the KJV and ASV, which print
+ * none). A segment ending in a speech verb right before the speech is the narrator's.
+ */
+export function speechSegments(layout: VerseLayout): SpeechSegment[] {
+  const { words, gaps } = layout;
+  const out: SpeechSegment[] = [];
+  let from = 0;
+  let quoted = false;
+  const narratorBefore = (end: number) => {
+    // a speech verb among the last words before `end`, followed only by its objects ("began … to say,")
+    for (let k = end - 1; k >= Math.max(from, end - 4); k--) {
+      if (SPEECH_VERB.test(words[k].text)) return true;
+      if (/^say$/i.test(words[k].text) && k > 0 && /^(?:to|and)$/i.test(words[k - 1].text)) return true;
+      if (!SPEECH_OBJECT.test(words[k].text)) return false;
+    }
+    return false;
+  };
+  for (let i = 1; i <= words.length; i++) {
+    const gap = gaps[i] ?? '';
+    const opens = i < words.length && OPEN_MARK.test(gap);
+    const closes = CLOSE_MARK.test(gap);
+    const speechOpens = i < words.length && !opens && /[,:]\s*$/.test(gap) && narratorBefore(i);
+    if (i === words.length || opens || closes || speechOpens) {
+      const narrator = (opens || speechOpens) && narratorBefore(i);
+      // The narrator's part is only the clause with the speech verb ("thee. | And he saith,").
+      let clause = from;
+      if (narrator) for (let k = i - 1; k > from; k--) if (/[.?!;]/.test(gaps[k])) {
+        clause = k;
+        break;
+      }
+      if (clause > from) out.push({ from, to: clause, narrator: false, quoted });
+      out.push({ from: clause, to: i, narrator, quoted });
+      from = i;
+      quoted = opens ? true : closes ? false : quoted;
+    }
+  }
+  return out.filter((sg) => sg.to > sg.from);
+}
+
+/**
+ * Make each speech segment all-or-nothing: a partly red segment becomes red when at least half its
+ * words are, else black, and a partly red narrator's segment ("And Jesus answering said unto him,")
+ * becomes black. Segments that are wholly red or wholly black are kept (the source's own marking).
+ */
+export function wholeSegments(red: readonly boolean[], segments: readonly SpeechSegment[], narratorBlack = false): boolean[] {
+  const out = [...red];
+  for (const sg of segments) {
+    const n = sg.to - sg.from;
+    let r = 0;
+    for (let i = sg.from; i < sg.to; i++) if (red[i]) r++;
+    // A wholly red narrator's opening is black too when the marked translations say so (narratorBlack).
+    const forceBlack = sg.narrator && narratorBlack && sg.from === 0;
+    if (r === 0 || (r === n && !forceBlack)) continue;
+    const on = !sg.narrator && r * 2 >= n;
+    for (let i = sg.from; i < sg.to; i++) out[i] = on;
+  }
+  return out;
+}
+
+/** Red share of a source verse's words. */
+const shareOf = (sv: SourceVerse | undefined) => (sv && sv.red.length ? sv.red.filter(Boolean).length / sv.red.length : 0);
+
+/** Translations that print quotation marks (their quotations are the speech units). */
+export const QUOTED_TRANSLATIONS: ReadonlySet<string> = new Set(['BSB', 'WEB', 'YLT']);
+
+/**
+ * Final pass over one verse of any translation.
+ *  - Quotation-marked translations: each quotation (and each stretch between marks) is all-or-nothing
+ *    (wholeSegments): "Take and | eat; this is My body" becomes the whole quotation.
+ *  - Translations without quotation marks (KJV, ASV), where a "segment" runs on past the speech: a
+ *    speech that starts one or two words after its "saying," / "said unto him," is widened back to
+ *    it ("saying, Neither go into the town"); a propagated (ASV) run of at most 3 red words in a verse
+ *    the KJV leaves (almost) black is dropped ("faithful and true." in Rev 21:5).
+ *  - Either way, the narrator's opening ("And Jesus answering said unto him,") is black when the
+ *    marked translations (`marked`: KJV / WEB, given for propagated translations) open the verse with
+ *    narrative.
+ *  - A propagated verse left black although every marked translation shows the words of Jesus in it:
+ *    its single quotation, or the speech after its speech verb, or (a marked verse being entirely
+ *    red, e.g. Matt 17:21, which has no Greek to propagate through) the whole verse is coloured.
+ */
+export function finishVerse(
+  v: TextVerse,
+  marked: readonly (SourceVerse | undefined)[] = [],
+  quotedText = true,
+  propagated = true,
+): TextVerse {
+  const layout = layoutVerse(v.t);
+  if (!layout.words.length) return v;
+  let red = wordFlagsOf(layout, v.wj);
+  const segments = speechSegments(layout);
+  const sources = marked.filter((m): m is SourceVerse => !!m && m.words.length > 0);
+  const narratorBlack = sources.length > 0 && sources.every((m) => !m.red[0]);
+  if (quotedText) red = wholeSegments(red, segments, narratorBlack);
+  else {
+    red = [...red];
+    for (const sg of segments) {
+      if (!sg.narrator) continue;
+      const n = sg.to - sg.from;
+      const r = red.slice(sg.from, sg.to).filter(Boolean).length;
+      if (r && (r < n || (narratorBlack && sg.from === 0))) red.fill(false, sg.from, sg.to);
+    }
+    // widen a speech that starts just after its opening
+    for (let k = 1; k < segments.length; k++) {
+      const sg = segments[k];
+      if (!segments[k - 1].narrator) continue;
+      for (let i = sg.from + 1; i <= Math.min(sg.from + 2, sg.to - 1); i++) {
+        if (red[i] && !red.slice(sg.from, i).some(Boolean)) {
+          red.fill(true, sg.from, i);
+          break;
+        }
+      }
+    }
+    // A short red run where the KJV (marked[0]; the ASV is its revision) has (almost) no red.
+    if (propagated && marked[0]?.words.length && shareOf(marked[0]) < 0.2) {
+      for (let i = 0; i < red.length; ) {
+        if (!red[i]) {
+          i++;
+          continue;
+        }
+        let j = i;
+        while (j < red.length && red[j]) j++;
+        if (j - i <= 3) red.fill(false, i, j);
+        i = j;
+      }
+    }
+  }
+  if (propagated && !red.some(Boolean) && sources.length && sources.every((m) => shareOf(m) > 0.2)) {
+    const speech = segments.filter((sg) => sg.quoted);
+    const after = segments.length > 1 && segments[segments.length - 2].narrator ? [segments[segments.length - 1]] : [];
+    const chosen = speech.length === 1 ? speech : !speech.length && after.length ? after : !speech.length && sources.some((m) => shareOf(m) === 1) ? segments : [];
+    for (const sg of chosen) for (let i = sg.from; i < sg.to; i++) red[i] = true;
+  }
+  const base = resetVerse(v);
+  const res = applyRed(base.t, layoutVerse(base.t), red);
+  return res.wj ? { ...base, t: res.t, wj: res.wj } : base;
+}
+
+/** Red share of every verse of a chapter (verse -> share), for the consensus check. */
+export function verseShares(ch: TextChapter): Map<number, number> {
+  return new Map(ch.verses.map((v) => [v.v, shareOf(asSource(v))]));
 }
 
 /* ======================================================================== */
@@ -758,6 +931,8 @@ export interface RedLetterStats {
   /** Spot checks: label -> translation -> share of red words. */
   spots: Record<string, Record<string, number>>;
   failures: string[];
+  /** Propagated verses whose red share differs from both marked translations' by >= 0.4. */
+  disagree: string[];
 }
 
 export function buildRedLetter(): RedLetterStats {
@@ -777,6 +952,7 @@ export function buildRedLetter(): RedLetterStats {
   }
   const check = newConfusion();
   const corrected: string[] = [];
+  const disagree: string[] = [];
   const spots: RedLetterStats['spots'] = {};
   const spotKeys = new Map<string, (typeof SPOT_CHECKS)[number][]>();
   for (const s of SPOT_CHECKS) {
@@ -830,7 +1006,8 @@ export function buildRedLetter(): RedLetterStats {
 
         // The eBible KJV has a few runaway <q> spans that colour whole narrative verses (Luke 7:1–9,
         // Mark 8:22–27…). A KJV verse marked red from its first word, whose WEB verse starts with
-        // narrative (or has no words of Jesus at all), is re-derived from WEB's markup instead.
+        // narrative (or has no words of Jesus at all), is re-derived from WEB's markup instead; so are
+        // the verses of KJV_SOURCE_GAPS.
         const wv: Votes = new Map();
         addVotes(wv, web.verses);
         const wf = origFlags(orig, wv);
@@ -839,7 +1016,8 @@ export function buildRedLetter(): RedLetterStats {
         kjv.verses = kjv.verses.map((v) => {
           const sv = kjvSrc?.get(v.v);
           const w = webVerses.get(v.v);
-          if (!sv?.red[0] || !sv.red.every(Boolean) || !w?.words.length || w.red[0]) return v;
+          const gap = KJV_SOURCE_GAPS.has(`${ck}:${v.v}`) && !!w?.red.some(Boolean);
+          if (!gap && (!sv?.red[0] || !sv.red.every(Boolean) || !w?.words.length || w.red[0])) return v;
           const out = markFromOrig(v, wf, [w]);
           checkVerse(v, out, `KJV ${ck}:${v.v}`);
           corrected.push(`${ck}:${v.v}`);
@@ -868,7 +1046,33 @@ export function buildRedLetter(): RedLetterStats {
       });
     }
 
-    // 3. write back what changed; count
+    // 3. whole quotations, never the narrator; propagated verses left black against the KJV / WEB
+    for (const [tr, ch] of result) {
+      const propagated = (PROPAGATED as readonly string[]).includes(tr);
+      ch.verses = ch.verses.map((v) => {
+        // Marked translations are checked against each other only for the narrator's opening.
+        const others = propagated ? marked.map((m) => m.get(v.v)) : MARKED.filter((x) => x !== tr).map((x) => marked[MARKED.indexOf(x)].get(v.v));
+        const out = finishVerse(v, others, QUOTED_TRANSLATIONS.has(tr), propagated);
+        checkVerse(v, out, `${tr} ${ck}:${v.v}`);
+        return out;
+      });
+    }
+    // consensus check: verses whose red share differs from the marked translations' by 0.4 or more
+    if (hasRed) {
+      const ref = MARKED.map((tr) => (result.has(tr) ? verseShares(result.get(tr)!) : new Map<number, number>()));
+      for (const tr of PROPAGATED) {
+        const ch = result.get(tr);
+        if (!ch) continue;
+        for (const [v, share] of verseShares(ch)) {
+          const others = ref.map((m) => m.get(v)).filter((x): x is number => x !== undefined);
+          if (!others.length) continue;
+          const mean = others.reduce((a, b) => a + b, 0) / others.length;
+          if (Math.abs(share - mean) >= 0.4 && others.every((x) => Math.abs(share - x) >= 0.4)) disagree.push(`${tr} ${ck}:${v}`);
+        }
+      }
+    }
+
+    // 4. write back what changed; count
     for (const [tr, ch] of result) {
       const t = texts.get(tr)!;
       const c = counts[tr];
@@ -918,9 +1122,10 @@ export function buildRedLetter(): RedLetterStats {
       .map((tr) => `${tr} ${counts[tr].verses} verses / ${counts[tr].words} words`)
       .join(', ')}; KJV verses corrected from WEB ${corrected.length}; unmatched source verses ${Object.entries(unmatched)
       .map(([tr, n]) => `${tr} ${n}`)
-      .join(', ')}; propagation check (KJV only -> WEB markup) precision ${pct(precision(check))} recall ${pct(recall(check))}; spot checks ${
+      .join(', ')}; propagation check (KJV only -> WEB markup) precision ${pct(precision(check))} recall ${pct(recall(check))}; ` +
+      `verses differing from the KJV and WEB by >= 40% of their words: ${disagree.length}${disagree.length ? ` (${disagree.slice(0, 8).join(', ')}${disagree.length > 8 ? ', …' : ''})` : ''}; spot checks ${
       SPOT_CHECKS.length * trs.length - failures.length
     }/${SPOT_CHECKS.length * trs.length} ok${failures.length ? ` — ${failures.join('; ')}` : ''}`,
   );
-  return { counts, unmatched, check, corrected, spots, failures };
+  return { counts, unmatched, check, corrected, spots, failures, disagree };
 }
