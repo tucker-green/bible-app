@@ -1,0 +1,16 @@
+/* App shell pieces that belong to no single component. */
+#app { min-height: 100dvh; display: flex; flex-direction: column; }
+main { flex: 1; }
+
+/* Placeholders until the search panel and settings sheet are built (other agents replace them). */
+.search-stub, .settings-stub {
+  position: fixed; z-index: var(--z-search);
+  top: calc(var(--header-h) + 8px); right: 16px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px 18px;
+  background: var(--surface); color: var(--ink-2);
+  border: 1px solid var(--rule); border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 var(--card-top), var(--shadow);
+  display: flex; justify-content: space-between; gap: 16px; align-items: baseline;
+}
+.settings-stub { z-index: var(--z-sheet); }

@@ -176,7 +176,7 @@ function ilCellHtml(model: ChapterModel, cell: IlCell, opts: RenderOptions, firs
     const spans = unitOrigWords(orig, u.links);
     const text = spans.map((s) => s.text).join(' ');
     const lang = orig.lang;
-    const attrs = lang === 'hbo' ? 'lang="hbo" dir="rtl"' : 'lang="grc"';
+    const attrs = lang === 'hbo' ? 'lang="he" dir="rtl"' : 'lang="grc"';
     or = `<span class="il__or" ${attrs}>${escapeHtml(text)}</span>`;
     if (opts.ilTranslit) {
       const t = lang === 'grc' ? transliterate(text) : spans.map((s) => s.translit).join(' ');

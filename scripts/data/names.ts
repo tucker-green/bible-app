@@ -26,7 +26,6 @@
  * word in Gen 17:23 carrying that (base) Strong's number.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { getBook } from '../../src/lib/books';
 import type { BookInfo } from '../../src/lib/books';
 import type {
   EntityKind,
@@ -39,7 +38,7 @@ import type {
 } from '../../src/lib/types';
 import { OW, packRef } from '../../src/lib/types';
 import { BOOKS, baseStrongs, cleanOut, log, normStrongs, outPath, srcPath, writeJson } from './common';
-import { escapeHtml, greekFold, hebrewSkeleton, isSafeDefHtml, sanitizeStepDef } from './lexicon';
+import { escapeHtml, greekFold, hebrewSkeleton, isSafeDefHtml, sanitizeStepDef, stripCantillation } from './lexicon';
 
 const STAGE = 'names';
 
@@ -111,7 +110,7 @@ export function parseStrongPart(part: string): TipnrStrong | null {
  * terminating "$" line (change notes, private working notes) are ignored.
  */
 export function parseTipnr(text: string): TipnrRecord[] {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   const records: TipnrRecord[] = [];
   let cur: TipnrRecord | null = null;
   let skipping = true; // inside header / EXCLUDED records
@@ -275,6 +274,7 @@ export function parseLinks(field: string | undefined): TipnrLink[] {
       flag = fm[1];
       part = part.slice(0, fm.index).trim();
     }
+    part = part.replace(/=[GH]\d{1,4}[A-Za-z]?$/, '').trim(); // "Maon@1Ch.2.45=H4584H" (place founders)
     if (part.includes('@')) out.push({ name: part, flag });
   }
   return out;
@@ -309,11 +309,20 @@ export function displayName(uniqueName: string): string {
   return base ? base[0].toUpperCase() + base.slice(1) : uniqueName;
 }
 
-/** First English rendering of a "Translated name" cell: "Abiah =KJV; his father =ESV" -> "Abiah". */
+/**
+ * First English rendering of a "Translated name" cell: "Abiah =KJV; his father =ESV" -> "Abiah",
+ * "Areli,Arelite" -> "Areli", "(Mount )Carmel" -> "Mount Carmel", "[ ]" (not translated) -> "".
+ */
 export function englishName(cell: string): string {
-  const first = cell.split(';')[0].replace(/=\s*[A-Z,]+\s*$/, '').replace(/\s+/g, ' ').trim();
-  if (!first || /^\[\s*\]$/.test(first)) return '';
-  return first.replace(/\//g, '').replace(/\s+/g, ' ').replace(/[:;,]+$/, '').trim();
+  const first = cell
+    .split(';')[0]
+    .replace(/=\s*[A-Za-z,]+\s*$/, '')
+    .split(',')[0]
+    .replace(/[()/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[:;,]+$/, '')
+    .trim();
+  return /^\[\s*\]$|^\[?$/.test(first) ? '' : first;
 }
 
 /**
@@ -322,7 +331,8 @@ export function englishName(cell: string): string {
  * becomes <b>Abraham</b> (the attribute is dropped), anything else is escaped text.
  */
 export function sanitizeTipnrHtml(raw: string): string {
-  let s = (raw ?? '').replace(/^\s*#/, '');
+  // A "<" that cannot start a tag ("a < b") is text, not the start of an element.
+  let s = (raw ?? '').replace(/^\s*#/, '').replace(/<(?![A-Za-z/!])/g, '&lt;');
   // "first mentioned at <ref…>Gen.11.26</ref>) <br>" — a stray ")" in every TIPNR summary.
   s = s.replace(/(<\/ref>)\)/gi, (m, close: string, at: number) => {
     const before = s.slice(0, at);
@@ -331,7 +341,7 @@ export function sanitizeTipnrHtml(raw: string): string {
     return opens > closes ? m : close;
   });
   s = s.replace(/<BR\s*\/?>/g, '<br>');
-  const html = sanitizeStepDef(s, 'H')
+  const html = stripCantillation(sanitizeStepDef(s, 'H'))
     .replace(/<br>\s*([;,.])/g, '$1<br>')
     .replace(/\s+([;,.])(?=<br>|$)/g, '$1')
     .replace(/<b>\s*<\/b>/g, '');
@@ -421,12 +431,13 @@ function buildEntity(rec: TipnrRecord, id: string): BuiltEntity {
     if (sub.kind === 'Mentioned') continue;
     const en = englishName(sub.english) || displayName(sub.uniqueName);
     for (const s of sub.strongs) {
-      if (!s.form) continue;
+      const form = stripCantillation(s.form);
+      if (!form) continue;
       const strong = s.eStrong || baseStrongs(s.dStrong);
-      const key = `${strong}|${s.form}`;
+      const key = `${strong}|${form}`;
       if (seenForm.has(key)) continue;
       seenForm.add(key);
-      forms.push([strong, s.form, sub.strongs.length > 1 ? displayName(sub.uniqueName) : en]);
+      forms.push([strong, form, sub.strongs.length > 1 ? displayName(sub.uniqueName) : en]);
     }
   }
 
@@ -764,16 +775,25 @@ const INVERSE: Record<Rel, Rel> = { parents: 'children', children: 'parents', si
 export interface LinkReport {
   resolved: number;
   unresolved: string[];
-  /** Links TIPNR marks as uncertain "(?)", left out (e.g. Naamah as Noah's wife and Shem's mother). */
+  /** Uncertain "(?)" links kept: an uncertain parent where the child has no certain one, or who has no ancestry of their own. */
+  uncertainKept: string[];
+  /** Uncertain "(?)" links left out (e.g. Naamah as Noah's wife and Shem's mother; guessed half-siblings). */
   uncertain: string[];
   /** Links added to make the graph symmetric (A parent of B => B child of A, …). */
   added: number;
 }
 
 /**
- * Resolve link strings to entity ids. TIPNR cites a person by UniqueName, occasionally with the
- * "AltName|" prefix or a slightly different "-LastBook" suffix; those fall back to a unique match on
- * "Name@FirstRef". Then make every relation symmetric.
+ * Resolve link strings to entity ids and make every relation symmetric. TIPNR cites a person by
+ * UniqueName, occasionally with an "AltName|" prefix or a different "-LastBook" suffix; those fall
+ * back to a unique match on "Name@FirstRef".
+ *
+ * Links TIPNR marks "(?)" cannot be flagged in the FamilyGraph contract, so they are filtered:
+ * an uncertain sibling or partner is left out (it never affects lineage); an uncertain parent/child
+ * link is kept only when the child has no certain parent (it fills a gap: Jehoiachin -> Shealtiel ->
+ * Pedaiah in Matthew's line) or the parent has no recorded parents (it cannot open a second line of
+ * ancestry: Rahab -> Boaz). So Naamah, Lamech's daughter, is not made Shem's mother, which would
+ * otherwise route Adam -> Noah through Cain.
  */
 export function resolveLinks(entities: BuiltEntity[]): LinkReport {
   const byUnique = new Map(entities.map((e) => [e.uniqueName, e]));
@@ -784,39 +804,75 @@ export function resolveLinks(entities: BuiltEntity[]): LinkReport {
   };
   for (const e of entities) {
     const k = stem(e.uniqueName);
-    const list = byStem.get(k) ?? [];
-    list.push(e);
-    byStem.set(k, list);
+    byStem.set(k, [...(byStem.get(k) ?? []), e]);
   }
-  const report: LinkReport = { resolved: 0, unresolved: [], uncertain: [], added: 0 };
+  const resolve = (name: string): BuiltEntity | undefined => {
+    const n = name.split('|').pop()!.trim();
+    const hit = byUnique.get(n);
+    if (hit) return hit;
+    const cands = byStem.get(stem(n)) ?? [];
+    return cands.length === 1 ? cands[0] : undefined;
+  };
+
+  const report: LinkReport = { resolved: 0, unresolved: [], uncertainKept: [], uncertain: [], added: 0 };
+  type Edge = { from: BuiltEntity; rel: Rel; to: BuiltEntity; label: string };
+  const certain: Edge[] = [];
+  const unsure: Edge[] = [];
+  for (const e of entities) {
+    for (const rel of ['parents', 'siblings', 'partners', 'children'] as Rel[]) {
+      for (const link of e._links[rel]) {
+        const target = resolve(link.name);
+        if (!target || target.id === e.id) {
+          report.unresolved.push(`${e.uniqueName} ${rel}: ${link.name}`);
+          continue;
+        }
+        report.resolved++;
+        const edge = { from: e, rel, to: target, label: `${e.uniqueName} ${rel}: ${link.name}(${link.flag})` };
+        (link.flag.includes('?') ? unsure : certain).push(edge);
+      }
+    }
+  }
+
+  // child id -> parent ids, from either side of the relation.
+  const certainParents = new Map<string, Set<string>>();
+  const anyParents = new Map<string, Set<string>>();
+  const note = (map: Map<string, Set<string>>, child: string, parent: string) => {
+    let s = map.get(child);
+    if (!s) map.set(child, (s = new Set()));
+    s.add(parent);
+  };
+  const asChildParent = (x: Edge): [string, string] | null =>
+    x.rel === 'parents' ? [x.from.id, x.to.id] : x.rel === 'children' ? [x.to.id, x.from.id] : null;
+  for (const x of certain) {
+    const cp = asChildParent(x);
+    if (cp) note(certainParents, ...cp), note(anyParents, ...cp);
+  }
+  for (const x of unsure) {
+    const cp = asChildParent(x);
+    if (cp) note(anyParents, ...cp);
+  }
+
   const sets = new Map<string, Record<Rel, Set<string>>>();
   const relsOf = (id: string) => {
     let r = sets.get(id);
     if (!r) sets.set(id, (r = { parents: new Set(), siblings: new Set(), partners: new Set(), children: new Set() }));
     return r;
   };
-  for (const e of entities) {
-    for (const rel of ['parents', 'siblings', 'partners', 'children'] as Rel[]) {
-      for (const link of e._links[rel]) {
-        if (link.flag.includes('?')) {
-          report.uncertain.push(`${e.uniqueName} ${rel}: ${link.name}(?)`);
-          continue;
-        }
-        const name = link.name.split('|').pop()!.trim();
-        let target = byUnique.get(name);
-        if (!target) {
-          const cands = byStem.get(stem(name)) ?? [];
-          if (cands.length === 1) target = cands[0];
-        }
-        if (!target || target.id === e.id) {
-          report.unresolved.push(`${e.uniqueName} ${rel}: ${link.name}`);
-          continue;
-        }
-        report.resolved++;
-        relsOf(e.id)[rel].add(target.id);
-      }
+  for (const x of certain) relsOf(x.from.id)[x.rel].add(x.to.id);
+  for (const x of unsure) {
+    const cp = asChildParent(x);
+    let keep = false;
+    if (cp) {
+      const [child, parent] = cp;
+      const childCertain = certainParents.get(child);
+      keep = !!childCertain?.has(parent) || !childCertain?.size || !anyParents.get(parent)?.size;
     }
+    if (keep) {
+      relsOf(x.from.id)[x.rel].add(x.to.id);
+      report.uncertainKept.push(x.label);
+    } else report.uncertain.push(x.label);
   }
+
   // Symmetrise.
   for (const [id, rels] of [...sets]) {
     for (const rel of Object.keys(rels) as Rel[]) {
@@ -830,18 +886,15 @@ export function resolveLinks(entities: BuiltEntity[]): LinkReport {
     }
   }
   const order = new Map(entities.map((e, i) => [e.id, i]));
-  const sorted = (s: Set<string>) => [...s].sort((a, b) => order.get(a)! - order.get(b)!);
   for (const e of entities) {
     const rels = sets.get(e.id);
     if (!rels) continue;
-    // Keep TIPNR's own order (eldest first) where given; links added by symmetry go after.
     for (const rel of Object.keys(rels) as Rel[]) {
       if (!rels[rel].size) continue;
-      const own = e._links[rel]
-        .map((l) => byUnique.get(l.name.split('|').pop()!.trim())?.id)
-        .filter((x): x is string => !!x && rels[rel].has(x));
-      const ids = [...new Set([...own, ...sorted(rels[rel])])];
-      e[rel] = ids;
+      // TIPNR's own order first (eldest first, father before mother); links added by symmetry after.
+      const own = e._links[rel].map((l) => resolve(l.name)?.id).filter((x): x is string => !!x && rels[rel].has(x));
+      const rest = [...rels[rel]].sort((a, b) => order.get(a)! - order.get(b)!);
+      e[rel] = [...new Set([...own, ...rest])];
     }
   }
   return report;
@@ -935,10 +988,8 @@ export function buildNames(): NamesResult {
     `${res.entities.length} entities (${Object.entries(kinds)
       .map(([k, n]) => `${n} ${k}`)
       .join(', ')}), ${res.stats.mapped} words mapped in ${res.chapters.length} chapters, ` +
-      `${res.links.resolved} family links (${res.links.unresolved.length} unresolved, ${res.links.uncertain.length} uncertain "(?)" left out), ${(bytes / 1e6).toFixed(1)} MB`,
+      `${res.links.resolved} family links (${res.links.unresolved.length} unresolved, ${res.links.uncertain.length} uncertain "(?)" left out, ${res.links.uncertainKept.length} kept), ${(bytes / 1e6).toFixed(1)} MB`,
   );
   return res;
 }
 
-/** Look up a book by USFM id (re-exported for scripts that inspect the output). */
-export { getBook };

@@ -108,26 +108,42 @@ export function greekForm(text: string, lemma: string): string {
 
 /**
  * The whole written Hebrew word of every morpheme in a chapter: the texts of all morphemes sharing
- * OW.group, in index order, NFC. (Morphemes of a word are normally contiguous but not always — the
- * source orders a few out of place — so this groups by the OW.group value rather than by position.)
+ * OW.group, in index order, as printed (not normalised: the orig text keeps the WLC's mark order).
+ * Morphemes of a word are normally contiguous but not always — the source orders a few out of place —
+ * so this groups by the OW.group value rather than by position.
  */
 export function hebrewWordTexts(ch: OrigChapter): string[] {
   const byGroup = new Map<number, string>();
   ch.words.forEach((w) => byGroup.set(w[OW.group], (byGroup.get(w[OW.group]) ?? '') + w[OW.text]));
-  return ch.words.map((w) => (byGroup.get(w[OW.group]) ?? w[OW.text]).normalize('NFC'));
+  return ch.words.map((w) => byGroup.get(w[OW.group]) ?? w[OW.text]);
 }
 
 /* ======================================================================== */
 /* Counting                                                                  */
 /* ======================================================================== */
 
+interface FormAcc {
+  n: number;
+  /** As-printed spellings of this (NFC form, morph) -> count; the most common one is published. */
+  spellings: Map<string, number>;
+}
+
 interface Acc {
   total: number;
   byBook: number[];
-  /** "form\tmorph" -> count */
-  forms: Map<string, number>;
+  /** "NFC form\tmorph" -> count and spellings */
+  forms: Map<string, FormAcc>;
   /** other-language key -> count */
   lxx: Map<string, number>;
+}
+
+/** Count one occurrence of a form: grouped by NFC (canonically equivalent spellings are one form). */
+function addForm(a: Acc, spelling: string, morph: string): void {
+  const k = `${spelling.normalize('NFC')}\t${morph}`;
+  let f = a.forms.get(k);
+  if (!f) a.forms.set(k, (f = { n: 0, spellings: new Map() }));
+  f.n++;
+  bump(f.spellings, spelling);
 }
 
 const newAcc = (): Acc => ({ total: 0, byBook: new Array<number>(66).fill(0), forms: new Map(), lxx: new Map() });
@@ -164,8 +180,7 @@ export class StudyCounter {
         const a = this.get(id);
         a.total++;
         a.byBook[bookNum - 1]++;
-        const form = whole ? whole[i] : greekForm(w[OW.text], w[OW.lemma]);
-        bump(a.forms, `${form}\t${w[OW.morph]}`);
+        addForm(a, whole ? whole[i] : greekForm(w[OW.text], w[OW.lemma]), w[OW.morph]);
       }
       if (hebrew && w[OW.lxx]) {
         const g = lxxStrongs(w[OW.lxx]);
@@ -194,9 +209,9 @@ export class StudyCounter {
     const out = new Map<string, WordStudy>();
     for (const [id, a] of this.acc) {
       const forms = [...a.forms]
-        .map(([k, n]): [string, string, number] => {
-          const [form, morph] = k.split('\t');
-          return [form, morph, n];
+        .map(([k, f]): [string, string, number] => {
+          const morph = k.slice(k.indexOf('\t') + 1);
+          return [topCounts(f.spellings, 1)[0][0], morph, f.n];
         })
         .sort((x, y) => y[2] - x[2] || cmp(x[0], y[0]) || cmp(x[1], y[1]))
         .slice(0, caps.forms);
@@ -262,12 +277,24 @@ export function parseStrongsDictionary(text: string): Map<string, Record<string,
 }
 
 /**
- * Every Strong's id named in a derivation note, normalised, in order, de-duplicated:
- * "from G1537 (ἐκ) and G5055 (τελέω);" -> ["G1537", "G5055"]; "of Hebrew origin (H08012)" -> ["H8012"].
+ * Phrases of a derivation note that name a word only as context, not as an etymological relative:
+ * "a deity, especially (with G3588 (ὁ)) the supreme Divinity", "(with G1093 (γῆ) implied)",
+ * "(with or without G3588 (ὁ))", "(often in connection with H376 (אִישׁ), H802 (אִשָּׁה)…)".
+ * ("identical with", "compound of G3588 with G2245" and the like are kept.)
+ */
+const CONTEXT_ONLY = [
+  /\((?:\w+\s+)?with(?:\s+or\s+without)?\s(?:[^()]|\([^()]*\))*\)/gi,
+  /\bin connection with\b(?:[^;()]|\([^()]*\))*/gi,
+];
+
+/**
+ * Every Strong's id named in a derivation note (context-only mentions excepted), normalised, in order,
+ * de-duplicated: "from G1537 (ἐκ) and G5055 (τελέω);" -> ["G1537", "G5055"]; "of Hebrew origin (H08012)" -> ["H8012"].
  */
 export function derivationRefs(deriv: string): string[] {
   const out: string[] = [];
-  for (const m of deriv.matchAll(/\b([GH])0*(\d{1,4})\b/g)) {
+  const text = CONTEXT_ONLY.reduce((t, re) => t.replace(re, ' '), deriv);
+  for (const m of text.matchAll(/\b([GH])0*(\d{1,4})\b/g)) {
     const id = `${m[1]}${m[2].padStart(4, '0')}`;
     if (id !== `${m[1]}0000` && !out.includes(id)) out.push(id);
   }

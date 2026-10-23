@@ -199,7 +199,7 @@
   font-size: 1.05em; line-height: 1.25; color: var(--blue); white-space: nowrap;
   text-align: left;
 }
-.il__or[lang="hbo"] { font-size: 1.2em; line-height: 1.2; }
+.il__or[lang="he"] { font-size: 1.2em; line-height: 1.2; }
 .il__or--tr { color: var(--ink-2); font-style: italic; }
 .il__or--none { color: var(--ink-3); font-family: var(--font-ui); font-size: .8em; }
 .il--multi .il__or { align-self: stretch; }

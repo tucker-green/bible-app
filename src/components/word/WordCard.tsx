@@ -17,7 +17,7 @@ import { trapTab, useMedia, useWindowSize } from '../common/hooks';
 import type { ReaderController } from '../reader/interaction';
 import type { ChapterModel } from '../reader/model';
 import type { CardModel } from './cardModel';
-import { buildCardModel, cardBaseStrongs, cardSummary } from './cardModel';
+import { buildCardModel, cardBaseStrongs, cardSummary, htmlLang } from './cardModel';
 import { DefText } from './DefText';
 import type { DefNode } from './definition';
 import { defToText, parseDefinition, splitDefinitionHead } from './definition';
@@ -172,7 +172,6 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   };
 
   const role = isPinned ? 'dialog' : 'tooltip';
-  const headId = 'word-card-head';
   const cls = ['word-card', sheet ? 'is-sheet' : 'is-pop', isPinned ? 'is-pinned' : '', card.approx ? 'is-approx' : '', `is-${card.kind}`]
     .filter(Boolean)
     .join(' ');
@@ -293,7 +292,7 @@ function StrongsPill({ id, label }: { id: string; label: string }) {
 }
 
 function HebrewWord({ card }: { card: CardModel }) {
-  const lang = card.lang === 'arc' ? 'arc' : 'hbo';
+  const lang = htmlLang(card.lang === 'arc' ? 'arc' : 'hbo');
   if (card.morphemes.length > 1) {
     return (
       <p class="card__orig hbo" lang={lang} dir="rtl" id="word-card-head">
@@ -348,7 +347,7 @@ function CardHero({ card, lxxGloss }: { card: CardModel; lxxGloss: string }) {
       </div>
     );
   }
-  const lang = card.lang === 'grc' ? 'grc' : card.lang;
+  const lang = htmlLang(card.lang);
   return (
     <div class="card__hero">
       <p class={`card__orig${lang === 'grc' ? '' : ' hbo'}${card.kind === 'lexicon' ? ' is-tr' : ''}`} lang={lang} dir={lang === 'grc' ? undefined : 'rtl'} id="word-card-head">
@@ -363,7 +362,7 @@ function CardHero({ card, lxxGloss }: { card: CardModel; lxxGloss: string }) {
 }
 
 function Morphemes({ card }: { card: CardModel }) {
-  const lang = card.lang === 'arc' ? 'arc' : 'hbo';
+  const lang = htmlLang(card.lang === 'arc' ? 'arc' : 'hbo');
   return (
     <div class="morphs" aria-label="Parts of the written word">
       {card.morphemes.flatMap((m, i) => [
@@ -413,7 +412,7 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
         <>
           <dt>Lemma</dt>
           <dd>
-            <span class={lang === 'grc' ? 'grc' : 'hbo'} lang={lang} dir={lang === 'grc' ? undefined : 'rtl'}>
+            <span class={lang === 'grc' ? 'grc' : 'hbo'} lang={htmlLang(lang)} dir={lang === 'grc' ? undefined : 'rtl'}>
               {head ? defToText(head) : lemma}
             </span>
             {lemmaTranslit && <span class="lexgl"> {lemmaTranslit}</span>}
@@ -467,7 +466,7 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
             {card.others.map((w, i) => (
               <span key={w.index} class="other">
                 {i > 0 && <span class="sep"> · </span>}
-                <span class={w.lang === 'grc' ? 'grc' : 'hbo'} lang={w.lang} dir={w.lang === 'grc' ? undefined : 'rtl'}>
+                <span class={w.lang === 'grc' ? 'grc' : 'hbo'} lang={htmlLang(w.lang)} dir={w.lang === 'grc' ? undefined : 'rtl'}>
                   {w.text}
                 </span>{' '}
                 <span class="lexgl">{w.gloss.replace(/\./g, ' ')}</span>

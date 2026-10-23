@@ -1386,13 +1386,16 @@ const AUX = set([
   'hath', 'had', 'can', 'could', 'must', 'having',
 ]);
 const QUANT = set(['all', 'every', 'each', 'any', 'no', 'some']);
+const DEMONSTRATIVES = set(['this', 'these', 'those', 'such']);
 /** Words that never make a rendering of a content word on their own ("of", "He" for Jesus, "O" for God). */
-const WEAK = set(ARTICLES, LEAD_CONJ, CASE_PREP, POSSESSIVES, SUBJECTS, OBJECTS, RELATIVES, AUX, QUANT, [
+const WEAK = set(ARTICLES, LEAD_CONJ, CASE_PREP, POSSESSIVES, SUBJECTS, OBJECTS, RELATIVES, AUX, QUANT, DEMONSTRATIVES, [
   'o', 'out', 'because', 'not', 'behold', 'lo', 'also', 'even', 'how', 'seeing', 'thus', 'therefore', 'wherefore',
   'wherewith', 'whereby', 'wherein', 'whereof', 'whereupon',
 ]);
 const WEAK_FOR_PARTICLE = set(CASE_PREP, ARTICLES, POSSESSIVES, SUBJECTS, OBJECTS);
 const WEAK_FOR_ARTICLE = set(CASE_PREP, LEAD_CONJ);
+/** Context words before a noun or adjective: "all the gods", "this evil", "shall never", "I pray". */
+const NOUN_LEAD = set(QUANT, DEMONSTRATIVES, AUX, SUBJECTS);
 /** Context words dropped after the span of a rendering that matches the word's gloss. */
 const SPAN_TRAIL = set(ARTICLES, LEAD_CONJ, POSSESSIVES, OBJECTS, SUBJECTS, RELATIVES, AUX);
 
@@ -1452,7 +1455,8 @@ const lowerOf = (w: EnWord): string => cleanEnglishWord(w.text).toLowerCase();
  *     word (article, preposition, conjunction, pronoun, particle) only the matching span is kept.
  *  3. A leading article goes unless the word is itself an article; nouns, verbs and adjectives also shed
  *     leading conjunctions, prepositions and "O" ("of God" -> "God", "to go" -> "go"), quantifiers,
- *     auxiliaries and possessives before nouns ("all the gods" -> "gods", "his own hand" -> "hand"),
+ *     demonstratives, auxiliaries and possessives before nouns ("all the gods" -> "gods", "this evil"
+ *     -> "evil", "his own hand" -> "hand"),
  *     subject pronouns before verbs ("he called" -> "called"), and trailing object pronouns and
  *     conjunctions (and subjects after verbs: "lovest thou" -> "lovest"). Words matching the gloss are
  *     never shed. If that leaves nothing, prepositions and quantifiers are kept ("before" for the noun
@@ -1465,13 +1469,21 @@ const lowerOf = (w: EnWord): string => cleanEnglishWord(w.text).toLowerCase();
  * the first word kept.
  */
 export function normalizeRendering(words: readonly EnWord[], kind: WordKind, gloss = ''): EnWord | null {
-  let ws: EnWord[] = [];
-  for (const w of words) {
-    const text = cleanEnglishWord(w.text);
-    if (text && text.toLowerCase() !== ws[ws.length - 1]?.text.toLowerCase()) ws.push({ text, cap: w.cap });
-  }
   const stems = glossStems(gloss);
   const inGloss = (w: EnWord) => stems.has(stemEn(w.text.toLowerCase()));
+  let ws: EnWord[] = [];
+  let possessor = -1;
+  for (const w of words) {
+    const text = cleanEnglishWord(w.text);
+    if (!text || text.toLowerCase() === ws[ws.length - 1]?.text.toLowerCase()) continue;
+    if (possessor < 0 && /(?:['’]s|s['’])$/i.test(w.text.replace(/[^\p{L}\p{N}'’]+$/u, ''))) possessor = ws.length;
+    ws.push({ text, cap: w.cap });
+  }
+  // A possessor and what it owns are two words: keep the side the gloss is on, else the possessor
+  // ("Christ’s sake" -> "Christ"; "his father’s house" glossed "house" -> "house").
+  if (kind === 'noun' && possessor >= 0 && possessor < ws.length - 1) {
+    ws = ws.slice(possessor + 1).some(inGloss) ? ws.slice(possessor + 1) : ws.slice(0, possessor + 1);
+  }
   const low = (i: number) => ws[i].text.toLowerCase();
   const hits = ws.map((w, i) => (inGloss(w) ? i : -1)).filter((i) => i >= 0);
   if (hits.length) {
@@ -1500,7 +1512,7 @@ export function normalizeRendering(words: readonly EnWord[], kind: WordKind, glo
           (ctx &&
             (LEAD_CONJ.has(first) ||
               first === 'o' ||
-              (wide && (LEAD_PREP.has(first) || (kind !== 'verb' && (QUANT.has(first) || AUX.has(first) || SUBJECTS.has(first))))) ||
+              (wide && (LEAD_PREP.has(first) || (kind !== 'verb' && NOUN_LEAD.has(first)))) ||
               (kind !== 'verb' && POSSESSIVES.has(first)) ||
               (kind === 'verb' && SUBJECTS.has(first)))))
       ) {

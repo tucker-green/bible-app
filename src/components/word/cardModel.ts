@@ -112,6 +112,11 @@ function langOf(model: ChapterModel, w: Word | null): CardLang {
 
 const LANG_LABEL: Record<CardLang, string> = { grc: 'Greek', hbo: 'Hebrew', arc: 'Aramaic' };
 
+/** BCP 47 tag for markup: Greek "grc", Hebrew "he" (screen readers know it), Aramaic "arc". */
+export function htmlLang(lang: CardLang): string {
+  return lang === 'hbo' ? 'he' : lang;
+}
+
 export function buildCardModel(model: ChapterModel, unit: Unit): CardModel {
   const testament = getBook(model.book)?.testament ?? 'NT';
   const orig = model.orig;

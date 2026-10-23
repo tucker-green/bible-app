@@ -191,9 +191,12 @@ describe('hebrewWordTexts', () => {
     expect(t[4]).toBe('אֵת');
   });
 
-  it('normalises to NFC', () => {
-    const ch: OrigChapter = { ...GEN1, words: [w('בְּ'.normalize('NFD'), 'H0871a', '', 'R', 1, 0), w('רֵאשִׁית'.normalize('NFD'), 'H7225', '', 'N', 1, 0)] };
-    expect(hebrewWordTexts(ch)[1]).toBe('בְּרֵאשִׁית'.normalize('NFC'));
+  it('keeps the printed spelling (mark order) of the source', () => {
+    // WLC order: dagesh before the vowel; NFC would put the vowel (ccc 17) before the dagesh (ccc 21)
+    const printed = 'בַּ';
+    expect(printed.normalize('NFC')).not.toBe(printed);
+    const ch: OrigChapter = { ...GEN1, words: [w(printed, 'H0871a', '', 'R', 1, 0), w('יּוֹם', 'H3117', '', 'N', 1, 0)] };
+    expect(hebrewWordTexts(ch)[1]).toBe(`${printed}יּוֹם`);
   });
 });
 
@@ -267,6 +270,25 @@ describe('StudyCounter', () => {
     expect(s.lxx).toEqual([['H0518', 1]]);
   });
 
+  it('groups canonically equivalent spellings and shows the most common printed one', () => {
+    const printed = 'בַּ'; // dagesh, patah (source order)
+    const nfc = printed.normalize('NFC'); // patah, dagesh
+    const c = new StudyCounter(key);
+    c.addChapter(1, {
+      ...GEN1,
+      words: [
+        w(printed, 'H1234', '', 'R', 1, 0),
+        w(printed, 'H1234', '', 'R', 1, 1),
+        w(nfc, 'H1234', '', 'R', 1, 2),
+        w(nfc, 'H1234', '', 'Rd', 1, 3),
+      ],
+    });
+    expect(c.result().get('H1234')!.forms).toEqual([
+      [printed, 'R', 3],
+      [nfc, 'Rd', 1],
+    ]);
+  });
+
   it('caps forms and LXX lists', () => {
     const c = new StudyCounter(key);
     const words: OrigWord[] = [];
@@ -313,6 +335,21 @@ describe("Strong's dictionary and related words", () => {
     expect(derivationRefs('from H6 (אָבַד); Compare H10 (אֲבַדֹּה).')).toEqual(['H0006', 'H0010']);
     expect(derivationRefs('from G3004 (λέγω); compare G3004')).toEqual(['G3004']);
     expect(derivationRefs('a primary verb;')).toEqual([]);
+  });
+
+  it('ignores words a note names only as context', () => {
+    expect(derivationRefs('of uncertain affinity; a deity, especially (with G3588 (ὁ)) the supreme Divinity;')).toEqual([]);
+    expect(derivationRefs('neuter of G4413 (πρῶτος) as adverb (with or without G3588 (ὁ));')).toEqual(['G4413']);
+    expect(derivationRefs('feminine of G2453 (Ἰουδαῖος) (with G1093 (γῆ) implied);')).toEqual(['G2453']);
+    expect(derivationRefs('from G1487 (εἰ), G1161 (δέ), and G3361 (μή) (sometimes with G1065 (γέ) added);')).toEqual(['G1487', 'G1161', 'G3361']);
+    expect(derivationRefs('from H1097 (בְּלִי) and H3276 (יַעַל);(often in connection with H376 (אִישׁ), H802 (אִשָּׁה), H1121 (בֵּן), etc.)')).toEqual([
+      'H1097',
+      'H3276',
+    ]);
+    // real relations phrased with "with" are kept
+    expect(derivationRefs('probably identical with H335 (אַי) (through the idea of a query);')).toEqual(['H0335']);
+    expect(derivationRefs('a primitive root (rather identical with H238 (אָזַן) through the idea of scales);')).toEqual(['H0238']);
+    expect(derivationRefs('from a compound of G3588 (ὁ) with G2245 (ἡλίκος) and G3778 (οὗτος);')).toEqual(['G3588', 'G2245', 'G3778']);
   });
 
   it('links sources and derived words both ways, ranked and capped', () => {
