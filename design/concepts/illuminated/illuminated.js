@@ -479,7 +479,7 @@
       const isHeb = c.lang === 'hbo';
       return `<li><button type="button" class="note" data-strongs="${c.s}" data-first="${c.u.idx}">
         <span class="note__lemma" lang="${isHeb ? 'he' : 'grc'}"${isHeb ? ' dir="rtl"' : ''}>${esc(lemma)}</span>
-        <span class="note__gloss">${esc(lx.gloss || cleanGloss(c.e.gloss))}</span>
+        <span class="note__gloss">${esc((lx.gloss || cleanGloss(c.e.gloss)).split(':')[0])}</span>
         <span class="note__n" aria-label="${c.n} times">${c.n}×</span>
       </button></li>`;
     }).join('');
@@ -614,7 +614,7 @@
     gloss.hidden = false;
     setExpanded(idx, true);
     markFor(u, state.sel);
-    positionCard(opts.pointer);
+    positionCard(opts.pointer, opts.noScroll);
     if (wasHidden && !reducedMotion.matches) {
       gloss.classList.remove('is-entering');
       void gloss.offsetWidth; // restart the entrance animation
@@ -644,7 +644,7 @@
     if (!silent) $('#live').textContent = '';
   }
 
-  function positionCard(pointer) {
+  function positionCard(pointer, noScroll) {
     const gloss = $('#gloss');
     if (state.open == null || gloss.hidden) return;
     const sheet = mobileMQ.matches;
@@ -683,6 +683,14 @@
     gloss.style.left = `${left - folio.left}px`;
     gloss.style.top = `${top - folio.top}px`;
     gloss.style.setProperty('--caret-x', `${Math.min(Math.max(center - left, 22), W - 22)}px`);
+    // Fits neither way (short window): for a card the reader asked for, scroll just enough to
+    // show it, never so far that the word itself slides under the sticky toolbar.
+    if (!fitsBelow && !fitsAbove && state.pinned && !noScroll) {
+      const overflow = below + H - (innerHeight - 12);
+      const room = r.top - toolbarBottom - 16;
+      const by = Math.min(overflow, room);
+      if (by > 0) window.scrollBy({ top: by, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+    }
   }
 
   /* ------------------------------------------------------------------ text interaction */
@@ -1181,11 +1189,11 @@
     const findUnit = (book, verse, en) => state.units.find((u) => u.book === book && u.verse === verse && u.en === en);
     if (demos.includes('hover')) {
       const u = findUnit('JHN', 1, 'Word');
-      if (u) openCard(u.idx, { pin: true });
+      if (u) openCard(u.idx, { pin: true, noScroll: true });
     }
     if (demos.includes('hover-ot')) {
       const u = findUnit('GEN', 1, 'God');
-      if (u) openCard(u.idx, { pin: true });
+      if (u) openCard(u.idx, { pin: true, noScroll: true });
     }
     if (demos.includes('search')) {
       $('#q').value = $('#q2').value = 'love';
