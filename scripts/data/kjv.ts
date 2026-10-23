@@ -250,6 +250,15 @@ export interface LinkedWord {
 
 const ARTICLE = 'G3588';
 
+export interface KjvLinkOptions {
+  /** BSB-trained table: redirects English function words inside a tagged Hebrew word to its prefix / suffix. */
+  table?: TranslationTable;
+  /** Match keys of original word j (default: its base Strong's id). */
+  keysOf?: (j: number) => readonly string[];
+  /** Learned equivalences: KJV Strong's -> source Strong's used for the same word (H3212 -> H1980). */
+  equiv?: ReadonlyMap<string, readonly string[]>;
+}
+
 /**
  * Link one KJV verse. `cand` are the indices of the OrigChapter words this English verse may link
  * to (its own words, plus words of adjacent verses the KJV has no verse for). `table` (BSB-trained)
@@ -259,8 +268,10 @@ export function linkKjvVerse(
   entries: readonly KjvEntry[],
   words: readonly OrigWord[],
   cand: readonly number[],
-  table?: TranslationTable,
-): { pieces: { text: string; word?: LinkedWord }[]; tags: number; linked: number } {
+  opts: KjvLinkOptions = {},
+): { pieces: { text: string; word?: LinkedWord }[]; tags: number; linked: number; unlinked: string[]; free: string[] } {
+  const { table, equiv } = opts;
+  const keysOf = opts.keysOf ?? ((j: number) => (words[j][OW.strongs] ? [baseStrongs(words[j][OW.strongs])] : []));
   const layout = layoutVerse(entries);
   // Occurrence = one original word the verse refers to (a Strong's number at a TR position, an
   // x-split group, or a run of consecutive entries with the same lemma attribute).
@@ -289,15 +300,15 @@ export function linkKjvVerse(
       o.entries.add(k);
     });
   });
-  // Candidates by base Strong's, with relative position in the verse's original words.
-  const candBy = new Map<string, { j: number; pos: number }[]>();
+  // Candidates by match key, with relative position in the verse's original words.
+  type Cand = { j: number; pos: number };
+  const candBy = new Map<string, Cand[]>();
   cand.forEach((j, r) => {
-    const s = words[j][OW.strongs];
-    if (!s) return;
-    const b = baseStrongs(s);
-    let list = candBy.get(b);
-    if (!list) candBy.set(b, (list = []));
-    list.push({ j, pos: cand.length > 1 ? r / (cand.length - 1) : 0 });
+    for (const key of keysOf(j)) {
+      let list = candBy.get(key);
+      if (!list) candBy.set(key, (list = []));
+      list.push({ j, pos: cand.length > 1 ? r / (cand.length - 1) : 0 });
+    }
   });
   const assigned = new Map<string, number>();
   const byBase = new Map<string, Occ[]>();
@@ -306,10 +317,8 @@ export function linkKjvVerse(
     if (list) list.push(o);
     else byBase.set(o.base, [o]);
   }
-  for (const [base, list] of byBase) {
-    const cs = candBy.get(base);
-    if (!cs) continue;
-    list.sort((a, b) => a.pos - b.pos);
+  for (const list of byBase.values()) list.sort((a, b) => a.pos - b.pos);
+  const assign = (list: readonly Occ[], cs: readonly Cand[]) => {
     const pick = monotoneAssign(
       list.map((o) => o.pos),
       cs.map((c) => c.pos),
@@ -317,6 +326,28 @@ export function linkKjvVerse(
     list.forEach((o, i) => {
       if (pick[i] >= 0) assigned.set(o.key, cs[pick[i]].j);
     });
+  };
+  // 1. Same Strong's number (or another form-number of the same Greek lemma).
+  for (const [base, list] of byBase) {
+    const cs = candBy.get(base);
+    if (cs) assign(list, cs);
+  }
+  // 2. Learned equivalences (the KJV's Strong's vs the source's own choice, e.g. H3212 / H1980),
+  //    only to words nothing else links.
+  if (equiv) {
+    const taken = new Set(assigned.values());
+    for (const [base, list] of byBase) {
+      const rest = list.filter((o) => !assigned.has(o.key));
+      const eq = rest.length ? equiv.get(base) : undefined;
+      if (!eq) continue;
+      const seen = new Set<number>();
+      const cs: Cand[] = [];
+      for (const s of eq) for (const c of candBy.get(s) ?? []) if (!taken.has(c.j) && !seen.has(c.j)) (seen.add(c.j), cs.push(c));
+      if (!cs.length) continue;
+      cs.sort((a, b) => a.j - b.j);
+      assign(rest, cs);
+      for (const o of rest) if (assigned.has(o.key)) taken.add(assigned.get(o.key)!);
+    }
   }
   // Article + noun on one English word: the article is the one just before the noun (TR offset).
   entries.forEach((e, k) => {
@@ -418,7 +449,10 @@ export function linkKjvVerse(
     if (Object.keys(info).length) word.info = info;
     return { text: p.text, word };
   });
-  return { pieces, tags, linked };
+  const taken = new Set(assigned.values());
+  const unlinked = [...occs.values()].filter((o) => !assigned.has(o.key)).map((o) => o.base);
+  const free = cand.filter((j) => !taken.has(j) && words[j][OW.strongs]).map((j) => baseStrongs(words[j][OW.strongs]));
+  return { pieces, tags, linked, unlinked, free };
 }
 
 /** Pieces -> Token[] (unlinked words without info merge into the surrounding text). */
@@ -480,6 +514,69 @@ export function bsbTable(origOf: (book: BookId, chapter: number) => OrigChapter)
 /* Build                                                                     */
 /* ------------------------------------------------------------------------ */
 
+/** Lemma groups: for each lemma of the original words, the Strong's ids used for it (>= `min` times). */
+export function lemmaGroups(chapters: Iterable<OrigChapter>, min = 5): Map<string, string[]> {
+  const counts = new Map<string, Map<string, number>>();
+  for (const oc of chapters) {
+    for (const w of oc.words) {
+      if (!w[OW.strongs] || !w[OW.lemma]) continue;
+      let m = counts.get(w[OW.lemma]);
+      if (!m) counts.set(w[OW.lemma], (m = new Map()));
+      const b = baseStrongs(w[OW.strongs]);
+      m.set(b, (m.get(b) ?? 0) + 1);
+    }
+  }
+  const out = new Map<string, string[]>();
+  for (const [lemma, m] of counts) {
+    const ids = [...m].filter(([, n]) => n >= min).map(([s]) => s);
+    if (ids.length > 1) out.set(lemma, ids);
+  }
+  return out;
+}
+
+/** Match keys for an original word: base Strong's + the other form-numbers of its lemma (Greek). */
+export function keysFor(words: readonly OrigWord[], groups: ReadonlyMap<string, readonly string[]>): (j: number) => readonly string[] {
+  return (j) => {
+    const w = words[j];
+    if (!w[OW.strongs]) return [];
+    const b = baseStrongs(w[OW.strongs]);
+    const g = groups.get(w[OW.lemma]);
+    return g && g.includes(b) ? g : [b];
+  };
+}
+
+/**
+ * Learn KJV-Strong's -> source-Strong's equivalences from tags left unlinked by direct matching:
+ * s -> s' when the unlinked s co-occurs with a free (unlinked) s' in the same verse in >= 30% of its
+ * occurrences, at least 5 times, and >= 5x more often than s' is free in an average verse.
+ */
+export function learnEquivalences(stats: readonly { unlinked: string[]; free: string[] }[]): Map<string, string[]> {
+  const n = new Map<string, number>();
+  const c = new Map<string, Map<string, number>>();
+  const fv = new Map<string, number>();
+  for (const st of stats) {
+    const free = new Set(st.free);
+    for (const f of free) fv.set(f, (fv.get(f) ?? 0) + 1);
+    for (const s of st.unlinked) {
+      n.set(s, (n.get(s) ?? 0) + 1);
+      let m = c.get(s);
+      if (!m) c.set(s, (m = new Map()));
+      for (const f of free) m.set(f, (m.get(f) ?? 0) + 1);
+    }
+  }
+  const V = stats.length;
+  const out = new Map<string, string[]>();
+  for (const [s, m] of c) {
+    const ns = n.get(s)!;
+    const ids = [...m]
+      .filter(([f, k]) => f !== s && k >= 5 && k / ns >= 0.3 && k / ns / ((fv.get(f) ?? 0) / V) >= 5 && f[0] === s[0])
+      .sort((a, b) => b[1] - a[1])
+      .map(([f]) => f);
+    if (ids.length) out.set(s, ids);
+  }
+  return out;
+}
+
 export function buildKjv(): void {
   const kjv = readKjv();
   const origCache = new Map<string, OrigChapter>();
@@ -494,8 +591,27 @@ export function buildKjv(): void {
     return oc;
   };
   const table = bsbTable(origOf);
-  cleanOut('text', 'KJV');
+  const groups = lemmaGroups(allChapters().map(({ book, chapter }) => origOf(book.id, chapter)));
+  const chapters = allChapters().map(({ book, chapter }) => {
+    const vs = kjv.get(`${book.id} ${chapter}`);
+    if (!vs) throw new Error(`KJV has no ${book.id} ${chapter}`);
+    const orig = origOf(book.id, chapter);
+    const cand = candidatesByVerse(
+      orig,
+      vs.map((v) => v.verse),
+    );
+    return { book, chapter, vs, orig, cand, keysOf: keysFor(orig.words, groups) };
+  });
 
+  // Pass 1: direct matching only, to learn where the KJV's numbering differs from the source's.
+  const stats: { unlinked: string[]; free: string[] }[] = [];
+  for (const ch of chapters) {
+    for (const v of ch.vs) stats.push(linkKjvVerse(v.entries, ch.orig.words, ch.cand.get(v.verse) ?? [], { keysOf: ch.keysOf }));
+  }
+  const equiv = learnEquivalences(stats);
+  log('kjv', `learned ${equiv.size} Strong's equivalences, e.g. ${[...equiv].slice(0, 8).map(([s, e]) => `${s}->${e.join('/')}`).join(', ')}`);
+
+  cleanOut('text', 'KJV');
   let files = 0;
   let bytes = 0;
   let verses = 0;
@@ -506,23 +622,16 @@ export function buildKjv(): void {
   let unlinkedTags = 0;
   const notInBsb: string[] = [];
   const notInKjv: string[] = [];
-  for (const { book, chapter } of allChapters()) {
-    const vs = kjv.get(`${book.id} ${chapter}`);
-    if (!vs) throw new Error(`KJV has no ${book.id} ${chapter}`);
-    const orig = origOf(book.id, chapter);
+  for (const { book, chapter, vs, orig, cand, keysOf } of chapters) {
     const bsb = readJson<TextChapter>(outPath('text', 'BSB', book.id, `${chapter}.json`));
     const bsbVerses = new Set(bsb.verses.map((v) => v.v));
     const kjvVerses = new Set(vs.map((v) => v.verse));
     for (const v of vs) if (!bsbVerses.has(v.verse)) notInBsb.push(`${book.id} ${chapter}:${v.verse}`);
     for (const v of bsbVerses) if (!kjvVerses.has(v)) notInKjv.push(`${book.id} ${chapter}:${v}`);
 
-    const cand = candidatesByVerse(
-      orig,
-      vs.map((v) => v.verse),
-    );
     const out: TextChapter = { tr: 'KJV', book: book.id, chapter, verses: [] };
     for (const v of vs) {
-      const res = linkKjvVerse(v.entries, orig.words, cand.get(v.verse) ?? [], table);
+      const res = linkKjvVerse(v.entries, orig.words, cand.get(v.verse) ?? [], { table, keysOf, equiv });
       const tv: TextVerse = { v: v.verse, t: piecesToTokens(res.pieces) };
       out.verses.push(tv);
       verses++;
@@ -544,7 +653,7 @@ export function buildKjv(): void {
       `(${((100 * linked) / tagged).toFixed(1)}%), ${unlinkedTags} Strong's tags kept as lexicon-only; ${italic} italic words; ${(bytes / 1e6).toFixed(1)} MB`,
   );
   log('kjv', `verses not in the BSB (${notInBsb.length}): ${notInBsb.join(', ')}`);
-  log('kjv', `BSB verses not in the KJV (${notInKjv.length}): ${notInKjv.join(', ')}`);
+  log('kjv', `BSB verses not in the KJV (${notInKjv.length}): ${notInKjv.join(', ') || 'none'}`);
 }
 
 /** Exposed for the evaluation script: the BSB-only table builder over all chapters. */
