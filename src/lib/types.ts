@@ -164,6 +164,11 @@ export interface TextVerse {
   v: number;
   /** Tokens in reading order. */
   t: Token[];
+  /**
+   * Words of Jesus ("red letter"): ranges of indices into `t`, [start, end) end-exclusive.
+   * Added by the `redletter` pipeline stage; omitted when the verse has none.
+   */
+  wj?: [number, number][];
 }
 
 export interface TextChapter {
