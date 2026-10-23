@@ -3,13 +3,14 @@
  * .cache/sources/ (see scripts/fetch-sources.mjs) and write public/data/.
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { BOOKS, getBookByNum } from '../../src/lib/books';
 import type { BookInfo } from '../../src/lib/books';
 
 export const ROOT = process.cwd();
 export const SRC_DIR = join(ROOT, '.cache', 'sources');
-export const OUT_DIR = join(ROOT, 'public', 'data');
+/** Output directory: public/data/, or $RW_DATA_OUT (build into a scratch copy without disturbing a running app). */
+export const OUT_DIR = process.env.RW_DATA_OUT ? resolve(process.env.RW_DATA_OUT) : join(ROOT, 'public', 'data');
 
 export function srcPath(name: string): string {
   const p = join(SRC_DIR, name);

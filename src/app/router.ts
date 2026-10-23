@@ -76,7 +76,8 @@ export function parseRoute(hash: string): Route | null {
   if (head === 'search') {
     const params = new URLSearchParams(query);
     const q = params.get('q') ?? '';
-    const tr = params.get('tr') ?? undefined;
+    // Translation ids are upper case ("KJV", "NIV"): #/search?q=love&tr=web searches the WEB.
+    const tr = params.get('tr')?.trim().toUpperCase() || undefined;
     return tr ? { name: 'search', q, tr } : { name: 'search', q };
   }
   const read = hashToRef(path);
@@ -84,7 +85,8 @@ export function parseRoute(hash: string): Route | null {
   return { name: 'notfound', path: raw };
 }
 
-function safeDecode(s: string): string {
+/** decodeURIComponent that never throws: a malformed escape ("%E2%82", "100%") is kept as typed. */
+export function safeDecode(s: string): string {
   try {
     return decodeURIComponent(s);
   } catch {
