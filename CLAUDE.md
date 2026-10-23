@@ -27,7 +27,8 @@ The BSB (hand-aligned word for word) is offered second as the most precise align
   Node pipeline (`scripts/`), so they must not touch the DOM or `window` at import time.
 - Pipeline stages live in `scripts/data/<stage>.ts`, export `build<Stage>()`, read only from
   `.cache/sources/` or earlier stages' output in `public/data/`, and log a one-line summary.
-- Generated data is committed (public/data/) so the site works without running the pipeline.
+- Generated data (public/data/) is NOT committed (it is ~100 MB and changes wholesale on every rebuild).
+  Run `npm run data` once after cloning; CI runs it on every deploy (raw sources cached between runs).
 - TypeScript strict mode; no `any` without a comment saying why.
 - Prefer small pure functions with unit tests in `tests/` mirroring `src/lib/` paths.
 - UI: Preact function components + @preact/signals; CSS lives in `src/styles/` (design tokens as

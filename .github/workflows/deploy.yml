@@ -24,6 +24,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Cache raw Bible sources
+        uses: actions/cache@v4
+        with:
+          path: .cache/sources
+          key: bible-sources-${{ hashFiles('scripts/fetch-sources.mjs') }}
+      - name: Build Bible data (public/data)
+        run: npm run data
       - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
