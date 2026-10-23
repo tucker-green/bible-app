@@ -1912,7 +1912,7 @@ function usedIds(): { G: Set<string>; H: Set<string> } {
   const H = new Set<string>();
   for (const r of readColumns('SBLGNT.tsv', ['strongs'] as const)) {
     const id = normStrongs('G', r.strongs);
-    if (id) G.add(id);
+    if (id && id !== 'G0000') G.add(id); // G0000 words get STEP's extended ids in the orig stage
   }
   for (const r of readColumns('WLCM.tsv', ['strongs'] as const)) {
     for (const part of r.strongs.split('|')) {

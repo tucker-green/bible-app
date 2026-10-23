@@ -5,6 +5,8 @@
  * outside the chapter's original words, BSB text that does not reproduce the source tokens, orig
  * verse numbers outside the English chapter, meta.json verse counts that disagree with the BSB,
  * concordance ids missing for words in the orig files.
+ * meta.json verse counts that disagree with the translations, a meta.json version that is not the
+ * data's content hash, and data-quality checks over their thresholds (scripts/data/quality.ts).
  * Reported only: lexicon coverage of the Strong's ids used, stale search corpora / meta translations.
  */
 import { existsSync, readdirSync } from 'node:fs';
@@ -12,6 +14,9 @@ import type { ConcChunk, DataMeta, LexChunk, OrigChapter, OrigWord, SearchCorpus
 import { OW } from '../../src/lib/types';
 import { verseText } from './bsb';
 import { allChapters, baseStrongs, chunkOf, log, outPath, readBsbTokens, readJson, type BsbTokenRow } from './common';
+import { loadMorphemeIds } from './lexicon';
+import { dataFiles, dataVersion, verseCounts } from './meta';
+import { runQualityChecks } from './quality';
 import { presentTranslations } from './search';
 
 const MAX_LISTED = 12;
@@ -262,16 +267,35 @@ export function buildValidate(): void {
   /* ---- meta ---- */
   const meta = tryRead<DataMeta>(outPath('meta.json'), r, 'meta');
   if (meta) {
+    // Verse counts: the highest verse number of any bundled translation (scripts/data/meta.ts).
+    const union = new Map(verseCounts(translations.filter((t) => ['BSB', 'KJV', 'WEB', 'ASV', 'YLT'].includes(t))).map((b) => [b.id, b.verses]));
     for (const b of meta.books) {
       b.verses.forEach((n, i) => {
-        const max = bsbMax.get(String(b.num).padStart(2, '0') + String(i + 1).padStart(3, '0'));
-        if (max !== undefined && max !== n) r.error('meta', `${b.id} ${i + 1}: meta says ${n} verses, BSB has ${max}`);
+        const max = union.get(b.id)?.[i];
+        if (max !== undefined && max !== n) r.error('meta', `${b.id} ${i + 1}: meta says ${n} verses, the translations have ${max}`);
+        const bsb = bsbMax.get(String(b.num).padStart(2, '0') + String(i + 1).padStart(3, '0'));
+        if (bsb !== undefined && bsb > n) r.error('meta', `${b.id} ${i + 1}: meta says ${n} verses, BSB has ${bsb}`);
       });
     }
+    // The version must be the content hash of the data as it is now (a stale meta.json would keep
+    // returning visitors on old cached files).
+    const { version: _v, generated: _g, ...rest } = meta;
+    void _v;
+    void _g;
+    const expect = dataVersion(outPath(), dataFiles(outPath()), JSON.stringify({ version: '', generated: '', ...rest }));
+    if (meta.version !== expect) r.error('meta', `meta.json version ${meta.version} is not the data's content hash ${expect} — re-run the meta stage`);
     const listed = meta.translations.map((t) => t.id).sort().join(',');
     const known = translations.filter((t) => ['BSB', 'KJV', 'WEB', 'ASV', 'YLT'].includes(t)).join(',');
     if (listed !== known) r.warnings.push(`meta.json lists translations [${listed}] but text/ has [${known}] — re-run the meta stage`);
     lines.push(`meta: ${meta.books.length} books, translations ${listed}, ${meta.credits.length} credits`);
+  }
+
+  /* ---- data quality (defects found in review; see scripts/data/quality.ts) ---- */
+  if (existsSync(outPath('lex'))) {
+    for (const q of runQualityChecks(translations, loadMorphemeIds())) {
+      lines.push(`quality ${q.name}: ${q.bad}/${q.of} (max ${q.max})${q.samples.length ? ` — e.g. ${q.samples.slice(0, 4).join('; ')}` : ''}`);
+      if (q.bad > q.max) r.error('quality', `${q.name}: ${q.bad} > ${q.max} (${q.note}): ${q.samples.join('; ')}`);
+    }
   }
 
   for (const l of lines) log('validate', l);

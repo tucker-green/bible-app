@@ -740,21 +740,26 @@ export function speechSegments(layout: VerseLayout): SpeechSegment[] {
 }
 
 /**
- * Make each speech segment all-or-nothing: a partly red segment becomes red when at least half its
- * words are, else black, and a partly red narrator's segment ("And Jesus answering said unto him,")
- * becomes black. Segments that are wholly red or wholly black are kept (the source's own marking).
+ * Settle the partly red speech segments of a verse (quotation-marked translations):
+ *  - a narrator's segment ("And Jesus answering said unto him,") becomes black — also a wholly red one
+ *    at the verse start when `narratorBlack` (the marked translations open the verse with narrative);
+ *  - another segment becomes wholly red when the marked translations colour at least about as much of
+ *    the verse (`markedShare` >= 0.8 x the segment's share of the verse's words): "Take and | eat; this
+ *    is My body" is one utterance. Otherwise it is kept as it is: a few words of Jesus quoted inside
+ *    someone else's speech ("How can You say «we will be set free»?", John 8:33) stay a fragment.
+ * Segments that are wholly red or wholly black are kept (the source's own marking).
  */
-export function wholeSegments(red: readonly boolean[], segments: readonly SpeechSegment[], narratorBlack = false): boolean[] {
+export function wholeSegments(red: readonly boolean[], segments: readonly SpeechSegment[], narratorBlack = false, markedShare = 1): boolean[] {
   const out = [...red];
+  const total = red.length || 1;
   for (const sg of segments) {
     const n = sg.to - sg.from;
     let r = 0;
     for (let i = sg.from; i < sg.to; i++) if (red[i]) r++;
-    // A wholly red narrator's opening is black too when the marked translations say so (narratorBlack).
     const forceBlack = sg.narrator && narratorBlack && sg.from === 0;
     if (r === 0 || (r === n && !forceBlack)) continue;
-    const on = !sg.narrator && r * 2 >= n;
-    for (let i = sg.from; i < sg.to; i++) out[i] = on;
+    if (sg.narrator) out.fill(false, sg.from, sg.to);
+    else if (markedShare >= 0.8 * (n / total)) out.fill(true, sg.from, sg.to);
   }
   return out;
 }
@@ -767,8 +772,8 @@ export const QUOTED_TRANSLATIONS: ReadonlySet<string> = new Set(['BSB', 'WEB', '
 
 /**
  * Final pass over one verse of any translation.
- *  - Quotation-marked translations: each quotation (and each stretch between marks) is all-or-nothing
- *    (wholeSegments): "Take and | eat; this is My body" becomes the whole quotation.
+ *  - Quotation-marked translations: a partly red quotation becomes whole when the marked translations
+ *    colour about as much of the verse (wholeSegments): "Take and | eat; this is My body".
  *  - Translations without quotation marks (KJV, ASV), where a "segment" runs on past the speech: a
  *    speech that starts one or two words after its "saying," / "said unto him," is widened back to
  *    it ("saying, Neither go into the town"); a propagated (ASV) run of at most 3 red words in a verse
@@ -792,7 +797,8 @@ export function finishVerse(
   const segments = speechSegments(layout);
   const sources = marked.filter((m): m is SourceVerse => !!m && m.words.length > 0);
   const narratorBlack = sources.length > 0 && sources.every((m) => !m.red[0]);
-  if (quotedText) red = wholeSegments(red, segments, narratorBlack);
+  const markedShare = sources.length ? Math.max(...sources.map(shareOf)) : 1;
+  if (quotedText) red = wholeSegments(red, segments, narratorBlack, markedShare);
   else {
     red = [...red];
     for (const sg of segments) {
