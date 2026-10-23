@@ -249,6 +249,7 @@ export interface LinkedWord {
 }
 
 const ARTICLE = 'G3588';
+const OBJECT_PRONOUNS = new Set(['him', 'them', 'me', 'us', 'thee', 'it', 'her', 'you']);
 
 export interface KjvLinkOptions {
   /** BSB-trained table: redirects English function words inside a tagged Hebrew word to its prefix / suffix. */
@@ -455,6 +456,48 @@ export function linkKjvVerse(
         }
       }
     }
+  }
+
+  // The KJV's OT tagging often starts a tagged element with the object pronoun of the PREVIOUS
+  // verb ("number | them, every one that entereth" = H935; "Deliver | me from the workers" = H6466).
+  // Such a pronoun is moved to the pronominal suffix of the preceding word (or of the object marker /
+  // preposition right after it: אֹתָם, לָהֶם) when the table backs the pairing.
+  if (table) {
+    const linkedIdx = new Set(wordLinks.flat());
+    wordPieces.forEach((p, wi) => {
+      if (wi === 0 || !OBJECT_PRONOUNS.has(p.text.toLowerCase())) return;
+      const e = entries[p.entry];
+      const prev = entries[wordPieces[wi - 1].entry];
+      const links = wordLinks[wi];
+      if (e.tags.length !== 1 || links.length !== 1 || !e.tags[0].strongs.startsWith('H')) return;
+      if (p.entry > 0 && runOf[p.entry] === runOf[wordPieces[wi - 1].entry]) return; // not the first word of its element
+      if (wi + 1 >= wordPieces.length || runOf[wordPieces[wi + 1].entry] !== runOf[p.entry]) return; // the element is just the pronoun
+      if (words[links[0]][OW.morph].startsWith('S') || !prev.tags.length) return;
+      const before = wordLinks[wi - 1];
+      if (before.length !== 1) return;
+      const g = words[before[0]][OW.group];
+      const group = (start: number) => {
+        const out: number[] = [];
+        for (let k = start; k < words.length && words[k][OW.group] === start; k++) out.push(k);
+        return out;
+      };
+      const own = group(g);
+      const after = own[own.length - 1] + 1;
+      const pool = [...own, ...(after < words.length ? group(after) : [])].filter((k) => words[k][OW.morph].startsWith('S') && !linkedIdx.has(k));
+      let best = -1;
+      let bestP = 0;
+      for (const k of pool) {
+        const pr = table.prob(lem[wi], words[k][OW.strongs]);
+        if (pr > bestP) {
+          bestP = pr;
+          best = k;
+        }
+      }
+      if (best >= 0 && bestP >= 0.03) {
+        wordLinks[wi] = [best];
+        linkedIdx.add(best);
+      }
+    });
   }
 
   let tags = 0;
