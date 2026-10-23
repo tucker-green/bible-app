@@ -89,6 +89,10 @@
   font: 500 12.5px/1 var(--font-ui); color: var(--ink-2);
 }
 .rail-btn .icon { width: 16px; height: 16px; color: var(--ink-3); }
+/* "Listen" to the chapter (ListenButton): same quiet pill as the rail buttons */
+.ch-tools .ch-listen { height: 34px; padding: 0 12px 0 10px; border-color: var(--rule-2); border-radius: 999px; font-size: 12.5px; color: var(--ink-2); }
+.ch-tools .ch-listen .icon { width: 16px; height: 16px; }
+.ch-tools .ch-listen[aria-pressed="true"] { color: var(--blue); }
 @media (hover: hover) { .rail-btn:hover { background: var(--sunken); color: var(--ink); } }
 
 /* rails as drawers */
@@ -113,7 +117,7 @@
 .drawer .rail.rail--drawer { display: block; position: static; max-height: none; overflow: visible; padding: 0; }
 .drawer .rail--drawer > section:first-child > .rail__title { display: none; }
 @media (pointer: coarse) {
-  .rail-btn { height: 44px; padding: 0 16px 0 14px; }
+  .rail-btn, .ch-tools .ch-listen { height: 44px; padding: 0 16px 0 14px; }
   .drawer__close { width: 44px; height: 44px; }
 }
 
@@ -122,6 +126,7 @@
   background: var(--sunken); color: var(--ink-2); font-size: 12.5px; line-height: 1.45;
 }
 .approx-banner span { color: var(--accent); font-weight: 600; margin-right: 4px; }
+.approx-banner .link-btn { font-size: inherit; }
 
 /* section heading: title left, verse range right, hairline above */
 .sec {
@@ -196,6 +201,16 @@
 /* study marks before the verse number (decorate.ts inserts <span class="vn__marks">): a bookmark
    ribbon and / or a note glyph, in ink-blue; the number's accessible name says the same in words. */
 .vn__marks { display: inline-flex; align-items: flex-start; gap: .18em; margin-right: .22em; vertical-align: top; pointer-events: none; }
+/* the marks never wrap away from their number */
+.vn { white-space: nowrap; }
+/* Paragraph layout (BSB…): the number is raised and small, so marks inside it would float between
+   the lines. There they sit on the text line instead, at a size read against the reading text. */
+.prose:not(.prose--il) .para .vn__marks {
+  position: relative; top: .62em;
+  font-size: 1.45em; vertical-align: baseline; align-items: baseline;
+  margin-right: .28em;
+}
+.prose:not(.prose--il) .para .vn__marks .vm { transform: translateY(.12em); }
 .vm { display: inline-block; width: .7em; height: 1.05em; background: var(--blue); }
 .vm--bm { clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
 .vm--note {
@@ -249,10 +264,17 @@
 :where(html[data-red-letter="on"]) .prose .wj { color: var(--red-letter); }
 :where(html[data-red-letter="on"]) .prose .wj .il__en { color: var(--red-letter); }
 .verse > .sr-only { user-select: none; -webkit-user-select: none; }
-.verse.is-target { animation: rw-target 3s var(--ease) forwards; }
+.verse.is-target { animation: rw-target 3s var(--ease); }
+/* The flash fades back to the verse's own highlight tint (--hl-c, set by data-hl), and no fill-mode
+   holds it afterwards, so a highlighted verse never loses its colour. */
 @keyframes rw-target {
-  0%, 55% { background: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); }
-  100% { background: transparent; box-shadow: 0 0 0 3px transparent; }
+  0%, 55% { background-color: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); }
+  100% { background-color: var(--hl-c, transparent); box-shadow: 0 0 0 3px transparent; }
+}
+/* interlinear cells keep the highlight's underline (inset shadow) through the flash */
+@keyframes rw-target-il {
+  0%, 55% { background-color: var(--accent-wash); box-shadow: inset 0 -2px 0 var(--hl-line, transparent), 0 0 0 3px var(--accent-wash); }
+  100% { background-color: var(--hl-c, transparent); box-shadow: inset 0 -2px 0 var(--hl-line, transparent), 0 0 0 3px transparent; }
 }
 
 /* ---------- Linked English words -----------------------------------------
@@ -336,7 +358,8 @@
 .prose--il .w.is-kin:not(.is-active):not(.is-linked) { background-image: none; box-shadow: inset 0 0 0 1px var(--wash-2); animation: none; }
 .prose--il .w--sup .il__en { font-style: italic; color: var(--ink-3); }
 .prose--il .w--sup { font-style: normal; }
-.il-para .verse.is-target > .il, .il-para .verse.is-target > .vn { animation: rw-target 3s var(--ease) forwards; }
+.il-para .verse.is-target > .il { animation: rw-target-il 3s var(--ease); }
+.il-para .verse.is-target > .vn { animation: rw-target 3s var(--ease); }
 
 .il-bar {
   display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;

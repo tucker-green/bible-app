@@ -5,6 +5,8 @@
  *  - Word links: Clear-Bible's manual BSB<->SBLGNT/WLC alignment; link indices point into the
  *    same English chapter's OrigChapter.words, laid out exactly as the orig stage does
  *    (`computeOrigLayout`).
+ *  - About 750 verses whose alignment records are shuffled (each source word paired with another's
+ *    English) are re-paired by the orig stage (`repairShiftedRecords`); those links carry c = 0.85.
  *  - Psalm titles (English verse 000) become TextChapter.superscription. The manual alignment
  *    leaves titles unaligned (and ~20 verses with no aligned word), so those words are linked by a
  *    small statistical aligner (association learned from the manual alignment + title
@@ -307,6 +309,8 @@ const DETERMINER_WINDOW = 0.15;
 /* ------------------------------------------------------------------------ */
 
 const IS_WORD = /[\p{L}\p{N}]/u;
+/** Confidence of a link re-paired by the orig stage's shift repair (repairShiftedRecords). */
+export const REPAIRED_CONFIDENCE = 0.85;
 /** English words aligned fewer times than this in the whole OT count as "rare" for the title aligner. */
 const RARE_ENGLISH = 200;
 
@@ -325,9 +329,12 @@ export function buildBsb(): void {
   let gapWords = 0;
   let gapLinked = 0;
   let verses = 0;
+  let repairedLinks = 0;
+  let repairedVerses = 0;
 
   for (const t of ['NT', 'OT'] as const satisfies readonly Testament[]) {
     const layout = computeOrigLayout(t);
+    repairedVerses += layout.shifted?.verses.length ?? 0;
 
     // Orig output must match the layout we just recomputed (same sources, same rules).
     const orig = new Map<string, OrigChapter>();
@@ -352,6 +359,9 @@ export function buildBsb(): void {
     }
 
     const assoc = learnAssociations(layout.records, layout.pos, orig, layout.bsb);
+    // Targets of records the orig stage re-paired (shuffled in the source alignment): less certain.
+    const repairedTgt = new Set<string>();
+    for (const [, tgt, rep] of layout.records) if (rep) for (const id of tgt) repairedTgt.add(id);
 
     // group tokens by chapter, then verse
     const byChapter = new Map<string, Map<number, BsbTokenRow[]>>();
@@ -398,7 +408,8 @@ export function buildBsb(): void {
         const toks = vm.get(v)!;
         const spaced = spaceTokens(toks);
         const links = manual.get(v)!;
-        const infos: (TokenInfo | undefined)[] = toks.map(() => undefined);
+        const infos: (TokenInfo | undefined)[] = toks.map((tk, i) => (links[i] && repairedTgt.has(tk.id) ? { c: REPAIRED_CONFIDENCE } : undefined));
+        repairedLinks += infos.filter(Boolean).length;
         const wordPos = toks.map((tk, i) => (!tk.exclude && IS_WORD.test(tk.text) ? i : -1)).filter((i) => i >= 0);
 
         // No manual links at all (Psalm titles, a handful of alignment gaps): link by association
@@ -459,6 +470,7 @@ export function buildBsb(): void {
     'bsb',
     `${files} chapters, ${verses} verses; ${linked}/${words} words linked (${((100 * linked) / words).toFixed(1)}%); ` +
       `by association: Psalm titles ${titleLinked}/${titleWords} words, ${gapVerses} unaligned verses ${gapLinked}/${gapWords} words; ` +
+      `${repairedLinks} links in ${repairedVerses} verses re-paired from shuffled alignment records (c ${REPAIRED_CONFIDENCE}); ` +
       `${dropped} cross-chapter links dropped; ${(bytes / 1e6).toFixed(1)} MB`,
   );
 }

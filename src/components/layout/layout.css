@@ -4,8 +4,9 @@
 .page.page--doc.page--wide { grid-template-columns: minmax(0, 1120px); }
 .page.page--doc.page--aside { grid-template-columns: minmax(0, 720px) minmax(200px, 260px); }
 .doc { min-width: 0; font: 400 16.5px/1.65 var(--font-text); color: var(--ink-2); }
-.doc p { margin: 0 0 var(--s-4); }
-.doc b { color: var(--ink); font-weight: 600; }
+/* page typography stops at the word card (the compare page shows it inside .doc) */
+.doc p:where(:not(#word-card *)) { margin: 0 0 var(--s-4); }
+.doc b:where(:not(#word-card *)) { color: var(--ink); font-weight: 600; }
 .doc section { margin-top: var(--s-7); }
 .doc .sec { margin-top: 0; }
 .doc__title:focus { outline: none; }

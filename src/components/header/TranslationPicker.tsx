@@ -1,11 +1,16 @@
 /**
  * Translation picker: meta.json order (KJV first), each with year, licence and an alignment meter;
  * runtime translations (e.g. NIV) after a rule, or an "NIV — Connect" row that opens Settings;
- * then "Compare side by side", which opens #/compare with this translation and the next one.
+ * then "Compare side by side", which opens #/compare with this translation and the next one at the
+ * verse being read.
+ *
+ * The rows are a radio group with one Tab stop (the current translation): ↑/↓ (and ←/→, Home/End)
+ * move between them, Enter or Space chooses.
  */
 import type { RefObject } from 'preact';
 import { compareHash } from '../../app/router';
-import { openSettings, passage, setTranslation, translations } from '../../app/state';
+import { focusOnArrival, openSettings, passage, route, setTranslation, translations } from '../../app/state';
+import { verseAtReadingLine } from '../xrefs/readingVerse';
 import { Icon } from '../common/Icon';
 import { UiIcon } from '../shell/icons';
 import { Meter } from '../common/Meter';
@@ -20,11 +25,31 @@ export function TranslationPicker({ open, onClose, anchor }: { open: boolean; on
 
   const { ref } = passage.value;
   const partner = cur === 'KJV' ? (list.find((t) => t.id === 'BSB')?.id ?? list.find((t) => t.id !== cur)?.id) : 'KJV';
-  const compareTo = partner ? compareHash([cur, partner], ref.book, ref.chapter) : null;
+  // The verse being read (the reading line), so the compare page opens where the reader is.
+  const reading = open && route.value.name === 'read' && typeof window !== 'undefined' && window.scrollY > 4 ? verseAtReadingLine() : null;
+  const compareTo = partner ? compareHash([cur, partner], ref.book, ref.chapter, reading ?? ref.verse) : null;
 
   const choose = (id: string) => {
+    if (id !== cur) focusOnArrival(id, { book: ref.book, chapter: ref.chapter });
     onClose();
     if (id !== cur) setTranslation(id);
+  };
+
+  /** Arrow keys move focus between the rows (one Tab stop); Enter / Space choose. */
+  const onGroupKey = (e: KeyboardEvent) => {
+    const rows = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    const i = rows.indexOf(document.activeElement as HTMLButtonElement);
+    if (i < 0) return;
+    const step: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+    let j = i;
+    if (e.key in step) j = (i + step[e.key] + rows.length) % rows.length;
+    else if (e.key === 'Home') j = 0;
+    else if (e.key === 'End') j = rows.length - 1;
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+    rows.forEach((r, k) => (r.tabIndex = k === j ? 0 : -1));
+    rows[j].focus();
   };
 
   const row = (t: (typeof list)[number]) => (
@@ -33,6 +58,7 @@ export function TranslationPicker({ open, onClose, anchor }: { open: boolean; on
       type="button"
       role="radio"
       aria-checked={t.id === cur}
+      tabIndex={t.id === cur ? 0 : -1}
       class={`tr-item${t.remote ? ' tr-item--remote' : ''}`}
       onClick={() => choose(t.id)}
     >
@@ -56,7 +82,7 @@ export function TranslationPicker({ open, onClose, anchor }: { open: boolean; on
         <span class="eyebrow">Translation</span>
         <span class="eyebrow">Link to the original</span>
       </div>
-      <div role="radiogroup" aria-label="Translation">
+      <div role="radiogroup" aria-label="Translation" onKeyDown={onGroupKey}>
         {bundled.map(row)}
         {remote.length > 0 && <hr />}
         {remote.map(row)}

@@ -13,7 +13,7 @@
  * every word with its original as a plain list, the screen-reader-friendly word study.
  */
 import { batch } from '@preact/signals';
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'preact/hooks';
 import { compareHash } from '../../app/router';
 import { closeVerseSheet, pinnedWord, showToast, translations, verseSheet } from '../../app/state';
 import { bookmarks, highlights, verseKey } from '../../app/study';
@@ -36,6 +36,9 @@ import { HighlightSection } from './HighlightSection';
 import { NoteSection } from './NoteSection';
 import { XrefSection } from './XrefSection';
 import './verse.css';
+
+/** Narrower than this (or a touch screen), the verse actions open as a bottom sheet. */
+export const PANEL_MIN_WIDTH = 1140;
 
 /** Copy text to the clipboard (Clipboard API, else a hidden textarea + execCommand). */
 export async function copyText(text: string): Promise<boolean> {
@@ -134,7 +137,8 @@ export function VerseSheet({ model, controller }: { model: ChapterModel | null; 
   const open = Boolean(vs && model && vs.key === model.key && model.verses.some((v) => v.v === vs.verse));
   const size = useWindowSize();
   const coarse = useMedia('(pointer: coarse)');
-  const sheet = size.width < 720 || coarse;
+  // Below ~1140 px the docked panel cannot sit beside the reading column, so it is a bottom sheet.
+  const sheet = size.width < PANEL_MIN_WIDTH || coarse;
   const ref = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const verse = open ? vs!.verse : 0;
@@ -157,6 +161,31 @@ export function VerseSheet({ model, controller }: { model: ChapterModel | null; 
       if (inside && !pinnedWord.value) controller.focusVerse(returnTo.current);
     };
   }, [open, verse]);
+
+  // Desktop panel: move the page aside just far enough that the reading column (and the verse you
+  // picked) stays clear of the panel. Relative offset only — no reflow, and fixed sheets inside the
+  // page are unaffected (a transform would re-anchor them).
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    const page = document.querySelector<HTMLElement>('.page--read');
+    const text = page?.querySelector<HTMLElement>('.prose');
+    if (!open || sheet || !panel || !page || !text) return;
+    const root = document.documentElement;
+    const cur = parseFloat(getComputedStyle(page).left) || 0;
+    const tr = text.getBoundingClientRect();
+    const left = tr.left - cur;
+    const right = tr.right - cur;
+    // offsetLeft: the panel's resting place (its entrance animation scales it)
+    const need = right + 16 - panel.offsetLeft;
+    const shift = Math.min(Math.max(0, need), Math.max(0, left - 16));
+    if (shift < 1) return;
+    root.style.setProperty('--vp-shift', `${-Math.round(shift)}px`);
+    root.classList.add('has-verse-panel');
+    return () => {
+      root.classList.remove('has-verse-panel');
+      root.style.removeProperty('--vp-shift');
+    };
+  }, [open, sheet, size.width]);
 
   // Desktop panel: a press outside it (other than on a verse number) closes it.
   useEffect(() => {

@@ -3,9 +3,11 @@
  * (reader, about, or a code-split page from src/pages/), the search panel, settings sheet, the
  * bottom dock (listen bar + phone toolbar), toasts and the polite live region.
  */
+import { Component } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { About } from '../components/about/About';
-import { Header } from '../components/header/Header';
+import { focusSearchTrigger, Header } from '../components/header/Header';
 import { ListenBar } from '../components/listen/ListenBar';
 import { Reader } from '../components/reader/Reader';
 import { SearchPanel } from '../components/search/SearchPanel';
@@ -15,11 +17,12 @@ import { Toolbar } from '../components/toolbar/Toolbar';
 import { nextChapter, prevChapter } from '../lib/data';
 import { refToHash } from '../lib/reference';
 import { PageRoute } from './pages';
-import { DEFAULT_HASH } from './router';
+import { DEFAULT_HASH, parseRoute, safeDecode } from './router';
 import {
   closePanel,
   closeSearch,
   closeSettings,
+  closeVerseSheet,
   liveMessage,
   navigate,
   openSearch,
@@ -40,6 +43,11 @@ function isTyping(t: EventTarget | null): boolean {
   return t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
 }
 
+/** True while a modal dialog (verse sheet, settings, a bottom sheet, a drawer…) is open. */
+function modalOpen(): boolean {
+  return Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
+}
+
 /** Global shortcuts: "/" search, ←/→ chapter (when not on a word), Esc closes panels. */
 function useGlobalKeys(): void {
   useEffect(() => {
@@ -49,13 +57,17 @@ function useGlobalKeys(): void {
       if (e.key === 'Escape') {
         if (searchOpen.value) {
           closeSearch();
-          (document.activeElement as HTMLElement | null)?.blur?.();
+          focusSearchTrigger();
         } else if (settingsOpen.value) closeSettings();
         else if (panel.value) closePanel();
+        // A verse panel whose focus was lost (e.g. to <body>) can still be dismissed.
+        else if (verseSheet.value && !(t instanceof Element && t.closest('[role="dialog"]'))) closeVerseSheet();
         return;
       }
       if (isTyping(t)) return;
       if (e.key === '/') {
+        // Never pull focus out of an open dialog (modal or not).
+        if ((t instanceof Element && t.closest('[role="dialog"]')) || verseSheet.value || settingsOpen.value || panel.value || modalOpen()) return;
         e.preventDefault();
         openSearch();
         const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
@@ -65,11 +77,14 @@ function useGlobalKeys(): void {
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey && route.value.name === 'read') {
         if (t instanceof Element && t.closest('[data-u], [role="dialog"], [role="radiogroup"], .books__grid, .chapters, .seg')) return;
         if (pinnedWord.value || verseSheet.value || searchOpen.value || settingsOpen.value || panel.value || document.querySelector('.pop')) return;
-        const { ref } = passage.value;
+        // Step from the chapter last asked for (the URL), not the one still on screen: quick presses
+        // while a chapter change is animating must each move one chapter on.
+        const asked = parseRoute(location.hash);
+        const ref = asked?.name === 'read' ? asked.ref : passage.value.ref;
         const target = e.key === 'ArrowLeft' ? prevChapter(ref.book, ref.chapter) : nextChapter(ref.book, ref.chapter);
         if (target) {
           e.preventDefault();
-          navigate({ book: target[0], chapter: target[1] });
+          navigate({ book: target[0], chapter: target[1] }, asked?.name === 'read' ? asked.tr : passage.value.tr);
         }
       }
     };
@@ -90,7 +105,7 @@ function NotFound({ path }: { path: string }) {
           </h1>
           <span class="ch-rule" aria-hidden="true" />
           <p class="about__lede">
-            Rootword doesn’t know “{decodeURIComponent(path).slice(0, 80)}”. Try the passage picker in the header, or{' '}
+            Rootword doesn’t know “{safeDecode(path).slice(0, 80)}”. Try the passage picker in the header, or{' '}
             <a href={refToHash(tr, { book: ref.book, chapter: ref.chapter })}>go back to reading</a> (or start at{' '}
             <a href={DEFAULT_HASH}>John 1</a>).
           </p>
@@ -98,6 +113,51 @@ function NotFound({ path }: { path: string }) {
       </article>
     </div>
   );
+}
+
+/**
+ * Keeps one page's render error from taking the whole app down: the shell (header, toolbar, search)
+ * stays usable, the page shows a notice, and the next route change renders afresh.
+ */
+export class RouteBoundary extends Component<{ routeKey: string; children: ComponentChildren }, { error: unknown; key: string }> {
+  state = { error: null as unknown, key: this.props.routeKey };
+
+  static getDerivedStateFromProps(props: { routeKey: string }, state: { key: string }) {
+    return props.routeKey !== state.key ? { key: props.routeKey, error: null } : null;
+  }
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error: error ?? new Error('render error') };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Rootword: a page failed to render', error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    const { tr, ref } = passage.peek();
+    return (
+      <div class="page page--about">
+        <article class="about">
+          <div class="notice" role="alert">
+            <div>
+              <p class="notice__title">Something went wrong showing this page.</p>
+              <p>
+                The rest of Rootword still works.{' '}
+                <a href={refToHash(tr, { book: ref.book, chapter: ref.chapter })}>Go back to reading</a> or try again.
+              </p>
+              <div class="notice__actions">
+                <button type="button" class="btn-primary" onClick={() => this.setState({ error: null })}>
+                  Try again
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    );
+  }
 }
 
 /** Move focus to the main content after a page change (not on chapter changes inside the reader). */
@@ -205,7 +265,9 @@ export function App() {
         {r.name === 'read' || r.name === 'search' ? 'Skip to the text' : 'Skip to the content'}
       </a>
       <Header />
-      <main id="main">{page}</main>
+      <main id="main">
+        <RouteBoundary routeKey={JSON.stringify(r)}>{page}</RouteBoundary>
+      </main>
       <SearchPanel />
       <SettingsSheet />
       <Dock />

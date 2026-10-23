@@ -21,9 +21,15 @@
   transform-origin: 100% 0;
 }
 
-/* phones / touch: bottom sheet (shell/sheet.ts drives the transform) */
+/* while the panel is open the reading page steps aside (VerseSheet sets --vp-shift) */
+.page--read { position: relative; left: 0; transition: left var(--dur-2) var(--ease-out); }
+html.has-verse-panel .page--read { left: var(--vp-shift, 0px); }
+
+/* phones / touch / narrow windows: bottom sheet (shell/sheet.ts drives the transform); centred and
+   no wider than a comfortable column on wider screens */
 .verse-sheet.is-sheet {
   left: 0; right: 0; bottom: 0;
+  width: min(640px, 100%); margin: 0 auto;
   max-height: min(90dvh, var(--vv-h, 100dvh) - 12px);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; border-bottom: 0;
   box-shadow: inset 0 1px 0 var(--card-top), var(--shadow-sheet);
@@ -37,7 +43,7 @@
   .verse-sheet.is-sheet { max-height: min(85dvh, var(--vv-h, 100dvh) - 8px); }
 }
 @media (max-height: 500px) and (min-width: 700px) {
-  .verse-sheet.is-sheet { left: auto; right: max(12px, env(safe-area-inset-right)); width: min(460px, 52vw); border: 1px solid var(--rule); border-bottom: 0; }
+  .verse-sheet.is-sheet { left: auto; right: max(12px, env(safe-area-inset-right)); width: min(460px, 52vw); margin: 0; border: 1px solid var(--rule); border-bottom: 0; }
 }
 .vs-scrim {
   position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1);

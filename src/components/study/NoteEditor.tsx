@@ -142,7 +142,7 @@ export function NoteEditor({ vkey, refLabel, idBase, labelledBy, autoFocus, onDo
         id={`${idBase}-text`}
         class="ms-note__area"
         rows={rows}
-        maxLength={MAX_NOTE_LENGTH}
+        maxLength={Math.max(MAX_NOTE_LENGTH, stored?.text.length ?? 0)}
         value={text}
         placeholder={`Write a note on ${refLabel}…`}
         aria-labelledby={labelledBy}

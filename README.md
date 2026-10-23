@@ -87,11 +87,22 @@ Leningrad Codex, with the Septuagint-equivalent Greek word from Macula Hebrew.
 
 ### Reading the NIV with your API.Bible key
 
-The NIV is copyrighted, so Rootword never includes it. If you have a free key from
-[API.Bible](https://scripture.api.bible), open **Settings → Translations**, paste the key and connect.
-The key is stored only in your browser (localStorage) and is sent only to API.Bible. The NIV then
-appears in the translation picker. Its word links are approximate, and it is marked as such. Nothing
-about the key is ever built into the site, its tests or its data.
+The NIV is copyrighted, so Rootword never includes it. To read it:
+
+1. Get a free key from [API.Bible](https://scripture.api.bible) (sign up and create an app).
+2. In your app at api.bible, add **New International Version** to the app's Bibles (otherwise the
+   key cannot read it, and Settings says so).
+3. In Rootword open **Settings → Translations**, paste the key and connect.
+4. Choose the NIV in the translation picker.
+
+The key is stored only in your browser (localStorage) and is sent only to API.Bible. Its word links
+are approximate, and it is marked as such. Nothing about the key is ever built into the site, its
+tests or its data.
+
+Privacy: Rootword has no accounts and no analytics of its own. When you read an API.Bible
+translation, API.Bible's required Fair Use Management System reports each chapter shown to
+fums.api.bible with a random device ID (kept in your browser) and a session ID; no key or personal
+data is sent.
 
 ## Data sources and licences
 
@@ -113,7 +124,12 @@ about the key is ever built into the site, its tests or its data.
 
 Material under CC BY 4.0 is used under [that licence](https://creativecommons.org/licenses/by/4.0/)
 with attribution. Changes: the data were converted to Rootword's compact JSON format, and cantillation
-marks were removed from the Hebrew. The About page (`#/about`) shows the same credits in the app. The
+marks were removed from the Hebrew; the STEPBible definitions were edited and abridged (bibliographies
+and apparatus brackets removed, sub-senses folded together), and short entries for Hebrew prefixes and
+suffixes were written for Rootword (labelled "Rootword" in the app, not BDB); cross references with no
+or negative votes (and self-references) were dropped, the rest capped at 40 per verse, and the ESV's
+3 John 1:15 mapped to 1:14; the TIPNR summaries and articles were merged; morphology is shown in plain
+English. The About page (`#/about`) shows the same credits in the app. The
 fonts (Literata, Inter, Gentium Book Plus, Frank Ruhl Libre, EB Garamond, Atkinson Hyperlegible Next,
 OpenDyslexic) are under the SIL Open Font Licence, via Fontsource.
 

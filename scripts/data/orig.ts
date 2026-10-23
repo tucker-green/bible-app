@@ -15,10 +15,15 @@
  * `computeOrigLayout` is exported because the bsb stage needs the very same source-id -> index
  * mapping to turn alignment records into token links.
  */
+import { FUNCTION_WORDS } from '../../src/lib/align/normalize';
 import { foldWord } from '../../src/lib/tokenize';
+import { greekFold, parseStepLexicon } from './lexicon';
+import { loadHomonyms } from './homonyms';
+import { readFileSync } from 'node:fs';
 import type { OrigChapter, OrigWord } from '../../src/lib/types';
 import {
   allChapters,
+  baseStrongs,
   cleanOut,
   log,
   normStrongs,
@@ -26,6 +31,7 @@ import {
   readAlignment,
   readBsbTokens,
   readTsvColumns,
+  srcPath,
   writeJson,
   type AlignRecord,
   type BsbTokenRow,
@@ -191,6 +197,8 @@ export interface OrigLayout {
   bsb: BsbTokenRow[];
   /** Source links removed from suspect alignment records (see `pruneSuspectRecords`). */
   prunedLinks: number;
+  /** Verses whose shuffled records were re-paired (see `repairShiftedRecords`). */
+  shifted?: { verses: string[]; repaired: number; dropped: number };
 }
 
 /** Source verse key BBCCCVVV of a source id ("n40001001001" / "o010010010011"). */
@@ -200,7 +208,13 @@ export const srcVerseOf = (id: string) => id.slice(1, 9);
  * Lay out source words by English chapter. Pure given its inputs; `buildOrig` and `buildBsb`
  * both call it so their indices agree.
  */
-export function layoutWords(sourceIds: readonly string[], records: readonly AlignRecord[], bsb: readonly BsbTokenRow[]): Pick<OrigLayout, 'chapters' | 'pos'> {
+export function layoutWords(
+  sourceIds: readonly string[],
+  records: readonly AlignRecord[],
+  bsb: readonly BsbTokenRow[],
+  extraEnglish: readonly string[] = [],
+  overrides: Readonly<Record<string, string>> = {},
+): Pick<OrigLayout, 'chapters' | 'pos'> {
   const alignedTo = new Map<string, string[]>();
   const alignedEnglish = new Set<string>();
   for (const [src, tgt] of records) {
@@ -212,7 +226,7 @@ export function layoutWords(sourceIds: readonly string[], records: readonly Alig
       else alignedTo.set(s, [...verses]);
     }
   }
-  const english = new Set(bsb.map((t) => t.id.slice(0, 8)));
+  const english = new Set([...bsb.map((t) => t.id.slice(0, 8)), ...extraEnglish]);
   const orphans = new Map<string, string[]>();
   for (const t of bsb) {
     const e = t.id.slice(0, 8);
@@ -221,7 +235,7 @@ export function layoutWords(sourceIds: readonly string[], records: readonly Alig
     if (!list.includes(e)) orphans.set(t.srcVerse, [...list, e].sort());
   }
   const inputs = sourceIds.map((id) => ({ src: srcVerseOf(id), aligned: alignedTo.get(id) ?? [] }));
-  const verses = assignVerses(inputs, sourceVerseMap(bsb), (k) => english.has(k), orphans);
+  const verses = assignVerses(inputs, sourceVerseMap(bsb), (k) => english.has(k), orphans).map((v, i) => overrides[inputs[i].src] ?? v);
 
   const chapters = new Map<string, LayoutWord[]>();
   const pos = new Map<string, [string, number]>();
@@ -315,26 +329,198 @@ export function pruneSuspectRecords(
   return { records: out, removed };
 }
 
+/* ------------------------------------------------------------------------ */
+/* Shifted alignment records                                                 */
+/* ------------------------------------------------------------------------ */
+
+/** What the shift repair needs to know about each source / target id. */
+export interface RecordInfo {
+  /** Interlinear gloss of a source word ("gloss gloss2"). */
+  glossOf(sourceId: string): string;
+  /** Strong's id of a source word ("" if none). */
+  strongsOf(sourceId: string): string;
+  /** Text of a target (BSB) token; "" for punctuation / excluded tokens. */
+  englishOf(targetId: string): string;
+}
+
+/** Stem used to compare an English word with a gloss word (case, possessive and plural folded). */
+const engStem = (w: string) => {
+  let s = foldWord(w).replace(/[^\p{L}]/gu, '');
+  if (s.length > 4 && s.endsWith('ies')) s = `${s.slice(0, -3)}y`;
+  else if (s.length > 3 && s.endsWith('s') && !s.endsWith('ss')) s = s.slice(0, -1);
+  return s;
+};
+
+/** Association of English words and Strong's numbers over alignment records (each record counted once per pair). */
+export class RecordAssoc {
+  private pair = new Map<string, number>();
+  private src = new Map<string, number>();
+  private eng = new Map<string, number>();
+  add(strongs: Iterable<string>, english: Iterable<string>): void {
+    const E = new Set(english);
+    for (const e of E) this.eng.set(e, (this.eng.get(e) ?? 0) + 1);
+    for (const s of new Set(strongs)) {
+      this.src.set(s, (this.src.get(s) ?? 0) + 1);
+      for (const e of E) this.pair.set(`${s} ${e}`, (this.pair.get(`${s} ${e}`) ?? 0) + 1);
+    }
+  }
+  /** sqrt(P(e | s) * P(s | e)): high only when each predicts the other; 0 below `min` co-occurrences. */
+  geo(s: string, e: string, min = 3): number {
+    const c = this.pair.get(`${s} ${e}`) ?? 0;
+    return c >= min ? Math.sqrt((c / (this.src.get(s) ?? 1)) * (c / (this.eng.get(e) ?? 1))) : 0;
+  }
+}
+
+/** Minimum fit of a source word and an English word to count as a translation pair. */
+const FIT_MIN = 0.15;
+
+/**
+ * Some hand-made alignment records pair each source word of a verse with the English of a different
+ * source word (the targets are shuffled by one or more records: John 15:1 εἰμι -> "the", ἡ -> "true",
+ * ἄμπελος -> "and"; Rev 1:1 Ἰησοῦ -> "Christ"; Gen 29:24 Leah -> "daughter"), a few hundred verses.
+ * A source word fits an English word when its gloss contains it, else by the association learned
+ * from all records (geometric mean of both conditional probabilities, so "of" / "the" fit no noun).
+ * Per English verse with at least 3 records that fit nothing they are paired with (and 30% of its
+ * records): all its records are re-paired by best fit (a source word takes a second English word
+ * only right next to its first), and English words nothing fits stay unaligned. The repair is kept
+ * only when it fits at least 3 more source words to a content word than the original pairing (and
+ * 1.5 times as many):
+ * a loose but correct translation is left alone. Repaired records are flagged (third element).
+ */
+export function repairShiftedRecords(
+  records: readonly AlignRecord[],
+  info: RecordInfo,
+): { records: AlignRecord[]; verses: string[]; repaired: number; dropped: number } {
+  const assoc = new RecordAssoc();
+  const engOf = (t: string) => {
+    const e = info.englishOf(t);
+    return /[\p{L}\p{N}]/u.test(e) ? engStem(e) : '';
+  };
+  for (const [src, tgt] of records) {
+    const strongs = src.map((x) => info.strongsOf(x)).filter(Boolean);
+    const eng = tgt.map(engOf).filter(Boolean);
+    if (strongs.length && eng.length) assoc.add(strongs, eng);
+  }
+  const glossStems = new Map<string, Set<string>>();
+  const stemsOf = (sid: string) => {
+    let g = glossStems.get(sid);
+    if (!g) glossStems.set(sid, (g = new Set([...glossWordSet(info.glossOf(sid))].map(engStem).filter(Boolean))));
+    return g;
+  };
+  // A gloss word that is a function word ("will" in "will.melt", "a") is weaker evidence than a content word.
+  const fit = (sid: string, e: string) => {
+    if (!e) return 0;
+    if (stemsOf(sid).has(e)) return FUNCTION_WORDS.has(e) ? 0.5 : 1;
+    const s = info.strongsOf(sid);
+    return s ? assoc.geo(s, e) : 0;
+  };
+  const fitsAny = (sid: string, tgt: readonly string[]) => tgt.some((t) => fit(sid, engOf(t)) >= FIT_MIN);
+  const matches = ([src, tgt]: AlignRecord) => !tgt.some((t) => engOf(t)) || src.some((sid) => fitsAny(sid, tgt));
+
+  const byVerse = new Map<string, number[]>();
+  records.forEach(([, tgt], i) => {
+    if (!tgt.length) return;
+    const v = tgt[0].slice(0, 8);
+    const list = byVerse.get(v);
+    if (list) list.push(i);
+    else byVerse.set(v, [i]);
+  });
+  const replace = new Map<number, AlignRecord[]>();
+  const verses: string[] = [];
+  let repaired = 0;
+  let dropped = 0;
+  for (const [verse, idx] of byVerse) {
+    const bad = idx.filter((i) => !matches(records[i]));
+    if (bad.length < 3 || bad.length < 0.3 * idx.length) continue;
+    const S = [...new Set(idx.flatMap((i) => records[i][0]))];
+    const T = [...new Set(idx.flatMap((i) => records[i][1]))].filter((t) => engOf(t));
+    // Source words fitting a content word of their own record (before) / of the re-pairing (after).
+    const contentFit = (sid: string, t: string) => {
+      const e = engOf(t);
+      return !!e && !FUNCTION_WORDS.has(e) && fit(sid, e) >= 0.3;
+    };
+    let before = 0;
+    for (const i of idx) for (const sid of records[i][0]) if (records[i][1].some((t) => contentFit(sid, t))) before++;
+    const pairs: { sid: string; t: string; score: number }[] = [];
+    for (const sid of S) for (const t of T) {
+      const score = fit(sid, engOf(t));
+      if (score >= FIT_MIN) pairs.push({ sid, t, score });
+    }
+    pairs.sort((a, b) => b.score - a.score || a.t.localeCompare(b.t) || a.sid.localeCompare(b.sid));
+    const takenT = new Set<string>();
+    const got = new Map<string, string[]>();
+    for (const { sid, t } of pairs) {
+      if (takenT.has(t)) continue;
+      const mine = got.get(sid);
+      if (mine && !mine.some((x) => Math.abs(Number(x.slice(8)) - Number(t.slice(8))) === 1)) continue;
+      takenT.add(t);
+      got.set(sid, [...(mine ?? []), t]);
+    }
+    const after = [...got].filter(([sid, ts]) => ts.some((t) => contentFit(sid, t))).length;
+    if (after - before < 3 || after < 1.5 * before) continue;
+    verses.push(verse);
+    const out: AlignRecord[] = [];
+    for (const [sid, ts] of got) out.push([[sid], ts.sort(), true]);
+    out.sort((a, b) => a[0][0].localeCompare(b[0][0]));
+    repaired += out.length;
+    dropped += T.length - takenT.size;
+    idx.forEach((i, k) => replace.set(i, k === 0 ? out : []));
+  }
+  const out: AlignRecord[] = [];
+  records.forEach((r, i) => {
+    const rep = replace.get(i);
+    if (rep) out.push(...rep);
+    else out.push(r);
+  });
+  return { records: out, verses, repaired, dropped };
+}
+
+/**
+ * Source verses the BSB merges into a neighbouring verse but every other bundled translation (KJV,
+ * WEB, ASV, YLT; NIV) keeps as a verse of the next chapter: SBLGNT Rev 12:18 "and he stood on the
+ * sand of the sea" is BSB Rev 12:17 but Rev 13:1 elsewhere. Its words are laid out in that chapter
+ * (the BSB, whose words cannot link across chapters, leaves them unlinked).
+ */
+export const SOURCE_VERSE_OVERRIDES: Readonly<Record<string, string>> = { '66012018': '66013001' };
+
+/**
+ * English verses that the BSB omits (it footnotes them) but the other bundled translations have, and
+ * whose source words exist: SBLGNT Rom 16:24. Their words stay in that verse instead of joining the
+ * previous one.
+ */
+export const EXTRA_ENGLISH_VERSES: readonly string[] = ['45016024'];
+
 /** Read the source ids of a testament (cheap) and lay them out. */
 export function computeOrigLayout(t: Testament): OrigLayout {
   const rows =
     t === 'NT'
-      ? readTsvColumns('SBLGNT.tsv', ['id', 'gloss', 'gloss2'] as const)
-      : readTsvColumns('WLCM.tsv', ['id', 'gloss', 'gloss2'] as const);
-  const ids: string[] = [];
+      ? readTsvColumns('SBLGNT.tsv', ['id', 'gloss', 'gloss2', 'strongs'] as const)
+      : readTsvColumns('WLCM.tsv', ['id', 'gloss', 'gloss2', 'strongs'] as const);
   const gloss = new Map<string, string>();
+  const strongs = new Map<string, string>();
   for (const r of rows) {
     if (!r.id) continue;
-    ids.push(r.id);
     gloss.set(r.id, `${r.gloss} ${r.gloss2}`);
+    strongs.set(r.id, baseStrongs(normStrongs(t === 'NT' ? 'G' : 'H', r.strongs.split('|')[0] ?? '')));
   }
+  // Source order = id order (WLCM.tsv lists ~800 words out of order, e.g. Gen 1:4 כִּי before אֶת,
+  // which split written words: Josh 6:24 וְ … הָעִיר).
+  const ids = sortedIds(rows.map((r) => r.id).filter(Boolean));
   const bsb = readBsbTokens(t);
-  const text = new Map(bsb.map((tk) => [tk.id, tk.text]));
+  const text = new Map(bsb.map((tk) => [tk.id, tk.exclude ? '' : tk.text]));
   const raw = readAlignment(t);
-  const { records, removed } = pruneSuspectRecords(raw, (s) => gloss.get(s) ?? '', (id) => text.get(id) ?? '', recordContext(raw, bsb));
-  const layout = layoutWords(ids, records, bsb);
-  return { ...layout, records, bsb, prunedLinks: removed };
+  const pruned = pruneSuspectRecords(raw, (s) => gloss.get(s) ?? '', (id) => text.get(id) ?? '', recordContext(raw, bsb));
+  const shift = repairShiftedRecords(pruned.records, {
+    glossOf: (s) => gloss.get(s) ?? '',
+    strongsOf: (s) => strongs.get(s) ?? '',
+    englishOf: (id) => text.get(id) ?? '',
+  });
+  const layout = layoutWords(ids, shift.records, bsb, t === 'NT' ? EXTRA_ENGLISH_VERSES : [], SOURCE_VERSE_OVERRIDES);
+  return { ...layout, records: shift.records, bsb, prunedLinks: pruned.removed, shifted: shift };
 }
+
+/** Source ids in canonical order (fixed-width ids: lexical order = book, chapter, verse, word, morpheme). */
+export const sortedIds = (ids: readonly string[]): string[] => [...ids].sort();
 
 /* ------------------------------------------------------------------------ */
 /* Glosses                                                                   */
@@ -501,12 +687,102 @@ export function cleanTranslit(raw: string): string {
   return raw.trim().replace(/[-:־׃]+$/u, '');
 }
 
-/** Normalise an LXX equivalent from Macula: "greek|G####", or "" when there is none. */
-export function lxxOf(greek: string, greekStrong: string): string {
-  const forms = greek.split('|').map((s) => s.trim()).filter((s) => /[Ͱ-Ͽἀ-῿]/u.test(s));
+const CHI_XI: Record<string, string> = { χ: 'ξ', ξ: 'χ', Χ: 'Ξ', Ξ: 'Χ' };
+
+/**
+ * Macula Hebrew's `greek` column has χ and ξ swapped throughout (δόχα, ἐχ, ψυξή, ξεῖρας, ἀρξῇ: the
+ * correct forms never occur, and ~10,400 of its χ/ξ forms are attested in the SBLGNT only once
+ * swapped), so the two letters are swapped back unconditionally.
+ */
+export const unswapChiXi = (s: string): string => s.replace(/[χξΧΞ]/g, (c) => CHI_XI[c]);
+
+/** Every letter Greek (plus combining marks / apostrophe), with at least one vowel. */
+const GREEK_WORD = /^[\p{Script=Greek}\u0300-\u036f’]+$/u;
+const GREEK_VOWEL = /[αεηιουωΑΕΗΙΟΥΩ]/u;
+/** One-off CATSS spellings that no rule repairs. */
+const LXX_SPELLING: Record<string, string> = { λεvῖται: 'λευῖται', 'αἰγψ/πτου': 'αἰγύπτου', '+ραυς+ῇ': '' };
+
+/**
+ * Clean one Septuagint form from Macula (which keeps CATSS apparatus): NFC; quotes, braces and the
+ * CATSS sigla dropped ("{..^βαβυλῶνος}" -> βαβυλῶνος, bare "{δ}" -> ""), stray ")", "+", "=", "/",
+ * "^" and trailing punctuation removed, hyphenated name parts split, Latin look-alikes inside a
+ * Greek word mapped to Greek (ναβουξοδοvοσορ). Words that are still not Greek are dropped. The
+ * result is NOT yet χ/ξ-corrected (see unswapChiXi).
+ */
+export function cleanLxxForm(raw: string): string {
+  let s = raw.normalize('NFC');
+  if (LXX_SPELLING[s] !== undefined) s = LXX_SPELLING[s];
+  s = s
+    .replace(/\{[δτ%+]?\}/gu, ' ') // bare sigla: {δ} {τ} {%} {+}
+    .replace(/\.\.\.|\.\.\^|\.\.[δπ](?=\p{L})|\.\./gu, ' ') // CATSS prefixes
+    .replace(/[‐‑–—-]/g, ' ')
+    .replace(/[/\\]/g, '') // syllable / letter breaks inside a word: τῆ/ς
+    .replace(/["{}\[\]^)(+=~%,.;:·\u0387\u037e]/g, ' ');
+  const words = s
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (/\p{Script=Greek}/u.test(w) ? w.replace(/v/g, 'ν').replace(/o/g, 'ο').normalize('NFC') : w))
+    .filter((w) => GREEK_WORD.test(w) && GREEK_VOWEL.test(w.normalize('NFD')) && !/ς\p{L}/u.test(w));
+  return words.join(' ');
+}
+
+/**
+ * Normalise an LXX equivalent from Macula: "greek|G####", or "" when there is none. Forms are
+ * cleaned (cleanLxxForm), NFC and χ/ξ-corrected (unswapChiXi); `fixStrongs` may replace a Strong's
+ * number that belongs to a different word (Macula pairs πρωί with G5459 φωσφόρος).
+ */
+export function lxxOf(greek: string, greekStrong: string, fixStrongs?: (form: string, strongs: string) => string): string {
+  const forms = greek
+    .split('|')
+    .map((f) => unswapChiXi(cleanLxxForm(f)))
+    .filter(Boolean);
   if (!forms.length) return '';
-  const strong = greekStrong.split('|').map((s) => normStrongs('G', s)).find(Boolean) ?? '';
+  let strong = greekStrong.split('|').map((x) => normStrongs('G', x)).find(Boolean) ?? '';
+  if (fixStrongs && strong && forms.length === 1) strong = fixStrongs(forms[0], strong);
   return `${forms.join(' ')}|${strong}`;
+}
+
+/** Common substring of length >= n (Greek folded). */
+function shareRun(a: string, b: string, n: number): boolean {
+  if (a.length < n || b.length < n) return false;
+  for (let i = 0; i + n <= a.length; i++) if (b.includes(a.slice(i, i + n))) return true;
+  return false;
+}
+
+/** True when a Greek form plausibly belongs to a lemma (folded: a shared run of 3 letters, or 2 for short words). */
+export function formFitsLemma(form: string, lemma: string): boolean {
+  const f = greekFold(form);
+  const l = greekFold(lemma);
+  if (!f || !l) return true;
+  const n = Math.min(3, f.length, l.length);
+  return n < 2 ? f[0] === l[0] : shareRun(f, l, n);
+}
+
+/**
+ * A Strong's corrector for LXX pairs. A number is kept when the SBLGNT uses it for the very same form
+ * (articles, pronouns and suppletive forms included), or when the form fits its lemma. Otherwise it is
+ * replaced by the classic id whose lemma is exactly the form (indeclinables: τεσσαράκοντα G1540 ->
+ * G5062, πρωί G5459 -> G4404) or the number the SBLGNT mostly uses for the form, when that one fits.
+ * Suppletive pairs that fit nothing (ὄψεται / G3700) are kept.
+ */
+export function lxxStrongsFixer(
+  lemmaOf: (id: string) => string | undefined,
+  byLemma: ReadonlyMap<string, string>,
+  sblgnt: ReadonlyMap<string, ReadonlyMap<string, number>>,
+): (form: string, strongs: string) => string {
+  const classic = (id: string | undefined): id is string => !!id && /^G\d{4}$/.test(id) && Number(id.slice(1)) <= 5624;
+  return (form, strongs) => {
+    const key = greekFold(form);
+    const seen = sblgnt.get(key);
+    if (seen?.has(strongs)) return strongs;
+    const lemma = lemmaOf(strongs);
+    if (!lemma || formFitsLemma(form, lemma)) return strongs;
+    const usual = seen ? [...seen].sort((a, b) => b[1] - a[1])[0][0] : undefined;
+    for (const alt of [byLemma.get(key), usual]) {
+      if (classic(alt) && alt !== strongs && formFitsLemma(form, lemmaOf(alt) ?? '')) return alt;
+    }
+    return strongs;
+  };
 }
 
 /* ------------------------------------------------------------------------ */
@@ -519,35 +795,105 @@ const realStrongs = (id: string) => (/^[GH]0000$/.test(id) ? '' : id);
 /** Word data independent of English versification (verse/ref/group filled in later). */
 type BaseWord = { text: string; strongs: string; lemma: string; morph: string; gloss: string; translit: string; lxx: string; aramaic: boolean };
 
+/**
+ * The SBLGNT word list's gloss2 column (the BSB's wording, used first) sometimes swaps the glosses of
+ * two neighbouring words (Rev 13:1 κεφαλὰς "seven", ἑπτά "heads"). Returns the indices (into `rows`)
+ * of words whose gloss2 is the other one's gloss and vice versa (within 2 words, same verse).
+ */
+export function swappedGloss2(rows: readonly { id: string; gloss: string; gloss2: string }[]): Set<number> {
+  const out = new Set<number>();
+  const f = (x: string) => cleanGloss(x).toLowerCase();
+  for (let i = 0; i < rows.length; i++) {
+    for (let j = i + 1; j <= i + 2 && j < rows.length; j++) {
+      if (rows[j].id.slice(0, 9) !== rows[i].id.slice(0, 9)) break;
+      const [gi, gj, hi, hj] = [f(rows[i].gloss), f(rows[j].gloss), f(rows[i].gloss2), f(rows[j].gloss2)];
+      if (gi && gj && gi !== gj && hi === gj && hj === gi) {
+        out.add(i);
+        out.add(j);
+      }
+    }
+  }
+  return out;
+}
+
+/** STEP's extra Greek ids (G6000+) by folded lemma, for SBLGNT words numbered G0000 (ἄμωμον, Ἀρνί). */
+function extendedGreekIds(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const r of parseStepLexicon(readFileSync(srcPath('TBESG.txt'), 'utf8'), 'G')) {
+    if (Number(r.eid.slice(1)) <= 5624 || !/^G\d{4}$/.test(r.eid)) continue;
+    const k = greekFold(r.lemma);
+    if (k && !out.has(k)) out.set(k, r.eid);
+  }
+  return out;
+}
+
 function greekWords(): Map<string, BaseWord> {
-  const rows = readTsvColumns('SBLGNT.tsv', ['id', 'text', 'strongs', 'gloss', 'gloss2', 'lemma', 'morph'] as const);
+  const rows = readTsvColumns('SBLGNT.tsv', ['id', 'text', 'strongs', 'gloss', 'gloss2', 'lemma', 'morph'] as const).filter((r) => r.id);
   const out = new Map<string, BaseWord>();
-  for (const r of rows) {
-    if (!r.id) continue;
-    const strongs = realStrongs(normStrongs('G', r.strongs));
+  const swapped = swappedGloss2(rows);
+  const extended = extendedGreekIds();
+  let placeholders = 0;
+  rows.forEach((r, i) => {
+    const lemma = r.lemma.normalize('NFC');
+    let strongs = realStrongs(normStrongs('G', r.strongs));
+    if (!strongs && /^G?0+$/.test(r.strongs.trim())) {
+      strongs = extended.get(greekFold(lemma)) ?? '';
+      if (strongs) placeholders++;
+    }
     out.set(r.id, {
-      text: r.text,
+      text: r.text.normalize('NFC'),
       strongs,
-      lemma: r.lemma,
+      lemma,
       morph: r.morph,
-      gloss: firstGloss(strongs, r.gloss2, r.gloss),
+      gloss: swapped.has(i) ? firstGloss(strongs, r.gloss, r.gloss2) : firstGloss(strongs, r.gloss2, r.gloss),
       translit: '',
       lxx: '',
       aramaic: false,
     });
-  }
+  });
+  log('orig', `Greek: ${out.size} words; ${swapped.size} swapped BSB-order glosses replaced; ${placeholders} G0000 words given STEP's extended id`);
   return out;
 }
+
+/** Lemma of a Greek Strong's id and the reverse indexes the LXX Strong's fixer needs (TBESG + SBLGNT). */
+function lxxFixer(): (form: string, strongs: string) => string {
+  const lemma = new Map<string, string>();
+  const byLemma = new Map<string, string>();
+  for (const r of parseStepLexicon(readFileSync(srcPath('TBESG.txt'), 'utf8'), 'G')) {
+    if (!lemma.has(r.eid)) lemma.set(r.eid, r.lemma);
+    const k = greekFold(r.lemma);
+    if (k && !byLemma.has(k)) byLemma.set(k, r.eid);
+  }
+  const forms = new Map<string, Map<string, number>>();
+  for (const r of readTsvColumns('SBLGNT.tsv', ['text', 'strongs'] as const)) {
+    const id = baseStrongsOf(normStrongs('G', r.strongs));
+    if (!id) continue;
+    const k = greekFold(r.text);
+    let m = forms.get(k);
+    if (!m) forms.set(k, (m = new Map()));
+    m.set(id, (m.get(id) ?? 0) + 1);
+  }
+  return lxxStrongsFixer((id) => lemma.get(id) ?? lemma.get(`${id}a`), byLemma, forms);
+}
+
+const baseStrongsOf = (id: string) => (id ? baseStrongs(id) : '');
 
 function hebrewWords(): Map<string, BaseWord> {
   type MaculaCol = 'xml:id' | 'transliteration' | 'strongnumberx' | 'greek' | 'greekstrong' | 'gloss' | 'english' | 'morph' | 'lang' | 'lemma';
   const cols: MaculaCol[] = ['xml:id', 'transliteration', 'strongnumberx', 'greek', 'greekstrong', 'gloss', 'english', 'morph', 'lang', 'lemma'];
   const macula = new Map<string, Record<MaculaCol, string>>();
   for (const r of readTsvColumns('macula-hebrew.tsv', cols)) macula.set(r['xml:id'], r);
+  const { remap } = loadHomonyms();
+  const fixStrongs = lxxFixer();
 
-  const rows = readTsvColumns('WLCM.tsv', ['id', 'text', 'strongs', 'gloss', 'gloss2'] as const).filter((r) => r.id);
+  // Id order: WLCM.tsv lists some morphemes out of order (see computeOrigLayout).
+  const rows = readTsvColumns('WLCM.tsv', ['id', 'text', 'strongs', 'gloss', 'gloss2'] as const)
+    .filter((r) => r.id)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const out = new Map<string, BaseWord>();
   let generated = 0;
+  let remapped = 0;
+  let lxxStrongsFixed = 0;
   // Walk written words (morphemes sharing an id minus its last char) so transliteration sees the whole word.
   for (let i = 0; i < rows.length; ) {
     const wordKey = rows[i].id.slice(0, -1);
@@ -563,12 +909,23 @@ function hebrewWords(): Map<string, BaseWord> {
     const fallback = supplied.some((t) => !t) ? transliterateHebrewWord(morphs.map((r) => r.text)) : [];
     morphs.forEach((r, k) => {
       const m = mac[k];
-      const strongs = realStrongs(normStrongs('H', (m.strongnumberx || r.strongs).split('|')[0]));
+      let strongs = realStrongs(normStrongs('H', (m.strongnumberx || r.strongs).split('|')[0]));
+      // Macula's letter for a homonym is not always STEP's (Macula H8227a Shaphan = STEP H8227b).
+      const step = remap.get(strongs);
+      if (step) {
+        strongs = step;
+        remapped++;
+      }
       let translit = supplied[k];
       if (!translit) {
         translit = fallback[k];
         generated++;
       }
+      const lxx = lxxOf(m.greek, m.greekstrong, (form, st) => {
+        const fixed = fixStrongs(form, st);
+        if (fixed !== st) lxxStrongsFixed++;
+        return fixed;
+      });
       out.set(r.id, {
         text: r.text,
         strongs,
@@ -576,13 +933,17 @@ function hebrewWords(): Map<string, BaseWord> {
         morph: m.morph,
         gloss: firstGloss(strongs, r.gloss, m.english, m.gloss, r.gloss2),
         translit,
-        lxx: lxxOf(m.greek, m.greekstrong),
+        lxx,
         aramaic: m.lang === 'A',
       });
     });
     i = j;
   }
-  log('orig', `Hebrew: ${out.size} morphemes; generated transliteration for ${generated} that Macula leaves blank`);
+  log(
+    'orig',
+    `Hebrew: ${out.size} morphemes; generated transliteration for ${generated} that Macula leaves blank; ` +
+      `${remapped} homonym ids re-lettered to STEP's (${remap.size} ids); ${lxxStrongsFixed} Septuagint Strong's numbers corrected`,
+  );
   return out;
 }
 

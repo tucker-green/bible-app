@@ -699,14 +699,15 @@ export class ReaderController {
         this.marked.push(el);
       }
     }
+    // A hover / focus card is not tied to the word with aria-describedby: it would be read out in
+    // full (~500 characters) on every word. The polite live region gives the one-line summary
+    // instead ("ἄνθρωπος, anthrōpos, noun: man"); Enter opens the card itself.
     if (pinned) {
       anchor.classList.add('is-open');
       anchor.setAttribute('role', 'button');
       anchor.setAttribute('aria-haspopup', 'dialog');
       anchor.setAttribute('aria-expanded', 'true');
       anchor.setAttribute('aria-controls', 'word-card');
-    } else {
-      anchor.setAttribute('aria-describedby', 'word-card');
     }
   }
 

@@ -101,8 +101,13 @@ const CORRUPT_KEY = `${FULL_KEY}.corrupt`;
 export const STUDY_VERSION = 1;
 /** Debounce for writes to localStorage. */
 export const WRITE_DELAY_MS = 400;
-/** Longest note (characters). */
+/** Longest note typed in the editor (characters). */
 export const MAX_NOTE_LENGTH = 10000;
+/**
+ * Longest note kept in storage: two different notes on one verse merged by an import can reach twice
+ * the editor's limit. Loading, merging and editing never cut a stored note shorter than this.
+ */
+export const MAX_STORED_NOTE_LENGTH = MAX_NOTE_LENGTH * 2;
 /** Longest bookmark label (characters). */
 export const MAX_LABEL_LENGTH = 120;
 /** Largest import file accepted (bytes). */
@@ -195,7 +200,10 @@ export function setHighlight(key: string, color: HighlightColor | null): boolean
 export function setNote(key: string, text: string | null): Note | null {
   if (!isVerseKey(key)) return null;
   const cur = notes.peek();
-  const clean = text === null ? '' : cleanNoteText(text);
+  // A stored note longer than the editor's limit (two notes merged by an import) may be edited
+  // without being cut short; new text is capped at the editor's limit.
+  const limit = Math.max(MAX_NOTE_LENGTH, Math.min(cur[key]?.text.length ?? 0, MAX_STORED_NOTE_LENGTH));
+  const clean = text === null ? '' : cleanNoteText(text, limit);
   if (!clean.trim()) {
     if (cur[key]) {
       const next = { ...cur };
@@ -285,7 +293,8 @@ export function emptyStudy(): StudyData {
 
 /**
  * Validate (and normalise) study maps from storage or an import. Unknown verse keys, colours and
- * malformed entries are dropped and counted in `skipped`. Notes longer than the limit are cut.
+ * malformed entries are dropped and counted in `skipped`. Notes longer than MAX_STORED_NOTE_LENGTH
+ * are cut (the same limit a merge produces, so a merged note survives the next load).
  */
 export function sanitizeStudy(d: Record<string, unknown>): { data: StudyData; skipped: number } {
   const out = emptyStudy();
@@ -303,7 +312,7 @@ export function sanitizeStudy(d: Record<string, unknown>): { data: StudyData; sk
         skipped++;
         continue;
       }
-      const text = cleanNoteText(n.text);
+      const text = cleanNoteText(n.text, MAX_STORED_NOTE_LENGTH);
       if (!text.trim()) {
         skipped++;
         continue;
@@ -770,7 +779,7 @@ export function mergeStudy(base: StudyData, incoming: StudyData): { data: StudyD
     } else {
       const [first, second] = mine.updated <= n.updated ? [mine, n] : [n, mine];
       data.notes[k] = {
-        text: cleanNoteText(`${first.text.trimEnd()}\n\n${second.text.trim()}`, MAX_NOTE_LENGTH * 2),
+        text: cleanNoteText(`${first.text.trimEnd()}\n\n${second.text.trim()}`, MAX_STORED_NOTE_LENGTH),
         created: earlier(mine.created, n.created),
         updated: later(mine.updated, n.updated),
       };

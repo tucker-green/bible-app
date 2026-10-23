@@ -8,14 +8,19 @@
 import { effect } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { flushPlace, readerHooks, savedPlace, savePlace } from '../../app/place';
+import type { ReadingPlace } from '../../app/place';
+import { explainApiBibleError, remoteProblem } from '../../app/remote';
 import { resolveTranslation } from '../../app/router';
 import {
   activeWord,
+  arrival,
   closeWord,
   listeningVerse,
   meta,
   metaError,
   navigate,
+  openSettings,
   passage,
   pinnedWord,
   readingMode,
@@ -30,15 +35,16 @@ import {
 import { bookmarks, highlights, notes } from '../../app/study';
 import { announceRendered } from '../../app/transitions';
 import { getBook } from '../../lib/books';
-import { loadChapter, loadText, nextChapter, prefetchChapter, prevChapter } from '../../lib/data';
-import { APIBIBLE_ATTRIBUTION, apiBibleMeta, createFumsIds, reportFums } from '../../lib/providers/apibible';
+import { hasTextSource, loadChapter, loadOrig, loadText, nextChapter, prefetchChapter, prevChapter } from '../../lib/data';
+import { APIBIBLE_ATTRIBUTION, ApiBibleError, apiBibleMeta, createFumsIds, reportFums } from '../../lib/providers/apibible';
 import type { FumsIds } from '../../lib/providers/apibible';
-import { formatChapter, refToHash } from '../../lib/reference';
+import { formatChapter, formatReference, refToHash } from '../../lib/reference';
 import type { TranslationMeta } from '../../lib/types';
 import { alignmentOf } from '../common/alignment';
 import { Icon } from '../common/Icon';
 import { trapTab } from '../common/hooks';
 import { UiIcon } from '../shell/icons';
+import { ListenButton } from '../listen/ListenButton';
 import { useBackClose } from '../shell/sheet';
 import { Typeset } from '../common/Typeset';
 import { ModeToggle } from '../header/Header';
@@ -104,45 +110,144 @@ function snapshotVisible(prose: HTMLElement): Snapshot {
   return { rects, anchor };
 }
 
+/* ------------------------------------------------------------------------ */
+/* Keeping the place (docs/EXPERIENCE.md §2: never lose the reader's position) */
+/* ------------------------------------------------------------------------ */
+
+let cancelSettle: (() => void) | null = null;
+/** Bumped by every settle() and by the reader's own scrolling: a deferred re-hold that sees a newer value is stale. */
+let settleGen = 0;
+
+/**
+ * Hold something at a viewport position while the layout settles. Long chapters lay out lazily
+ * (content-visibility: auto), so the blocks near the viewport take their real height a frame or two
+ * after a change and push the text around; one scroll correction is not enough. `measure` returns how
+ * far the anchor is from where it belongs (px, positive = too low), or null to give up. Corrects every
+ * frame until two frames agree (or `frames` have passed); the reader's own scrolling stops it.
+ */
+function settle(measure: () => number | null, opts: { immediate?: boolean; frames?: number } = {}): void {
+  cancelSettle?.();
+  let raf = 0;
+  let frames = 0;
+  let stable = 0;
+  let done = false;
+  const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+  settleGen++;
+  const stop = (e?: Event) => {
+    if (done) return;
+    if (e) settleGen++; // the reader took over: nothing deferred may move the page any more
+    done = true;
+    cancelAnimationFrame(raf);
+    events.forEach((t) => window.removeEventListener(t, stop, true));
+    if (cancelSettle === stop) cancelSettle = null;
+  };
+  const step = () => {
+    if (done) return;
+    const dy = measure();
+    if (dy === null) return stop();
+    if (Math.abs(dy) > 1) {
+      window.scrollBy(0, dy);
+      stable = 0;
+    } else stable++;
+    if (++frames >= (opts.frames ?? 14) || stable >= 2) return stop();
+    raf = requestAnimationFrame(step);
+  };
+  cancelSettle = stop;
+  events.forEach((t) => window.addEventListener(t, stop, { capture: true, passive: true }));
+  if (opts.immediate) step();
+  else raf = requestAnimationFrame(step);
+}
+
+/** Viewport extent of a verse (interlinear verses are display: contents: the union of their cells). */
+function verseRect(el: HTMLElement): { top: number; bottom: number } | null {
+  const r = el.getBoundingClientRect();
+  if (r.width || r.height) return { top: r.top, bottom: r.bottom };
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const c of Array.from(el.children) as HTMLElement[]) {
+    const b = c.getBoundingClientRect();
+    if (!b.width && !b.height) continue;
+    top = Math.min(top, b.top);
+    bottom = Math.max(bottom, b.bottom);
+  }
+  return top === Infinity ? null : { top, bottom };
+}
+
+/** The first verse showing below the header, and where its top is (px below the header). */
+function firstVisibleVerse(prose: HTMLElement): { verse: number; offset: number } | null {
+  const top = headerBottom();
+  const vh = window.innerHeight;
+  for (const block of Array.from(prose.children) as HTMLElement[]) {
+    const br = block.getBoundingClientRect();
+    if (br.bottom <= top + 1) continue;
+    if (br.top >= vh) break;
+    for (const v of Array.from(block.querySelectorAll<HTMLElement>('.verse[data-v]'))) {
+      const r = verseRect(v);
+      if (!r || r.bottom <= top + 1) continue;
+      return { verse: Number(v.dataset.v), offset: Math.round(r.top - top) };
+    }
+  }
+  return null;
+}
+
+/** How far verse `verse` is from `offset` px below the header (null when it is not rendered). */
+function verseDelta(prose: HTMLElement, verse: number, offset: number): number | null {
+  const el = prose.querySelector<HTMLElement>(`#v${verse}`);
+  const r = el ? verseRect(el) : null;
+  return r ? r.top - (headerBottom() + offset) : null;
+}
+
+/** Bring a saved place back on screen (verse 0 = the top of the chapter). */
+function restorePlace(prose: HTMLElement, place: ReadingPlace): void {
+  if (place.verse <= 0) {
+    window.scrollTo(0, 0);
+    return;
+  }
+  settle(() => verseDelta(prose, place.verse, place.offset), { immediate: true });
+}
+
 /** Keep the first visible word where it was, then let the words glide into their new places. */
 function restoreAndFlip(controller: ReaderController, prose: HTMLElement, snap: Snapshot, toInterlinear: boolean): void {
   const a = snap.anchor;
-  if (a) {
-    const el = controller.el(a.unit);
-    if (el) {
-      const dy = el.getBoundingClientRect().top - a.top;
-      if (Math.abs(dy) > 1) window.scrollBy(0, dy);
+  const anchorEl = a ? controller.el(a.unit) : null;
+  if (a && anchorEl) {
+    const dy = anchorEl.getBoundingClientRect().top - a.top;
+    if (Math.abs(dy) > 1) window.scrollBy(0, dy);
+  }
+  if (!reducedMotion() && typeof prose.animate === 'function') {
+    if (!toInterlinear) {
+      prose.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
+    } else {
+      const vh = window.innerHeight;
+      let i = 0;
+      for (const [unit, old] of snap.rects) {
+        if (i >= 160) break;
+        const el = controller.el(unit);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > vh) continue;
+        const dx = old.left - r.left;
+        const dy = old.top - r.top;
+        const easing = 'cubic-bezier(.16, 1, .3, 1)';
+        // The anchor stays put (it is what keeps the place); moving it would also skew the
+        // measurements of the settle loop below.
+        if (el !== anchorEl && (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5)) {
+          el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 280, easing });
+        }
+        el.querySelectorAll<HTMLElement>('.il__or, .il__tr, .il__gl').forEach((o) =>
+          o.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], {
+            duration: 200,
+            delay: 60 + Math.min(i, 40) * 4,
+            easing,
+            fill: 'backwards',
+          }),
+        );
+        i++;
+      }
     }
   }
-  if (reducedMotion() || typeof prose.animate !== 'function') return;
-  if (!toInterlinear) {
-    prose.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
-    return;
-  }
-  const vh = window.innerHeight;
-  let i = 0;
-  for (const [unit, old] of snap.rects) {
-    if (i >= 160) break;
-    const el = controller.el(unit);
-    if (!el) continue;
-    const r = el.getBoundingClientRect();
-    if (r.bottom < 0 || r.top > vh) continue;
-    const dx = old.left - r.left;
-    const dy = old.top - r.top;
-    const easing = 'cubic-bezier(.16, 1, .3, 1)';
-    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 280, easing });
-    }
-    el.querySelectorAll<HTMLElement>('.il__or, .il__tr, .il__gl').forEach((o) =>
-      o.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], {
-        duration: 200,
-        delay: 60 + Math.min(i, 40) * 4,
-        easing,
-        fill: 'backwards',
-      }),
-    );
-    i++;
-  }
+  // Blocks above the anchor that come into view render at their real height a frame later.
+  if (a) settle(() => (anchorEl?.isConnected ? anchorEl.getBoundingClientRect().top - a.top : null));
 }
 
 /** Timing of the last chapter render (also exposed as <html data-render-ms>). */
@@ -208,6 +313,12 @@ export function Reader() {
   const modelRef = useRef<ChapterModel | null>(null);
   const prevRender = useRef<{ key: string; mode: string } | null>(null);
   const pendingSnap = useRef<Snapshot | null>(null);
+  /** A saved place to bring back once this chapter has rendered (Back, reload, translation switch). */
+  const restoreRef = useRef<ReadingPlace | null>(null);
+  /** The chapter key whose saved place was restored (its verse target, if any, is then skipped). */
+  const restoredFor = useRef('');
+  /** The word to open again after the Greek / Hebrew layer has been fetched again. */
+  const repin = useRef<{ key: string; unit: number } | null>(null);
   const [drawer, setDrawer] = useState<'contents' | 'key' | null>(null);
   const drawerFrom = useRef<HTMLElement | null>(null);
   const openDrawer = (d: 'contents' | 'key', from: HTMLElement) => {
@@ -235,16 +346,21 @@ export function Reader() {
   const resolved = m ? resolveTranslation(tr, list) : tr;
   const ready = Boolean(m) && resolved === tr;
 
-  // Unknown / unavailable translation: fall back to the KJV (owner's decision).
+  // Unknown / unavailable translation: fall back to the KJV (owner's decision). Only the case of the
+  // id differing ("#/bsb/…") is no reason to say anything.
   useEffect(() => {
     if (!m || resolved === tr) return;
-    showToast(`The ${tr} isn’t available here — showing the ${resolved} instead.`);
+    if (resolved.toLowerCase() !== tr.toLowerCase()) showToast(`The ${tr} isn’t available here — showing the ${resolved} instead.`);
     navigate(ref, resolved, { replace: true });
   }, [m, tr, resolved]);
 
-  // New chapter: start at the top (unless a verse is targeted).
+  // New chapter: go back to the place this history entry remembers (Back, Forward, reload, another
+  // translation of the same chapter), else start at the top; a targeted verse is scrolled to once the
+  // chapter has rendered.
   useLayoutEffect(() => {
-    if (!passage.peek().ref.verse) window.scrollTo(0, 0);
+    restoreRef.current = savedPlace(key);
+    restoredFor.current = '';
+    if (!restoreRef.current) window.scrollTo(0, 0);
   }, [key]);
 
   // Load the chapter.
@@ -255,17 +371,29 @@ export function Reader() {
     setSt((cur) => (cur.key === key && cur.status === 'ready' ? cur : { key, status: 'loading', model: null }));
     setSlow(false);
     const t = setTimeout(() => !off && setSlow(true), 150);
-    loadChapter(tr, ref.book, ref.chapter).then(
-      ({ text, orig }) => {
-        if (off) return;
-        setSt({ key, status: 'ready', model: buildChapterModel(text, orig, { alignment: trMeta?.alignment, tr }) });
-        const n = nextChapter(ref.book, ref.chapter);
-        if (n) setTimeout(() => prefetchChapter(tr, n[0], n[1], { next: false }), 400);
-      },
-      (error: unknown) => {
-        if (!off) setSt({ key, status: 'error', model: null, error });
-      },
-    );
+    loadChapter(tr, ref.book, ref.chapter)
+      // Building the model is part of loading: data of an unexpected shape (e.g. an old cached app
+      // with newer data) shows the error notice with "Try again", not an endless skeleton.
+      .then(({ text, orig }) => buildChapterModel(text, orig, { alignment: trMeta?.alignment, tr }))
+      .then(
+        (model) => {
+          if (off) return;
+          setSt({ key, status: 'ready', model });
+          const n = nextChapter(ref.book, ref.chapter);
+          // Warm the next chapter — but never spend the reader's API.Bible quota (NIV…) on a chapter
+          // they have not opened: for runtime sources only the original-language layer is fetched.
+          if (n)
+            setTimeout(() => {
+              if (hasTextSource(tr)) loadOrig(n[0], n[1]).catch(() => undefined);
+              else prefetchChapter(tr, n[0], n[1], { next: false });
+            }, 400);
+        },
+        (error: unknown) => {
+          if (off) return;
+          if (!(error instanceof ApiBibleError)) console.error(`Rootword: ${key} didn’t load`, error);
+          setSt({ key, status: 'error', model: null, error });
+        },
+      );
     return () => {
       off = true;
       clearTimeout(t);
@@ -311,6 +439,17 @@ export function Reader() {
     applyMarks();
     markListening(el, listeningVerse.peek());
     if (snap) restoreAndFlip(controller, el, snap, mode === 'interlinear');
+    const again = repin.current;
+    if (again && again.key === model.key) {
+      repin.current = null;
+      if (model.units[again.unit]) pinnedWord.value = { key: model.key, unit: again.unit, via: 'click' };
+    }
+    const place = restoreRef.current;
+    if (place && place.key === model.key) {
+      restoreRef.current = null;
+      restoredFor.current = model.key;
+      restorePlace(el, place);
+    }
     prevRender.current = { key: model.key, mode };
     lastRender = {
       key: model.key,
@@ -328,6 +467,82 @@ export function Reader() {
   }, [model, mode, layout, s.headings, s.ilTranslit, s.ilGloss]);
 
   useEffect(() => () => controller.detach(), []);
+
+  // The place on screen, for this history entry (place.ts): written while scrolling (throttled), before
+  // in-app links and navigations leave the entry, and when the page is hidden. Text-size, spacing,
+  // font and layout changes keep the first visible word where it is.
+  useEffect(() => {
+    const capture = (): ReadingPlace | null => {
+      const el = proseRef.current;
+      const mdl = modelRef.current;
+      if (!el || !mdl || !el.firstElementChild || restoreRef.current || cancelSettle) return null;
+      if (window.scrollY < 4) return { key: mdl.key, verse: 0, offset: 0 };
+      const p = firstVisibleVerse(el);
+      return p ? { key: mdl.key, ...p } : null;
+    };
+    readerHooks.capture = capture;
+    readerHooks.beforeReflow = () => {
+      const el = proseRef.current;
+      if (!el || !modelRef.current || window.scrollY < 4) return;
+      const a = snapshotVisible(el).anchor;
+      if (!a) return;
+      const hold = () =>
+        settle(() => {
+          const u = controller.el(a.unit);
+          return u?.isConnected ? u.getBoundingClientRect().top - a.top : null;
+        });
+      hold();
+      // A reading font loads on demand: hold the place again once it has arrived — unless anything
+      // else (another change, the interlinear switch, the reader's own scrolling) came since.
+      const gen = settleGen;
+      const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+      if (fonts?.addEventListener) {
+        const again = () => {
+          if (settleGen === gen) hold();
+        };
+        const moved = () => settleGen++;
+        const input = ['wheel', 'touchstart', 'keydown'] as const;
+        fonts.addEventListener('loadingdone', again, { once: true });
+        input.forEach((t) => window.addEventListener(t, moved, { capture: true, passive: true }));
+        setTimeout(() => {
+          fonts.removeEventListener('loadingdone', again);
+          input.forEach((t) => window.removeEventListener(t, moved, true));
+        }, 2500);
+      }
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let last = 0;
+    const write = () => {
+      timer = undefined;
+      last = Date.now();
+      const p = capture();
+      if (p) savePlace(p);
+    };
+    const onScroll = () => {
+      if (timer) return;
+      timer = setTimeout(write, Math.max(0, 200 - (Date.now() - last)));
+    };
+    // In-app links: the browser pushes the new entry right after the click.
+    const onClick = (e: MouseEvent) => {
+      const a = e.target instanceof Element ? e.target.closest('a[href^="#/"]') : null;
+      if (a) flushPlace();
+    };
+    const onHide = () => flushPlace();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      flushPlace();
+      clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('pagehide', onHide);
+      if (readerHooks.capture === capture) {
+        readerHooks.capture = null;
+        readerHooks.beforeReflow = null;
+      }
+    };
+  }, []);
 
   // Study marks follow the signals (no re-render of the chapter).
   useEffect(
@@ -407,31 +622,84 @@ export function Reader() {
     [],
   );
 
-  // Verse targeting: #/KJV/JHN/3/16 scrolls to the verse and briefly highlights it.
+  // Verse targeting: #/KJV/JHN/3/16 scrolls to the verse and briefly highlights it. Keyboard focus
+  // that has nowhere to be (a search result or a cold link leaves it on <body>) goes to the verse
+  // number, so Tab and the arrow keys carry on from there.
   useEffect(() => {
     const root = proseRef.current;
     if (!model || !root || !ref.verse) return;
+    if (restoredFor.current === model.key) {
+      // Back to a remembered place: that place wins over the verse in the URL.
+      restoredFor.current = '';
+      return;
+    }
     const first = root.querySelector<HTMLElement>(`#v${ref.verse}`);
-    if (!first) return;
+    if (!first) {
+      // A verse this translation doesn't have (Matthew 17:21 in the BSB): say so, and show the
+      // nearest verse after it (else before it, else the top).
+      const vs = model.text.verses.map((v) => v.v).filter((v) => v > 0);
+      const near = vs.find((v) => v > ref.verse!) ?? [...vs].reverse().find((v) => v < ref.verse!);
+      showToast(`${formatReference({ book: model.book, chapter: model.chapter, verse: ref.verse })} isn’t in the ${trMeta?.abbr ?? tr}`);
+      const alt = near ? root.querySelector<HTMLElement>(`#v${near}`) : null;
+      requestAnimationFrame(() => {
+        if (alt) verseBox(alt).scrollIntoView({ block: 'center' });
+        else window.scrollTo(0, 0);
+      });
+      return;
+    }
     const to = ref.verseEnd ?? ref.verse;
     const els: HTMLElement[] = [];
     for (let v = ref.verse; v <= to; v++) {
       const el = root.querySelector<HTMLElement>(`#v${v}`);
       if (el) els.push(el);
     }
+    const verse = ref.verse;
     requestAnimationFrame(() => {
-      verseBox(first).scrollIntoView({ block: to > ref.verse! + 3 ? 'start' : 'center' });
+      verseBox(first).scrollIntoView({ block: to > verse + 3 ? 'start' : 'center' });
       els.forEach((el) => {
         el.classList.remove('is-target');
         void el.offsetWidth;
         el.classList.add('is-target');
       });
+      const active = document.activeElement;
+      if (!active || active === document.body) controller.vn(verse)?.focus({ preventScroll: true });
     });
     const t = setTimeout(() => els.forEach((el) => el.classList.remove('is-target')), 3200);
     return () => clearTimeout(t);
   }, [model, ref.verse, ref.verseEnd]);
 
+  // Focus asked for by the passage / translation pickers (state.focusOnArrival): the target verse's
+  // number, else the chapter title — once this chapter (and verse) is the one on screen.
+  useEffect(() => {
+    const want = arrival.value;
+    if (!want) return;
+    if (Date.now() - want.at > 15000) {
+      arrival.value = null;
+      return;
+    }
+    if (!model || want.key !== model.key || (want.verse ?? 0) !== (ref.verse ?? 0)) return;
+    arrival.value = null;
+    requestAnimationFrame(() => {
+      const el = want.verse ? controller.vn(want.verse) : document.getElementById('chapter-title');
+      if (!el) return;
+      if (!want.verse && !el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      el.focus({ preventScroll: true });
+    });
+  }, [model, ref.verse, arrival.value]);
+
   const testament = book.testament;
+  const origLang = testament === 'NT' ? 'Greek' : 'Hebrew';
+  /** The original-language layer failed: fetch it again and rebuild the chapter (keeping the open word). */
+  const reloadOrig = () => {
+    const p = pinnedWord.peek();
+    loadOrig(ref.book, ref.chapter).then(
+      () => {
+        repin.current = p && p.key === key ? { key, unit: p.unit } : null;
+        setAttempt((n) => n + 1);
+      },
+      () => showToast(`The ${origLang} still didn’t load. Check your connection and try again.`),
+    );
+  };
   const verseCount = m?.books.find((b) => b.id === book.id)?.verses[ref.chapter - 1] ?? model?.text.verses.length ?? 0;
 
   return (
@@ -459,6 +727,7 @@ export function Reader() {
           </p>
           <div class="ch-tools">
             <ModeToggle />
+            <ListenButton class="ch-listen" />
             <div class="rail-btns" role="group" aria-label="Chapter tools">
               <button type="button" class="rail-btn rail-btn--contents" aria-haspopup="dialog" onClick={(e) => openDrawer('contents', e.currentTarget as HTMLElement)}>
                 <UiIcon name="study" />
@@ -472,6 +741,14 @@ export function Reader() {
           </div>
         </header>
         {mode === 'interlinear' && <IlBar testament={testament} />}
+        {model && !model.orig && (
+          <p class="approx-banner approx-banner--warn" role="status">
+            <span aria-hidden="true">!</span> The {origLang} for this chapter didn’t load, so its words aren’t linked.{' '}
+            <button type="button" class="link-btn" onClick={reloadOrig}>
+              Try again
+            </button>
+          </p>
+        )}
         {trMeta?.alignment === 'bridged' && (
           <p class="approx-banner">
             <span aria-hidden="true">≈</span> Word links in the {trMeta.abbr} are matched automatically through the BSB and may be
@@ -490,9 +767,14 @@ export function Reader() {
             message={metaError.value ? 'Rootword couldn’t load its Bible data.' : `${formatChapter(ref.book, ref.chapter)} didn’t load in the ${trMeta?.abbr ?? tr}.`}
             onRetry={() => (metaError.value ? location.reload() : setAttempt((n) => n + 1))}
             offerKjv={tr !== 'KJV' && !metaError.value}
+            error={st.status === 'error' && !metaError.value ? st.error : undefined}
+            remote={Boolean(trMeta?.remote)}
+            tr={trMeta?.abbr ?? tr}
+            book={ref.book}
+            chapter={ref.chapter}
           />
         )}
-        <WordCard model={model} controller={controller} />
+        <WordCard model={model} controller={controller} onReloadOrig={reloadOrig} />
         <VerseSheet model={model} controller={controller} />
         <Loupe model={model} />
         <XrefBack />
@@ -567,18 +849,53 @@ function Skeleton() {
   );
 }
 
-function ErrorNotice({ message, onRetry, offerKjv }: { message: string; onRetry: () => void; offerKjv: boolean }) {
+function ErrorNotice({
+  message,
+  onRetry,
+  offerKjv,
+  error,
+  remote = false,
+  tr = '',
+  book = '',
+  chapter = 0,
+}: {
+  message: string;
+  onRetry: () => void;
+  offerKjv: boolean;
+  error?: unknown;
+  remote?: boolean;
+  tr?: string;
+  book?: string;
+  chapter?: number;
+}) {
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  // API.Bible translations: say what actually went wrong (a revoked key is not a connection problem).
+  const problem = remoteProblem.value;
+  const kind = error instanceof ApiBibleError ? error.kind : null;
+  const keyProblem = remote && (kind === 'auth' || kind === 'forbidden');
+  let body = offline ? 'You seem to be offline. Chapters you have opened before still work.' : 'Check your connection and try again.';
+  if (remote && !offline && error !== undefined && kind !== 'network') {
+    body =
+      problem && problem.tr === tr && problem.book === book && problem.chapter === chapter
+        ? problem.message
+        : explainApiBibleError(error, { what: formatChapter(book, chapter), tr: `the ${tr}` });
+  }
   return (
     <div class="notice" role="alert">
       <Icon name="alert" />
       <div>
         <p class="notice__title">{message}</p>
-        <p>{offline ? 'You seem to be offline. Chapters you have opened before still work.' : 'Check your connection and try again.'}</p>
+        <p>{body}</p>
         <div class="notice__actions">
-          <button type="button" class="btn-primary" onClick={onRetry}>
-            <Icon name="retry" /> Try again
-          </button>
+          {keyProblem ? (
+            <button type="button" class="btn-primary" onClick={() => openSettings('translations')}>
+              <UiIcon name="settings" /> Open Settings → Translations
+            </button>
+          ) : (
+            <button type="button" class="btn-primary" onClick={onRetry}>
+              <Icon name="retry" /> Try again
+            </button>
+          )}
           {offerKjv && (
             <button type="button" class="btn-quiet" onClick={() => navigate({ ...passage.value.ref, verse: undefined, verseEnd: undefined }, 'KJV')}>
               Read the KJV
@@ -644,7 +961,9 @@ function ChapterNav({ tr, bookId, chapter }: { tr: string; bookId: string; chapt
 function Colophon({ trMeta, testament, model }: { trMeta: TranslationMeta | null; testament: 'OT' | 'NT'; model: ChapterModel }) {
   const remote = apiBibleMeta(model.text);
   const parts = [
-    trMeta ? `${trMeta.abbr} text: ${trMeta.license.toLowerCase()}` : '',
+    // Bundled licences read "public domain"; a remote one keeps its own casing ("© Biblica, Inc.") —
+    // and its full copyright line is already just above, so it is not repeated.
+    trMeta && !remote ? `${trMeta.abbr} text: ${trMeta.remote ? trMeta.license : trMeta.license.replace(/^Public domain\b/i, 'public domain')}` : '',
     testament === 'NT' ? 'Greek: SBLGNT, CC BY 4.0' : 'Hebrew: WLC, public domain · Macula Hebrew, CC BY 4.0',
     trMeta?.alignment === 'manual' || trMeta?.alignment === 'bridged' ? 'Alignment: Clear Bible / Biblica, CC BY 4.0' : '',
     'Lexicons: STEPBible, CC BY 4.0',
@@ -867,7 +1186,7 @@ function RightRail({ trMeta, testament, inDrawer = false }: { trMeta: Translatio
           <dt>Links</dt>
           <dd>{align.long}</dd>
           <dt>Lexicon</dt>
-          <dd>{testament === 'NT' ? 'Abbott-Smith · Strong’s' : 'BDB (abridged) · Strong’s'}</dd>
+          <dd>{testament === 'NT' ? 'Abbott-Smith · Strong’s' : 'BDB (abridged) · Strong’s · prefix and suffix notes by Rootword'}</dd>
         </dl>
       </section>
     </aside>

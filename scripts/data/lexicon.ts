@@ -7,7 +7,15 @@
  *
  * Keys are normalised Strong's ids ("G0026", "H1121a", "H2050b"). One entry per STEP eStrong id
  * (STEP's dStrong sub-senses of the same id are folded into that entry as "Other uses"); a base id
- * ("H1121") is always present too, aliasing its most representative lettered variant.
+ * ("H1121") is always present too, aliasing the lettered variant that Macula's plain id actually means
+ * (homonyms.ts: Macula's H1004 is "house" = STEP H1004b, not H1004a "place").
+ *
+ * Definitions (`def`): Greek from TBESG (Abbott-Smith, CC BY 4.0). TBESH's Hebrew "Meaning" field is
+ * the Abridged BDB of Online Bible (© Larry Pierce), which may not be used without Online Bible's
+ * permission (TBESH header), so it is NOT shipped: Hebrew entries carry STEP's gloss and part of speech
+ * (CC BY) and the Strong's fields; only the morpheme entries written here have a Hebrew `def`. When
+ * there is no STEP definition, Strong's text stays in `strongsDef` (never copied into `def`), so the
+ * app can name its source correctly.
  *
  * Macula Hebrew (the source of WLCM.tsv, and so of every OT word in public/data/orig/) tags prefixes
  * and suffixes with its own extended ids whose base number is unrelated to the morpheme (H2050b = the
@@ -28,6 +36,7 @@ import type { BookInfo } from '../../src/lib/books';
 import type { ConcChunk, LexChunk, LexEntry, LexIndex, OrigChapter, TextChapter, Token } from '../../src/lib/types';
 import { OW } from '../../src/lib/types';
 import { allChapters, baseStrongs, chunkOf, cleanOut, log, normStrongs, outPath, readJson, srcPath, writeJson } from './common';
+import { loadHomonyms } from './homonyms';
 
 const STAGE = 'lexicon';
 
@@ -593,6 +602,7 @@ function editParen(plain: string, raw: string, middleLiddell: boolean): string |
  */
 export function sanitizeStepDef(raw: string, lang: Lang = 'G'): string {
   let s = (raw ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+  s = rewriteAlsoMeans(s);
   s = s.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
   // Elements removed together with their content.
   s = s.replace(
@@ -742,6 +752,15 @@ export function sanitizeStepDef(raw: string, lang: Lang = 'G'): string {
     .replace(/^(?:\s|<br>)+|(?:\s|<br>)+$/g, '')
     .replace(/ {2,}/g, ' ');
   return html.trim();
+}
+
+/**
+ * STEP's cross-reference markup inside a definition, "(אָהֵב ": friend" H0157H)", becomes readable:
+ * "(אָהֵב “friend”, H157)" (the id with its disambiguation letter and leading zeros dropped, so the
+ * app's Strong's-number linking picks it up).
+ */
+export function rewriteAlsoMeans(s: string): string {
+  return s.replace(/\(([^()"]+?) ": ([^"]+)" ([GH])0*(\d{1,4})[A-Za-z]?\)/g, (_m, word: string, gloss: string, l: string, n: string) => `(${word.trim()} “${gloss.trim()}”, ${l}${n})`);
 }
 
 /** True if `html` uses only the tags the app allows in LexEntry.def (used by tests and as a build check). */
@@ -1100,22 +1119,25 @@ function entryFromStep(
   lookup?: (uid: string) => StepRow | undefined,
 ): LexEntry {
   const primary = pickPrimary(rows);
-  let def = sanitizeStepDef(primary.def, lang);
+  // Hebrew: TBESH's Meaning is Online Bible's Abridged BDB (not licensed for reuse; see the header).
+  let def = lang === 'H' ? '' : sanitizeStepDef(primary.def, lang);
   let pos = decodeStepMorph(primary.morph, lang);
   const target = /form of/i.test(primary.rel) && primary.uid ? lookup?.(normStrongs(lang, primary.uid)) : undefined;
   if (target) {
-    const head = lemmaKey(defHeadLemma(primary.def), lang);
-    if (head && head !== lemmaKey(primary.lemma, lang) && head !== lemmaKey(target.lemma, lang)) {
-      def = sanitizeStepDef(target.def, lang);
+    if (lang === 'G') {
+      const head = lemmaKey(defHeadLemma(primary.def), lang);
+      if (head && head !== lemmaKey(primary.lemma, lang) && head !== lemmaKey(target.lemma, lang)) {
+        def = sanitizeStepDef(target.def, lang);
+      }
+      const tl = cleanLemma(target.lemma, lang);
+      def = `<i>Form of</i> ${escapeHtml(tl)} (${escapeHtml(normStrongs(lang, primary.uid))})${def ? `<br>${def}` : ''}`;
     }
-    const tl = cleanLemma(target.lemma, lang);
-    def = `<i>Form of</i> ${escapeHtml(tl)} (${escapeHtml(normStrongs(lang, primary.uid))})${def ? `<br>${def}` : ''}`;
     pos ||= decodeStepMorph(target.morph, lang);
   }
   const others = [
     ...new Set(rows.filter((r) => r !== primary).map((r) => r.gloss).filter((g) => g && g !== primary.gloss)),
   ];
-  if (others.length) def += `${def ? '<br>' : ''}<i>Other uses:</i> ${escapeHtml(others.join('; '))}`;
+  if (others.length && lang === 'G') def += `${def ? '<br>' : ''}<i>Other uses:</i> ${escapeHtml(others.join('; '))}`;
   const e: LexEntry = {
     id,
     lemma: cleanLemma(primary.lemma, lang) || cleanLemma(strongs?.lemma ?? '', lang),
@@ -1125,26 +1147,20 @@ function entryFromStep(
     def,
   };
   if (strongs) Object.assign(e, strongsFields(strongs));
-  if (!e.def && e.strongsDef) {
-    e.def = escapeHtml(e.strongsDef);
-    delete e.strongsDef;
-  }
   return e;
 }
 
 function entryFromStrongs(id: string, s: StrongsRaw, lang: Lang): LexEntry {
-  const f = strongsFields(s);
-  const e: LexEntry = {
+  // Strong's text stays in strongsDef (the app labels it "Strong's dictionary"); no STEP definition.
+  return {
     id,
     lemma: cleanLemma(s.lemma ?? '', lang),
     translit: strongsTranslit(s),
     pos: '',
     gloss: strongsGloss(s),
-    def: escapeHtml(f.strongsDef ?? ''),
-    ...f,
+    def: '',
+    ...strongsFields(s),
   };
-  delete e.strongsDef; // already shown as `def`
-  return e;
 }
 
 export interface LexBuild {
@@ -1166,6 +1182,10 @@ interface Sources {
   greekLemmas: Map<string, string>;
   /** Every id in Macula's strongnumberx column (what the orig stage stores for OT words). */
   maculaIds?: Set<string>;
+  /** STEP extended Greek ids (G6000+) used by the orig files, which get entries too. */
+  extendedIds?: Iterable<string>;
+  /** Plain Hebrew id -> the STEP variant its base alias should point to (homonyms.ts). */
+  homonymAlias?: ReadonlyMap<string, string>;
 }
 
 function groupBy(rows: StepRow[]): Map<string, StepRow[]> {
@@ -1229,6 +1249,9 @@ export function assembleLexicon(src: Sources): LexBuild {
       const sKey = s?.lemma ? lemmaKey(s.lemma, lang) : '';
       // Representative variant for the base id.
       let rep = ids.includes(base) ? base : '';
+      // How Macula uses the plain id decides (house = H1004b); else the Strong's lemma / list order.
+      const usage = src.homonymAlias?.get(base);
+      if (!rep && usage && ids.includes(usage)) rep = usage;
       if (!rep) {
         const score = (eid: string) => {
           const p = pickPrimary(groups.get(eid)!);
@@ -1271,6 +1294,14 @@ export function assembleLexicon(src: Sources): LexBuild {
         const k = greekFold(pickPrimary(rows).lemma);
         if (k && !byLemma.has(k)) byLemma.set(k, eid);
       }
+      // STEP's own extended ids that the texts use (the orig stage numbers SBLGNT's G0000 words
+      // ἄμωμον, Ἀρνί with them: G6007, G6095).
+      for (const id of src.extendedIds ?? []) {
+        if (entries.has(id) || !groups.has(id)) continue;
+        entries.set(id, entryFromStep(id, groups.get(id)!, 'G', undefined, lookup));
+        canonical.add(id);
+        bump('G.stepExtended');
+      }
       for (const [id, lemma] of src.greekLemmas) {
         if (entries.has(id) || !/^G\d{4}[a-z]$/.test(id)) continue;
         const match = byLemma.get(greekFold(lemma));
@@ -1281,7 +1312,7 @@ export function assembleLexicon(src: Sources): LexBuild {
       }
     }
     for (const [id, t] of morphemes) {
-      entries.set(id, { id, ...t });
+      entries.set(id, { id, ...t, src: 'rootword' });
       canonical.add(id);
       bump(`${lang}.morpheme`);
       // Keep the base-id invariant (never needed in practice: every H0001–H8674 already exists).
@@ -1858,7 +1889,21 @@ function loadSources(): Sources {
     morphemes,
     greekLemmas,
     maculaIds,
+    homonymAlias: loadHomonyms().alias,
+    extendedIds: origGreekExtendedIds(),
   };
+}
+
+/** Greek ids above the classic range (G6000+, STEP's extensions) that the orig files use. */
+function origGreekExtendedIds(): Set<string> {
+  const out = new Set<string>();
+  for (const { book, chapter } of allChapters()) {
+    if (book.testament !== 'NT') continue;
+    const p = outPath('orig', book.id, `${chapter}.json`);
+    if (!existsSync(p)) continue;
+    for (const w of readJson<OrigChapter>(p).words) if (/^G\d{4}$/.test(w[OW.strongs]) && Number(w[OW.strongs].slice(1)) > MAX_STRONGS.G) out.add(w[OW.strongs]);
+  }
+  return out;
 }
 
 /** Ids used by the original-language texts (SBLGNT.tsv, WLCM.tsv), normalised like the orig stage does. */

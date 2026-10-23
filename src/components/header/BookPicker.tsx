@@ -4,7 +4,7 @@
  */
 import type { RefObject } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { meta, navigate, passage } from '../../app/state';
+import { focusOnArrival, meta, navigate, passage } from '../../app/state';
 import { BOOKS, getBook } from '../../lib/books';
 import type { BookInfo } from '../../lib/books';
 import { parseReference } from '../../lib/reference';
@@ -46,7 +46,9 @@ export function BookPicker({ open, onClose, anchor }: { open: boolean; onClose: 
     }
   }, [open]);
 
+  // Keyboard focus moves to the passage once it is on screen (its verse number, or the chapter title).
   const go = (book: string, chapter: number) => {
+    focusOnArrival(passage.value.tr, { book, chapter });
     onClose();
     navigate({ book, chapter });
   };
@@ -67,6 +69,7 @@ export function BookPicker({ open, onClose, anchor }: { open: boolean; onClose: 
       setErr(q.trim() ? `“${q.trim()}” isn’t a passage Rootword knows.` : 'Type a reference, e.g. Jn 3:16.');
       return;
     }
+    focusOnArrival(passage.value.tr, ref);
     onClose();
     navigate(ref);
   };

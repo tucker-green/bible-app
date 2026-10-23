@@ -22,8 +22,10 @@
 .about__abbr { font-weight: 700; letter-spacing: .03em; color: var(--blue); margin-right: 4px; }
 .credits { list-style: none; margin: 0 0 var(--s-4); padding: 0; }
 .credits li { padding: 12px 0; border-top: 1px solid var(--rule); }
-.credits__head { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; font: 500 14px/1.4 var(--font-ui); }
-.credits__head a { color: var(--ink); text-decoration: none; }
+/* the licence wraps under a long name on tiny screens ("scrollmapper/bible_databases" at 280 px) */
+.credits__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; align-items: baseline; font: 500 14px/1.4 var(--font-ui); }
+.credits__head > :first-child { min-width: 0; }
+.credits__head a { color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
 .credits__head a:hover { color: var(--blue); text-decoration: underline; }
 .credits__lic { font: 600 11px/1 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); white-space: nowrap; }
 .credits p { margin: 4px 0 0; font: 400 13px/1.5 var(--font-ui); color: var(--ink-3); }

@@ -36,7 +36,7 @@ html.is-scrubbing .prose { touch-action: none; }
   animation: rw-coach-in var(--dur-2) var(--ease-out) both;
 }
 .coach > span { flex: 1; }
-.coach b { font-weight: 700; }
+.coach b { font-weight: 700; color: inherit; }
 @keyframes rw-coach-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .coach__x {
   display: inline-flex; align-items: center; justify-content: center; flex: none;

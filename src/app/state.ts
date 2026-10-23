@@ -10,6 +10,7 @@ import { registerTextSource, unregisterTextSource } from '../lib/data';
 import type { TextSource } from '../lib/data';
 import { refToHash } from '../lib/reference';
 import type { DataMeta, TranslationMeta, VerseRef } from '../lib/types';
+import { beforeReflow, flushPlace, readerHooks, savePlace } from './place';
 import type { Route } from './router';
 import { readJson, readString, writeJson, writeString } from './storage';
 
@@ -154,7 +155,7 @@ export const passage = signal<Passage>({ tr: 'KJV', ref: { book: 'JHN', chapter:
 
 export const theme = signal<Theme>(loadTheme());
 export const readingMode = signal<ReadingMode>(loadMode());
-/** Reading-text size multiplier (0.8–1.5). */
+/** Reading-text size multiplier (FONT_SCALE_MIN–MAX, 0.8–2; the UI steps through FONT_SCALES). */
 export const fontScale = signal<number>(loadFontScale());
 export const settings = signal<Settings>(loadSettings());
 
@@ -215,18 +216,34 @@ export function navigate(ref: VerseRef, tr: string = passage.value.tr, opts: { r
   goToHash(refToHash(tr, ref), opts.replace);
 }
 
-/** Switch translation, keeping the chapter. */
+/** Switch translation, keeping the chapter — and the place in it: the verse on screen stays there. */
 export function setTranslation(tr: string): void {
-  const { ref } = passage.value;
+  const { tr: from, ref } = passage.value;
+  const place = tr !== from ? (readerHooks.capture?.() ?? null) : null;
   navigate({ book: ref.book, chapter: ref.chapter }, tr);
+  // The new history entry starts at the same verse (its top just below the header if the reader was
+  // part-way through it), restored by the reader once the other translation has rendered.
+  if (place && place.verse > 0) savePlace({ key: `${tr}/${ref.book}/${ref.chapter}`, verse: place.verse, offset: Math.max(12, place.offset) });
 }
+
+type HistMarks = Record<string, unknown> & { rwSheet?: string; rwXref?: string; rwPos?: unknown };
 
 export function goToHash(hash: string, replace = false): void {
   if (typeof window === 'undefined') return;
+  if (!replace && window.location.hash === hash) return;
+  // The entry being left remembers the reading position (Back returns to it; see place.ts).
+  flushPlace();
+  const st = (window.history.state ?? null) as HistMarks | null;
   if (replace) {
     window.history.replaceState(window.history.state, '', hash);
     window.dispatchEvent(new HashChangeEvent('hashchange'));
-  } else if (window.location.hash !== hash) {
+  } else if (st?.rwSheet) {
+    // A sheet's Back marker (shell/sheet.ts useBackClose) is the current entry: take its place
+    // instead of pushing past it, or Back would land on a dead copy of the page underneath.
+    const { rwSheet: _sheet, rwXref: _xref, rwPos: _pos, ...rest } = st;
+    window.history.replaceState(rest, '', hash);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  } else {
     window.location.hash = hash;
   }
 }
@@ -276,7 +293,10 @@ export function setReadingMode(m: ReadingMode): void {
 }
 
 export function setFontScale(n: number): void {
-  fontScale.value = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(n * 100) / 100));
+  const next = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(n * 100) / 100));
+  if (next === fontScale.peek()) return;
+  beforeReflow(); // the reader keeps the first visible words where they are
+  fontScale.value = next;
 }
 
 /** Step the reading-text size through FONT_SCALES (+1 bigger, -1 smaller). */
@@ -300,8 +320,30 @@ export function openPanel(id: PanelId, from?: HTMLElement | null): void {
   });
 }
 
+/**
+ * Keyboard focus to move once a navigation has landed (chapter rendered): the target verse's number,
+ * or the chapter title. Set by the passage and translation pickers (focusOnArrival); consumed by the
+ * reader. While it is pending, closing a panel does not send focus back to the panel's trigger.
+ */
+export const arrival = signal<{ key: string; verse?: number; at: number } | null>(null);
+
+/** Move keyboard focus to `ref` (its verse number, else the chapter title) once it is on screen. */
+export function focusOnArrival(tr: string, ref: VerseRef): void {
+  arrival.value = { key: `${tr}/${ref.book}/${ref.chapter}`, verse: ref.verse, at: Date.now() };
+}
+
+/** Close the open panel; keyboard focus returns to the button that opened it (unless it moved on). */
 export function closePanel(): void {
+  if (!panel.peek()) return;
   panel.value = null;
+  const anchor = panelAnchor.current;
+  if (!anchor || typeof requestAnimationFrame !== 'function') return;
+  requestAnimationFrame(() => {
+    if (panel.peek() || arrival.peek()) return;
+    const a = document.activeElement;
+    const lost = !a || a === document.body || !a.isConnected || Boolean(a.closest('.pop'));
+    if (lost && anchor.isConnected && anchor.getClientRects().length) anchor.focus({ preventScroll: true });
+  });
 }
 
 export function togglePanel(id: PanelId, from?: HTMLElement | null): void {
@@ -323,8 +365,13 @@ export function closeVerseSheet(): void {
   verseSheet.value = null;
 }
 
+/** Settings that reflow the reading text (the reader keeps its place across them). */
+const REFLOW_KEYS: readonly (keyof Settings)[] = ['layout', 'headings', 'readingFont', 'lineSpacing', 'letterSpacing', 'justify', 'ilTranslit', 'ilGloss'];
+
 export function updateSettings(patch: Partial<Settings>): void {
-  settings.value = { ...settings.value, ...patch };
+  const cur = settings.peek();
+  if (REFLOW_KEYS.some((k) => k in patch && patch[k] !== cur[k])) beforeReflow();
+  settings.value = { ...cur, ...patch };
 }
 
 /** True when motion should collapse to fades (Settings → Motion, else the OS preference). */

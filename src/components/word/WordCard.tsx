@@ -2,8 +2,9 @@
  * The word card: the Greek / Hebrew behind an English word, directly below it (or above when there
  * is no room), or as a bottom sheet on narrow / touch screens.
  *
- * Hover / keyboard focus: role="tooltip" (the word points at it with aria-describedby).
- * Pinned (click, tap, Enter): role="dialog"; the sheet form traps focus.
+ * Hover / keyboard focus: role="tooltip". Opened by keyboard focus it is inert (no Tab stops inside —
+ * Tab moves on past the text; the live region announces a one-line summary). Pinned (click, tap,
+ * Enter): role="dialog", its links and buttons reachable; the sheet form traps focus.
  *
  * Sheet form (docs/EXPERIENCE.md §2): opens at peek height (~45%) with a spring, the page scrolls so
  * the tapped word stays above it, drag / fling between peek · full · closed (shell/sheet.ts),
@@ -61,7 +62,16 @@ function useLoad<T>(id: string, load: (id: string) => Promise<T>, retry: number)
   return state && state.id === id ? state : id ? { id, status: 'loading' } : null;
 }
 
-export function WordCard({ model, controller }: { model: ChapterModel | null; controller: ReaderController }) {
+export function WordCard({
+  model,
+  controller,
+  onReloadOrig,
+}: {
+  model: ChapterModel | null;
+  controller: ReaderController;
+  /** Fetch the chapter's Greek / Hebrew again (offered when it didn't load). */
+  onReloadOrig?: () => void;
+}) {
   const pinned = pinnedWord.value;
   const active = activeWord.value;
   const ref = pinned ?? active;
@@ -287,6 +297,8 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
         role={role}
         aria-label={isPinned ? `Word study: ${card.headword || card.english}` : undefined}
         aria-modal={sheet && isPinned ? 'true' : undefined}
+        // A keyboard-focus tooltip holds no Tab stops (ARIA tooltip pattern): Enter pins it.
+        inert={!isPinned && ref?.via === 'focus'}
         tabIndex={-1}
         data-keep-word
         onPointerEnter={() => controller.cardEnter()}
@@ -304,6 +316,8 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
           <CardTop card={card} pinned={isPinned || sheet} onClose={() => close(!sheet)} />
           {card.kind === 'supplied' ? (
             <SuppliedBody card={card} />
+          ) : card.kind === 'unavailable' ? (
+            <UnavailableBody card={card} onRetry={onReloadOrig} />
           ) : (
             <>
               <CardHero card={card} lxxGloss={lxxLex?.value?.gloss ?? ''} />
@@ -314,7 +328,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
             </>
           )}
           <EntitySection book={model.book} chapter={model.chapter} origIndices={unit?.links ?? []} />
-          {card.kind !== 'supplied' && (
+          {card.kind !== 'supplied' && (card.kind !== 'unavailable' || Boolean(card.strongs)) && (
             <Definition
               card={card}
               lex={lex}
@@ -646,11 +660,13 @@ function Definition({
   if (!entry || !nodes || !nodes.length) {
     return <div class="card__def card__def--none">No dictionary entry for {card.strongsLabel || 'this word'}.</div>;
   }
-  const source = entry.def
-    ? card.strongs.startsWith('G')
-      ? 'Abbott-Smith via STEPBible'
-      : 'BDB (abridged) via STEPBible'
-    : 'Strong’s dictionary';
+  const source = !entry.def
+    ? 'Strong’s dictionary'
+    : entry.src === 'rootword'
+      ? 'Rootword (Hebrew grammar note)'
+      : card.strongs.startsWith('G')
+        ? 'Abbott-Smith via STEPBible'
+        : 'BDB (abridged) via STEPBible';
   return (
     <div class="card__def">
       <div ref={txtRef} class={`card__def-txt${expanded ? ' is-open' : ''}`}>
@@ -677,6 +693,22 @@ function SuppliedBody({ card }: { card: CardModel }) {
       <p>
         No {lang} word stands behind <i>{card.english}</i>. The translators added it so the English reads naturally, and the KJV prints
         such words in italics.
+      </p>
+    </div>
+  );
+}
+
+function UnavailableBody({ card, onRetry }: { card: CardModel; onRetry?: () => void }) {
+  return (
+    <div class="card__supplied card__unavailable" role="status">
+      <p class="card__supplied-title">{card.note}</p>
+      <p>
+        The English reads normally, but its words aren’t linked to the {card.testament === 'NT' ? 'Greek' : 'Hebrew'} until it loads.{' '}
+        {onRetry && (
+          <button type="button" class="link-btn" onClick={onRetry}>
+            Try again
+          </button>
+        )}
       </p>
     </div>
   );
@@ -712,7 +744,9 @@ function CardFoot({ card, conc, book }: { card: CardModel; conc: Load<number[]> 
               {b && inBook > 0 && (
                 <>
                   {' · '}
-                  <b>{inBook.toLocaleString('en-US')}</b> in {b.name}
+                  <span class="lbl__in">
+                    <b>{inBook.toLocaleString('en-US')}</b> in {b.name}
+                  </span>
                 </>
               )}
             </span>

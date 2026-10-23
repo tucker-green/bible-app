@@ -227,6 +227,11 @@ export interface LexEntry {
    * most frequent first (top 6). Built from the word links, e.g. { BSB: [["word",139],["words",53]], KJV: [...] }.
    */
   renderings?: Record<string, [string, number][]>;
+  /**
+   * Who wrote `def` when it is not STEPBible's: 'rootword' for the short entries written for Hebrew
+   * prefix / suffix morphemes (H2050b "and", H0871a "in"…), which have no STEP entry. Absent = STEP.
+   */
+  src?: 'rootword';
 }
 
 /**

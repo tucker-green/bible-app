@@ -66,13 +66,20 @@ export function CompareSection({ book, chapter, verse, tr }: VerseSectionProps) 
           const here = t.id === tr;
           const text = st?.status === 'ready' ? verseText(st.text, verse) : null;
           const remote = st?.status === 'ready' ? apiBibleMeta(st.text) : undefined;
+          // A translation without this verse links to the chapter, not to a verse it doesn't have.
+          const missing = st?.status === 'ready' && !text;
           return (
             <li key={t.id} class={`cmpv__row${here ? ' is-here' : ''}`} aria-current={here ? 'true' : undefined}>
               <div class="cmpv__head">
                 {here ? (
                   <span class="cmpv__abbr">{t.abbr}</span>
                 ) : (
-                  <a class="cmpv__abbr" href={refToHash(t.id, ref)} onClick={() => closeVerseSheet()} aria-label={`${t.abbr}: read ${refLabel} in the ${t.name}`}>
+                  <a
+                    class="cmpv__abbr"
+                    href={refToHash(t.id, missing ? { book, chapter } : ref)}
+                    onClick={() => closeVerseSheet()}
+                    aria-label={missing ? `${t.abbr}: read ${chLabel} in the ${t.name}` : `${t.abbr}: read ${refLabel} in the ${t.name}`}
+                  >
                     {t.abbr}
                   </a>
                 )}

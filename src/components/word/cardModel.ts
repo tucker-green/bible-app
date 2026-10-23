@@ -27,7 +27,12 @@ export interface Morpheme {
 }
 
 export interface CardModel {
-  kind: 'linked' | 'lexicon' | 'supplied';
+  /**
+   * 'linked': an original word of the chapter; 'lexicon': a Strong's tag with no word of the
+   * critical text behind it (KJV / Textus Receptus); 'supplied': translators' addition;
+   * 'unavailable': a linked word whose original-language chapter didn't load (try again).
+   */
+  kind: 'linked' | 'lexicon' | 'supplied' | 'unavailable';
   unitId: number;
   /** The English unit as printed. */
   english: string;
@@ -60,7 +65,7 @@ export interface CardModel {
   lemma: string;
   /** Septuagint-equivalent Greek word (OT). */
   lxx: { text: string; strongs: string; strongsLabel: string; translit: string } | null;
-  /** Lexicon-only (KJV / TR) note. */
+  /** Lexicon-only (KJV / TR) note, or why the original is unavailable. */
   note: string;
 }
 
@@ -149,6 +154,20 @@ export function buildCardModel(model: ChapterModel, unit: Unit): CardModel {
   };
 
   if (unit.kind === 'supplied') return base;
+
+  // A linked word without its original: the Greek / Hebrew chapter didn't load (or the link points
+  // nowhere). Never claim it is missing from the critical text — that is what 'lexicon' units say.
+  if (unit.kind === 'linked' && (!primary || !orig)) {
+    const sid = unit.strongs[0] ? (normalizeStrongs(unit.strongs[0]) ?? unit.strongs[0]) : '';
+    const label = testament === 'NT' ? 'Greek' : 'Hebrew';
+    return {
+      ...base,
+      kind: 'unavailable',
+      strongs: sid,
+      strongsLabel: sid ? displayStrongs(sid) : '',
+      note: orig ? `The ${label} word behind this couldn’t be found.` : `The ${label} for this chapter didn’t load.`,
+    };
+  }
 
   if (unit.kind === 'lexicon' || !primary || !orig) {
     const sid = unit.strongs[0] ? (normalizeStrongs(unit.strongs[0]) ?? unit.strongs[0]) : '';
@@ -254,6 +273,7 @@ export function cardBaseStrongs(c: CardModel): string {
 /** A one-line spoken summary for the live region: "λόγος, logos, noun: word". */
 export function cardSummary(c: CardModel): string {
   if (c.kind === 'supplied') return `${c.english}: supplied by the translators, no original word.`;
+  if (c.kind === 'unavailable') return `${c.english}: ${c.note}`;
   const pos = c.parsing?.ok ? c.parsing.pos.toLowerCase() : '';
   const parts = [c.headword, c.translit].filter(Boolean).join(', ');
   const gloss = c.gloss ? `: ${c.gloss}` : '';

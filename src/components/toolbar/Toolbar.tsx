@@ -59,6 +59,7 @@ export function Toolbar() {
         class="tb-btn"
         aria-expanded={searchOpen.value}
         aria-controls={searchOpen.value ? 'search-panel' : undefined}
+        data-search-trigger
         onClick={() => {
           openSearch();
           requestAnimationFrame(() => (document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null)?.focus());

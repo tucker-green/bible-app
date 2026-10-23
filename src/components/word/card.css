@@ -195,6 +195,7 @@ html.is-scrubbing .word-card *, html.is-scrubbing .word-card { animation: none !
 .dist .axis { display: flex; justify-content: space-between; font: 500 9.5px/1 var(--font-ui); color: var(--ink-3); margin-top: 3px; letter-spacing: .02em; }
 .dist .lbl { font-size: 11.5px; color: var(--ink-3); line-height: 1.3; }
 .dist .lbl b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dist .lbl__in { white-space: nowrap; }
 .card__actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .card__study {
   display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border-radius: 6px;
@@ -222,7 +223,11 @@ html.is-scrubbing .word-card *, html.is-scrubbing .word-card { animation: none !
   pointer-events: none;
   animation: rw-fade-in var(--dur-2) var(--ease);
 }
-html.has-sheet .prose > :has(.w.is-open) { position: relative; z-index: 2; }
+/* the lifted block is opaque paper, so its text and accent verse numbers keep full contrast */
+html.has-sheet .prose > :has(.w.is-open) {
+  position: relative; z-index: 2;
+  background-color: var(--paper); box-shadow: 0 0 0 .3em var(--paper); border-radius: 4px;
+}
 html.has-sheet .w.is-open { position: relative; z-index: 2; background-color: var(--wash); }
 html.has-sheet main { padding-bottom: 62dvh; }
 /* Height = content, up to the full detent; the visible part is set with transform (shell/sheet.ts). */

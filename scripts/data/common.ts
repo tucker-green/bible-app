@@ -161,8 +161,11 @@ export function readBsbTokens(t: Testament): BsbTokenRow[] {
     }));
 }
 
-/** One manual alignment record: source ids (n…/o… BCVW[P]) <-> BSB target ids (BBCCCVVVWWW). Many-to-many. */
-export type AlignRecord = [source: string[], target: string[]];
+/**
+ * One manual alignment record: source ids (n…/o… BCVW[P]) <-> BSB target ids (BBCCCVVVWWW). Many-to-many.
+ * `repaired` marks a record the orig stage re-paired because the source's targets were shuffled.
+ */
+export type AlignRecord = [source: string[], target: string[], repaired?: boolean];
 
 export function readAlignment(t: Testament): AlignRecord[] {
   const file = t === 'NT' ? 'SBLGNT-BSB-manual.json' : 'WLCM-BSB-manual.json';

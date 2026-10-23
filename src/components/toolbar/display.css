@@ -94,6 +94,10 @@
 
 @media (max-width: 640px) {
   .dp { width: auto; }
+  /* A compact sheet with no dimming: the reading text above it stays in view and reflows live as
+     the size, font and spacing change (the rest of the panel scrolls inside). */
+  .pop--sheet.dp { max-height: min(56dvh, 560px); overflow-y: auto; }
+  .pop-scrim:has(+ .pop--sheet.dp) { background: transparent; }
   .dp__body { padding: 6px 16px 8px; gap: 14px; }
   .dp-links { border-radius: 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
 }

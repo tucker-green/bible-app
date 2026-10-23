@@ -249,8 +249,9 @@ export function splitStrongs(text: string): StrongsPart[] {
 }
 
 /** Where the lexicon definition comes from. */
-export function lexSource(entry: Pick<LexEntry, 'id' | 'def'>): string {
+export function lexSource(entry: Pick<LexEntry, 'id' | 'def' | 'src'>): string {
   if (!entry.def) return 'Strong’s dictionary';
+  if (entry.src === 'rootword') return 'Rootword (a note on this Hebrew prefix or suffix)';
   return entry.id.startsWith('G') ? 'Abbott-Smith’s Manual Greek Lexicon, via STEPBible' : 'Brown-Driver-Briggs (abridged), via STEPBible';
 }
 

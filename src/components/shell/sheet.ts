@@ -15,7 +15,7 @@
  * The pure helpers (pickDetent, springStep) are unit-tested.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { reducedMotion } from '../../app/state';
+import { goToHash, reducedMotion } from '../../app/state';
 
 export type Detent = 'peek' | 'full' | 'closed';
 
@@ -383,6 +383,23 @@ function onBackPop(): void {
 }
 
 /**
+ * A plain click on an in-app link ("#/…") while a sheet's marker entry is current: navigate by
+ * replacing that entry (goToHash does this), not by pushing past it — otherwise the marker stays
+ * behind as a dead entry and Back has to be pressed twice. Runs after the link's own onClick (which
+ * usually closes the sheet); links that handle navigation themselves call preventDefault.
+ */
+function onLinkClick(e: MouseEvent): void {
+  if (!backMarker || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if ((window.history.state as { rwSheet?: string } | null)?.rwSheet !== backMarker) return;
+  const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+  if (!(a instanceof HTMLAnchorElement) || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+  const href = a.getAttribute('href') ?? '';
+  if (!href.startsWith('#/')) return;
+  e.preventDefault();
+  goToHash(href);
+}
+
+/**
  * Close an open sheet / dialog with the browser's (Android) back button: while any sheet is open
  * there is one extra history entry (same URL, so the hash router ignores it); back closes the open
  * sheets. Closing in-app removes the entry again.
@@ -396,6 +413,7 @@ export function useBackClose(open: boolean, onClose: () => void): void {
     backClosers.add(closer);
     if (!backListening) {
       window.addEventListener('popstate', onBackPop);
+      document.addEventListener('click', onLinkClick);
       backListening = true;
     }
     if (!backMarker) {

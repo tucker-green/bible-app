@@ -214,7 +214,9 @@ export function TranslationsSection() {
         </p>
       )}
       <p class="st-field__hint" id="st-key-help">
-        Your key is stored only in this browser and sent only to API.Bible. Disconnect removes it.
+        Your key is stored only in this browser and sent only to API.Bible. Disconnect removes it. While you read an API.Bible
+        translation, API.Bible’s required fair-use reporting (fums.api.bible) counts each chapter shown, with a random device ID kept in
+        this browser and a session ID — no key or personal data.
       </p>
       {conn && (
         <button

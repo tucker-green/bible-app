@@ -250,6 +250,27 @@ export interface LinkedWord {
 
 const ARTICLE = 'G3588';
 
+/** Robinson pronoun codes (personal, relative, demonstrative, reflexive, possessive…). */
+const PRONOUN_MORPH = /^[PRCDKIXQFS]-/;
+/** Case + number of a Robinson nominal code ("P-ASM" -> "AS", "P-1GS" -> "GS"), or "". */
+export const caseNumber = (morph: string) => /^[A-Z]+-(?:[123])?([NGDAV])([SP])/.exec(morph)?.slice(1).join('') ?? '';
+/** Case-number-gender of a Greek nominal / article code ("T-ASM" -> "ASM"), or "". */
+export const cng = (morph: string) => /-([NGDAV][SP][MFN])$/.exec(morph)?.[1] ?? '';
+
+/**
+ * A Hebrew bound morpheme: a pronominal suffix, or a prefix before its written word's root
+ * (in וּמִשְׁעַנְתֶּךָ the וּ and the ךָ; the root is the last morpheme that is not a suffix).
+ */
+export function isBoundMorpheme(words: readonly OrigWord[], j: number): boolean {
+  const w = words[j];
+  if (!w || !/^[\u0590-\u05FF]/.test(w[OW.text])) return false;
+  if (w[OW.morph].startsWith('S')) return true;
+  const g = w[OW.group];
+  let root = j;
+  for (let k = j + 1; k < words.length && words[k][OW.group] === g; k++) if (!words[k][OW.morph].startsWith('S')) root = k;
+  return root !== j;
+}
+
 const OBJECT_PRONOUNS = new Set(['him', 'them', 'me', 'us', 'thee', 'it', 'her', 'you']);
 const LEADING_PREPOSITIONS = new Set(['unto', 'to', 'with', 'for', 'upon', 'on', 'from', 'of', 'in', 'against', 'before', 'by']);
 
@@ -371,16 +392,43 @@ export function linkKjvVerse(
       o.entries.add(k);
     });
   });
+  // Article tags that only ever come with a noun on one English word ("God" = ὁ θεός) are placed with
+  // their noun (below), never on their own: a TR article whose noun the SBLGNT lacks must not land on
+  // some other article of the verse (1 John 5:7 "the Father" on οἱ, John 11:45 "Jesus" on τὴν).
+  const attachedArticle = new Set<string>();
+  const freeArticle = new Set<string>();
+  entries.forEach((e, k) =>
+    e.tags.forEach((t, ti) => {
+      if (t.strongs !== ARTICLE) return;
+      (e.tags.some((x) => x.strongs !== ARTICLE) ? attachedArticle : freeArticle).add(occOfTag[k][ti]);
+    }),
+  );
+  for (const key of freeArticle) attachedArticle.delete(key);
+  // Hebrew bound morphemes (prefixes before a word's root, pronominal suffixes) never take a content
+  // tag of another number (KJV H1 "fathers" is not the suffix נוּ "our").
+  const bound = (j: number) => isBoundMorpheme(words, j);
   // Candidates by match key, with relative position in the verse's original words.
   type Cand = { j: number; pos: number };
   const candBy = new Map<string, Cand[]>();
   cand.forEach((j, r) => {
+    const own = words[j][OW.strongs] ? baseStrongs(words[j][OW.strongs]) : '';
     for (const key of keysOf(j)) {
+      if (key !== own && bound(j)) continue;
       let list = candBy.get(key);
       if (!list) candBy.set(key, (list = []));
       list.push({ j, pos: cand.length > 1 ? r / (cand.length - 1) : 0 });
     }
   });
+  // Greek pronouns: the TR's case and number must agree with the SBLGNT word's ("them" = αὐτούς can
+  // not take αὐτοῦ).
+  const caseOk = (tagMorph: string, j: number) => {
+    if (!PRONOUN_MORPH.test(tagMorph)) return true;
+    const a = caseNumber(tagMorph);
+    const b = caseNumber(words[j][OW.morph]);
+    return !a || !b || a === b;
+  };
+  const tagOfOcc = new Map<string, KjvTag>();
+  entries.forEach((e, k) => e.tags.forEach((t, ti) => tagOfOcc.set(occOfTag[k][ti], t)));
   const assigned = new Map<string, number>();
   const extraLinks = new Map<string, number[]>();
   const byBase = new Map<string, Occ[]>();
@@ -391,18 +439,30 @@ export function linkKjvVerse(
   }
   for (const list of byBase.values()) list.sort((a, b) => a.pos - b.pos);
   const assign = (list: readonly Occ[], cs: readonly Cand[]) => {
-    const pick = monotoneAssign(
-      list.map((o) => o.pos),
-      cs.map((c) => c.pos),
-    );
-    list.forEach((o, i) => {
-      if (pick[i] >= 0) assigned.set(o.key, cs[pick[i]].j);
-    });
+    // Pronouns: assign within each case-number class of the TR form first.
+    const groups = new Map<string, Occ[]>();
+    for (const o of list) {
+      const m = tagOfOcc.get(o.key)?.morph ?? '';
+      const cls = PRONOUN_MORPH.test(m) ? caseNumber(m) : '';
+      groups.set(cls, [...(groups.get(cls) ?? []), o]);
+    }
+    for (const [cls, occ] of groups) {
+      const pool = cls ? cs.filter((c) => caseOk(tagOfOcc.get(occ[0].key)!.morph, c.j)) : cs;
+      const pick = monotoneAssign(
+        occ.map((o) => o.pos),
+        pool.map((c) => c.pos),
+      );
+      occ.forEach((o, i) => {
+        if (pick[i] >= 0) assigned.set(o.key, pool[pick[i]].j);
+      });
+    }
   };
-  // 1. Same Strong's number (or another form-number of the same Greek lemma).
+  // 1. Same Strong's number (or another form-number of the same Greek lemma). Articles that go with
+  //    a noun wait for their noun.
   for (const [base, list] of byBase) {
     const cs = candBy.get(base);
-    if (cs) assign(list, cs);
+    const occ = base === ARTICLE ? list.filter((o) => !attachedArticle.has(o.key)) : list;
+    if (cs && occ.length) assign(occ, cs);
   }
   // 2. Learned equivalences (the KJV's Strong's vs the source's own choice, e.g. H3212 / H1980),
   //    only to words nothing else links.
@@ -414,30 +474,39 @@ export function linkKjvVerse(
       if (!eq) continue;
       const seen = new Set<number>();
       const cs: Cand[] = [];
-      for (const s of eq) for (const c of candBy.get(s) ?? []) if (!taken.has(c.j) && !seen.has(c.j)) (seen.add(c.j), cs.push(c));
+      for (const s of eq) for (const c of candBy.get(s) ?? []) if (!taken.has(c.j) && !seen.has(c.j) && !bound(c.j)) (seen.add(c.j), cs.push(c));
       if (!cs.length) continue;
       cs.sort((a, b) => a.j - b.j);
       assign(rest, cs);
       for (const o of rest) if (assigned.has(o.key)) taken.add(assigned.get(o.key)!);
     }
   }
-  // Article + noun on one English word: the article is the one just before the noun (TR offset).
+  // Article + noun on one English word: the article of the noun's own phrase — the nearest article
+  // up to 3 words before the noun (over adjectives / particles), agreeing in case, number and gender
+  // with the noun (or, for an indeclinable noun, with the TR article). No such article: none.
+  const articleTaken = new Set(assigned.values());
+  const inCand = new Set(cand);
   entries.forEach((e, k) => {
     if (e.tags.length < 2) return;
     const anchorIdx = e.tags.findIndex((t, ti) => t.strongs !== ARTICLE && assigned.has(occOfTag[k][ti]));
     if (anchorIdx < 0) return;
-    const anchor = e.tags[anchorIdx];
     const aj = assigned.get(occOfTag[k][anchorIdx])!;
     e.tags.forEach((t, ti) => {
-      if (t.strongs !== ARTICLE) return;
-      const offset = t.src && anchor.src ? t.src - anchor.src : -1;
-      const want = aj + offset;
-      let best = -1;
-      for (const c of candBy.get(ARTICLE) ?? []) {
-        if (Math.abs(c.j - want) > 3) continue;
-        if (best < 0 || Math.abs(c.j - want) < Math.abs(best - want)) best = c.j;
+      const key = occOfTag[k][ti];
+      if (t.strongs !== ARTICLE || !attachedArticle.has(key) || assigned.has(key)) return;
+      for (let r = aj - 1; r >= Math.max(0, aj - 3) && inCand.has(r); r--) {
+        const w = words[r];
+        if (w[OW.strongs] === ARTICLE) {
+          const nounCng = cng(words[aj][OW.morph]);
+          const ok = nounCng ? cng(w[OW.morph]) === nounCng : !cng(t.morph) || cng(w[OW.morph]) === cng(t.morph);
+          if (ok && !articleTaken.has(r)) {
+            assigned.set(key, r);
+            articleTaken.add(r);
+          }
+          break;
+        }
+        if (!/^(?:A-|ADV|CONJ|PRT|N-|V-[A-Z]+P-)/.test(w[OW.morph])) break;
       }
-      if (best >= 0) assigned.set(occOfTag[k][ti], best);
     });
   });
 
@@ -541,7 +610,11 @@ export function linkKjvVerse(
     const links = wordLinks[wi++];
     const info: TokenInfo = {};
     if (e.added) info.i = 1;
-    const unlinked = e.tags.filter((_, ti) => !assigned.has(occOfTag[p.entry][ti]));
+    let unlinked = e.tags.filter((_, ti) => !assigned.has(occOfTag[p.entry][ti]));
+    // A KJV "the" folded into a linked noun whose SBLGNT phrase has no matching article is no
+    // separate word; with an unlinked (TR-only) noun it stays, after the noun.
+    if (links.length) unlinked = unlinked.filter((t) => t.strongs !== ARTICLE || e.tags.every((x) => x.strongs === ARTICLE));
+    unlinked = [...unlinked.filter((t) => t.strongs !== ARTICLE), ...unlinked.filter((t) => t.strongs === ARTICLE)];
     if (unlinked.length) {
       info.s = unlinked.map((t) => t.strongs);
       if (unlinked.some((t) => t.morph)) info.m = unlinked.map((t) => t.morph);
@@ -620,10 +693,15 @@ export function bsbTable(origOf: (book: BookId, chapter: number) => OrigChapter)
 /* Build                                                                     */
 /* ------------------------------------------------------------------------ */
 
-/** Lemma groups: for each lemma of the original words, the Strong's ids used for it (>= `min` times). */
+/**
+ * Lemma groups (Greek only): for each lemma of the SBLGNT words, the Strong's ids used for it (each at
+ * least `min` times and 5% of the lemma's occurrences). Hebrew is left out: Macula gives every
+ * pronominal suffix the lemma הוּא, which would make "fathers" (H1) match the suffix נוּ.
+ */
 export function lemmaGroups(chapters: Iterable<OrigChapter>, min = 5): Map<string, string[]> {
   const counts = new Map<string, Map<string, number>>();
   for (const oc of chapters) {
+    if (oc.lang !== 'grc') continue;
     for (const w of oc.words) {
       if (!w[OW.strongs] || !w[OW.lemma]) continue;
       let m = counts.get(w[OW.lemma]);
@@ -634,7 +712,8 @@ export function lemmaGroups(chapters: Iterable<OrigChapter>, min = 5): Map<strin
   }
   const out = new Map<string, string[]>();
   for (const [lemma, m] of counts) {
-    const ids = [...m].filter(([, n]) => n >= min).map(([s]) => s);
+    const total = [...m.values()].reduce((a, b) => a + b, 0);
+    const ids = [...m].filter(([, n]) => n >= min && n >= 0.05 * total).map(([s]) => s);
     if (ids.length > 1) out.set(lemma, ids);
   }
   return out;

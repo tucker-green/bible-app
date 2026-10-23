@@ -74,6 +74,32 @@ export function ThemeToggle() {
   );
 }
 
+/** The next focus on the search field is a return (Esc), not a request to open the search. */
+let quietFocus = false;
+
+/**
+ * After the search closes from the keyboard, put focus back on whatever opens it (the header field,
+ * the header's search button, or the phone toolbar's Search) — never leave it on <body>.
+ */
+export function focusSearchTrigger(): void {
+  requestAnimationFrame(() => {
+    const a = document.activeElement;
+    if (a && a !== document.body && a.isConnected && a.getClientRects().length && !a.closest('#search-panel')) {
+      if (a.id !== SEARCH_INPUT_ID) return;
+    }
+    const shown = (el: Element | null): el is HTMLElement => el instanceof HTMLElement && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+    const input = document.getElementById(SEARCH_INPUT_ID);
+    for (const el of [input, document.querySelector('.search__btn-mobile'), document.querySelector('[data-search-trigger]')]) {
+      if (!shown(el)) continue;
+      if (el === document.activeElement) return;
+      if (el === input) quietFocus = true;
+      el.focus({ preventScroll: true });
+      quietFocus = false;
+      return;
+    }
+  });
+}
+
 function SearchField() {
   const inputRef = useRef<HTMLInputElement>(null);
   const open = searchOpen.value;
@@ -101,7 +127,8 @@ function SearchField() {
     if (e.key === 'Escape') {
       e.preventDefault();
       closeSearch();
-      inputRef.current?.blur();
+      // Combobox pattern: focus stays on the field (or moves to the search button where the field hides).
+      focusSearchTrigger();
     } else if (e.key === 'Enter') {
       const m = meta.value;
       const ref = parseReference(searchQuery.value, {
@@ -148,7 +175,9 @@ function SearchField() {
           aria-controls={open ? (searchCombo.value.expanded ? SEARCH_LISTBOX_ID : 'search-panel') : undefined}
           aria-activedescendant={(open && searchCombo.value.activeId) || undefined}
           value={searchQuery.value}
-          onFocus={() => openSearch()}
+          onFocus={() => {
+            if (!quietFocus) openSearch();
+          }}
           onInput={(e) => {
             searchQuery.value = (e.target as HTMLInputElement).value;
             if (!searchOpen.value) openSearch();
