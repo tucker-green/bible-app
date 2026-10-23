@@ -91,7 +91,7 @@
 .theme-btn { flex: none; }
 
 /* ---------- Translation menu ---------------------------------------------- */
-.tr-menu { width: 420px; padding: 8px; }
+.tr-menu { width: 452px; padding: 8px; }
 .tr-menu__head { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 10px 10px; }
 .tr-menu hr { border: 0; border-top: 1px solid var(--rule); margin: 6px 4px; }
 .tr-item {
@@ -200,6 +200,17 @@
   .chapters button { height: 44px; font-size: 14px; }
   .tr-menu { width: auto; padding: 4px 8px 12px; }
   .tr-item { padding: 12px 10px; }
+}
+@media (pointer: coarse) {
+  .masthead .btn { height: 44px; }
+  .masthead .btn--icon { width: 44px; }
+  .seg button { height: 36px; }
+  .books__grid button { height: 40px; }
+  .tr-item { min-height: 52px; }
+}
+@media (pointer: coarse) and (max-width: 640px) {
+  .locator__step { width: 36px; }
+  .theme-btn, .search__btn-mobile { width: 42px; }
 }
 @media (max-width: 380px) {
   .locator__step { display: none; }

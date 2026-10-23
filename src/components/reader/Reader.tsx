@@ -26,6 +26,7 @@ import { formatChapter, refToHash } from '../../lib/reference';
 import type { TranslationMeta } from '../../lib/types';
 import { alignmentOf } from '../common/alignment';
 import { Icon } from '../common/Icon';
+import { Typeset } from '../common/Typeset';
 import { ModeToggle } from '../header/Header';
 import { bookEyebrow } from '../word/cardModel';
 import { WordCard } from '../word/WordCard';
@@ -415,7 +416,9 @@ function LeftRail({ model, tr, bookId, chapter }: { model: ChapterModel | null; 
                 <li key={`${v}-${t}`}>
                   <a href={refToHash(tr, { book: bookId, chapter, verse: v })} aria-current={current === v ? 'true' : undefined}>
                     <span class="n">{v}</span>
-                    <span>{t}</span>
+                    <span>
+                      <Typeset text={t} />
+                    </span>
                   </a>
                 </li>
               ))}
@@ -470,7 +473,7 @@ function RightRail({ trMeta, testament }: { trMeta: TranslationMeta | null; test
             </span>
             <span>Supplied by the translators (KJV italics); nothing stands behind it.</span>
           </li>
-          {(trMeta?.alignment === 'bridged' || trMeta?.alignment === 'manual') && (
+          {trMeta?.alignment === 'bridged' && (
             <li>
               <span class="sample">
                 <span class="w w--approx is-active">word</span>

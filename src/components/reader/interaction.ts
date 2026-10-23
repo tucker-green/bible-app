@@ -232,6 +232,15 @@ export class ReaderController {
         e.stopPropagation();
         this.focusUnit(this.step(unit, e.key === 'ArrowRight' ? 1 : -1));
         break;
+      case 'ArrowDown':
+      case 'ArrowUp': {
+        const target = this.verseStep(unit, e.key === 'ArrowDown' ? 1 : -1);
+        if (target === null) return; // let the page scroll
+        e.preventDefault();
+        e.stopPropagation();
+        this.focusUnit(target);
+        break;
+      }
       case 'Home':
       case 'End': {
         e.preventDefault();
@@ -278,6 +287,24 @@ export class ReaderController {
       i += delta;
     }
     return unit;
+  }
+
+  /** First unit of the next (+1) or previous (-1) verse, or null at the ends. */
+  private verseStep(unit: number, dir: 1 | -1): number | null {
+    const units = this.model?.units;
+    if (!units?.[unit]) return null;
+    const v = units[unit].verse;
+    if (dir === 1) {
+      for (let i = unit + 1; i < units.length; i++) if (units[i].verse !== v && this.els[i]) return i;
+      return null;
+    }
+    // previous verse: walk back past this verse, then to the first unit of that verse
+    let i = unit - 1;
+    while (i >= 0 && units[i].verse === v) i--;
+    if (i < 0) return null;
+    const pv = units[i].verse;
+    while (i > 0 && units[i - 1].verse === pv) i--;
+    return this.els[i] ? i : null;
   }
 
   private setRoving(unit: number): void {

@@ -8,7 +8,7 @@
   justify-content: center;
   align-items: start;
 }
-.rail { position: sticky; top: calc(var(--header-h) + 40px); font-size: var(--fs-meta); color: var(--ink-2); max-height: calc(100vh - var(--header-h) - 56px); overflow: auto; scrollbar-width: thin; padding-bottom: 8px; }
+.rail { position: sticky; top: calc(var(--header-h) + 40px); font-size: var(--fs-meta); color: var(--ink-2); max-height: calc(100dvh - var(--header-h) - 56px); overflow: auto; scrollbar-width: thin; padding-bottom: 8px; }
 .rail section + section { margin-top: var(--s-6); padding-top: var(--s-5); border-top: 1px solid var(--rule); }
 .rail__title { margin-bottom: var(--s-3); }
 .rail__note { margin-top: 10px; padding-left: 12px; font-size: 11.5px; color: var(--ink-3); font-style: italic; }
@@ -142,35 +142,43 @@
   100% { background: transparent; box-shadow: 0 0 0 3px transparent; }
 }
 
-/* ---------- Linked English words ----------------------------------------- */
+/* ---------- Linked English words -----------------------------------------
+   At rest the text is plain. Hover / focus: ink-blue on the wash. The open word adds a cinnabar
+   underline that draws left to right; words linked to the same original share the wash; other
+   words with the same Strong's number get a dotted ink-blue underline; approximate links dash
+   the underline; supplied (italic) words stay grey. Never colour alone: each state changes shape. */
 .w {
   cursor: pointer;
   border-radius: 3px;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  transition: background-color .12s var(--ease), color .12s var(--ease), box-shadow .12s var(--ease);
   padding: .06em .08em; margin: -.06em -.08em;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0 2px;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background-size var(--dur-1) var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
-  .prose .w:hover { background: var(--wash); color: var(--blue); }
+  .prose .w:hover { background-color: var(--wash); color: var(--blue); }
 }
-.w.is-linked, .w.is-active { background: var(--wash); color: var(--blue); }
-.w.is-active { box-shadow: inset 0 -2px 0 var(--accent); }
+.w.is-linked, .w.is-active { background-color: var(--wash); color: var(--blue); }
+.w.is-active { background-size: 100% 2px; }
 .w.w--approx.is-active {
-  box-shadow: none;
   background-image: linear-gradient(to right, var(--accent) 60%, transparent 0);
-  background-size: 6px 2px; background-repeat: repeat-x; background-position: 0 100%;
-  background-color: var(--wash);
+  background-size: 6px 2px; background-repeat: repeat-x;
 }
 .w.is-kin:not(.is-active):not(.is-linked) {
   background-image: linear-gradient(to right, var(--kin) 50%, transparent 0);
   background-size: 4px 1.5px; background-repeat: repeat-x; background-position: 0 94%;
+  animation: rw-fade-kin var(--dur-1) var(--ease) var(--dur-1) both;
 }
+@keyframes rw-fade-kin { from { background-size: 4px 0; } to { background-size: 4px 1.5px; } }
 .w:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; background-color: var(--wash); color: var(--blue); }
-.w--sup { font-style: italic; color: var(--ink-3); }
-.prose .w--sup:hover, .w--sup.is-active { background: var(--sunken); color: var(--ink-2); box-shadow: none; }
-.w--sup.is-active { box-shadow: inset 0 -1px 0 var(--ink-3); }
-.w--lex.is-active { box-shadow: inset 0 -2px 0 var(--ink-3); }
+.w--sup { font-style: italic; color: var(--ink-3); background-image: linear-gradient(var(--ink-3), var(--ink-3)); }
+.prose .w--sup:hover, .w--sup.is-active { background-color: var(--sunken); color: var(--ink-2); }
+.w--sup.is-active { background-size: 100% 1px; }
+.w--lex { background-image: linear-gradient(var(--ink-3), var(--ink-3)); }
 
 /* ---------- Interlinear -------------------------------------------------- */
 .prose--il { max-width: none; line-height: 1.25; }
@@ -210,10 +218,9 @@
 .il__tr { margin-top: 2px; font: italic 400 .7em/1.3 var(--font-text); color: var(--ink-3); white-space: nowrap; }
 .il__gl { margin-top: 1px; font: 400 .64em/1.3 var(--font-ui); color: var(--ink-3); white-space: nowrap; }
 .il--plain .il__en { color: var(--ink); }
-.prose--il .w:hover, .prose--il .w.is-linked, .prose--il .w.is-active { background: var(--wash); color: inherit; }
-.prose--il .w.is-active { box-shadow: inset 0 -2px 0 var(--accent); }
+.prose--il .w:hover, .prose--il .w.is-linked, .prose--il .w.is-active { background-color: var(--wash); color: inherit; }
 .prose--il .w:hover .il__en, .prose--il .w.is-linked .il__en, .prose--il .w.is-active .il__en { color: var(--blue); }
-.prose--il .w.is-kin:not(.is-active):not(.is-linked) { background-image: none; box-shadow: inset 0 0 0 1px var(--wash-2); }
+.prose--il .w.is-kin:not(.is-active):not(.is-linked) { background-image: none; box-shadow: inset 0 0 0 1px var(--wash-2); animation: none; }
 .prose--il .w--sup .il__en { font-style: italic; color: var(--ink-3); }
 .prose--il .w--sup { font-style: normal; }
 .il-para .verse.is-target > .il, .il-para .verse.is-target > .vn { animation: rw-target 3s var(--ease) forwards; }
@@ -273,6 +280,14 @@
 }
 .colophon a { color: var(--ink-2); }
 .colophon a:hover { color: var(--blue); }
+
+/* ---------- Touch ---------------------------------------------------------- */
+@media (pointer: coarse) {
+  .prose { --lh-text: 1.78; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .prose--il { line-height: 1.3; }
+  .vgrid a { height: 36px; }
+  .toc a { padding-top: 8px; padding-bottom: 8px; }
+}
 
 /* ---------- Responsive --------------------------------------------------- */
 @media (max-width: 1240px) {

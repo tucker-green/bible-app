@@ -58,8 +58,10 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   const sheet = Boolean(card) && (size.width < 720 || (isPinned && (pinned?.via === 'touch' || coarse)));
   const cardRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const [full, setFull] = useState(false);
   const [retry, setRetry] = useState(0);
   const scrolledFor = useRef('');
+  const openedAt = useRef(0);
   const tr = model?.tr ?? '';
   const trMeta = translations.value.find((t) => t.id === tr) ?? null;
 
@@ -70,7 +72,41 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   const conc = useLoad<number[]>(concId, loadConcordance, retry);
 
   const wordKey = card ? `${model?.key}:${card.unitId}` : '';
-  useEffect(() => setExpanded(false), [wordKey]);
+  useEffect(() => {
+    setExpanded(false);
+    setFull(false);
+    openedAt.current = Date.now();
+  }, [wordKey]);
+
+  // While the sheet is open, reserve room below the text so the last lines can scroll above it.
+  const sheetOpen = sheet && isPinned;
+  useEffect(() => {
+    document.documentElement.classList.toggle('has-sheet', sheetOpen);
+    return () => document.documentElement.classList.remove('has-sheet');
+  }, [sheetOpen]);
+
+  // Keep the tapped word visible above the sheet, also while the sheet grows (content loading).
+  const keepVisible = () => {
+    const el = cardRef.current;
+    if (!el || !unit || Date.now() - openedAt.current > 1500) return;
+    const anchor = controller.el(unit.id);
+    if (!anchor) return;
+    const r = anchor.getBoundingClientRect();
+    const sheetTop = window.innerHeight - el.getBoundingClientRect().height;
+    const header = document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0;
+    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let dy = 0;
+    if (r.bottom > sheetTop - 16) dy = r.bottom - (sheetTop - 16);
+    else if (r.top < header + 8) dy = r.top - header - 24;
+    if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!sheet || !el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => keepVisible());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [sheet, wordKey]);
 
   // Tell the controller where the card is (pointer travel into it keeps a hover card open).
   useEffect(() => {
@@ -91,17 +127,9 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
       el.style.left = '';
       el.style.top = '';
       el.style.maxHeight = '';
-      // Keep the tapped word visible above the sheet.
       if (scrolledFor.current !== wordKey) {
         scrolledFor.current = wordKey;
-        const anchor = controller.el(unit.id);
-        if (anchor) {
-          const r = anchor.getBoundingClientRect();
-          const sheetTop = window.innerHeight - el.offsetHeight;
-          const header = document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0;
-          if (r.bottom > sheetTop - 16) window.scrollBy({ top: r.bottom - (sheetTop - 16), behavior: 'smooth' });
-          else if (r.top < header + 8) window.scrollBy({ top: r.top - header - 16, behavior: 'smooth' });
-        }
+        requestAnimationFrame(keepVisible);
       }
       return;
     }
@@ -172,13 +200,20 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
   };
 
   const role = isPinned ? 'dialog' : 'tooltip';
-  const cls = ['word-card', sheet ? 'is-sheet' : 'is-pop', isPinned ? 'is-pinned' : '', card.approx ? 'is-approx' : '', `is-${card.kind}`]
+  const cls = [
+    'word-card',
+    sheet ? 'is-sheet' : 'is-pop',
+    sheet && full ? 'is-full' : '',
+    isPinned ? 'is-pinned' : '',
+    card.approx ? 'is-approx' : '',
+    `is-${card.kind}`,
+  ]
     .filter(Boolean)
     .join(' ');
 
   return (
     <>
-      {sheet && isPinned && <div class="word-scrim" aria-hidden="true" onClick={() => close(false)} />}
+      {sheetOpen && <div class="word-scrim" aria-hidden="true" />}
       <div
         ref={cardRef}
         id="word-card"
@@ -193,7 +228,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
         onKeyDown={onKeyDown}
       >
         {!sheet && <span class="card__notch" aria-hidden="true" />}
-        {sheet && <SheetHandle onClose={() => close(false)} cardRef={cardRef} />}
+        {sheet && <SheetHandle onClose={() => close(false)} full={full} setFull={setFull} cardRef={cardRef} />}
         <div class="card__inner">
           <CardTop card={card} pinned={isPinned || sheet} onClose={() => close(true)} />
           {card.kind === 'supplied' ? (
@@ -211,6 +246,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
                 expanded={expanded}
                 onExpand={() => {
                   setExpanded(true);
+                  if (sheet) setFull(true);
                   if (!isPinned) pinnedWord.value = { ...ref!, via: 'click' };
                 }}
                 onCollapse={() => setExpanded(false)}
@@ -228,8 +264,26 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
 
 /* ------------------------------------------------------------------------ */
 
-function SheetHandle({ onClose, cardRef }: { onClose: () => void; cardRef: { current: HTMLDivElement | null } }) {
+/** Drag handle of the bottom sheet: drag up → full height, drag down → peek height / close. */
+function SheetHandle({
+  onClose,
+  full,
+  setFull,
+  cardRef,
+}: {
+  onClose: () => void;
+  full: boolean;
+  setFull: (v: boolean) => void;
+  cardRef: { current: HTMLDivElement | null };
+}) {
   const start = useRef<number | null>(null);
+  const reset = () => {
+    start.current = null;
+    if (cardRef.current) {
+      cardRef.current.style.transform = '';
+      cardRef.current.style.transition = '';
+    }
+  };
   return (
     <div
       class="sheet-handle"
@@ -237,23 +291,24 @@ function SheetHandle({ onClose, cardRef }: { onClose: () => void; cardRef: { cur
       onPointerDown={(e) => {
         start.current = e.clientY;
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        if (cardRef.current) cardRef.current.style.transition = 'none';
       }}
       onPointerMove={(e) => {
         if (start.current === null || !cardRef.current) return;
-        const dy = Math.max(0, e.clientY - start.current);
+        const dy = Math.max(-40, e.clientY - start.current);
         cardRef.current.style.transform = `translateY(${dy}px)`;
       }}
       onPointerUp={(e) => {
         if (start.current === null) return;
         const dy = e.clientY - start.current;
-        start.current = null;
-        if (cardRef.current) cardRef.current.style.transform = '';
-        if (dy > 70) onClose();
+        reset();
+        if (dy < -24) setFull(true);
+        else if (dy > 70) {
+          if (full) setFull(false);
+          else onClose();
+        } else if (Math.abs(dy) < 4) setFull(!full);
       }}
-      onPointerCancel={() => {
-        start.current = null;
-        if (cardRef.current) cardRef.current.style.transform = '';
-      }}
+      onPointerCancel={reset}
     >
       <span />
     </div>
@@ -440,12 +495,16 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
           <dd class="rend">
             {rend ? (
               <>
-                {rend.list.map(([w, n], i) => (
+                {rend.list.map(([w, n], i) => [
+                  i > 0 ? (
+                    <span key={`s${i}`} class="sep">
+                      {' · '}
+                    </span>
+                  ) : null,
                   <span class="r" key={w}>
-                    {i > 0 && <span class="sep"> · </span>}
                     <b>{w}</b> <span class="n">{n.toLocaleString('en-US')}</span>
-                  </span>
-                ))}
+                  </span>,
+                ])}
                 {rend.from !== trMeta?.id && <span class="rend__from"> in the {rend.from}</span>}
               </>
             ) : entry?.kjv ? (
@@ -465,7 +524,7 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
           <dd class="others">
             {card.others.map((w, i) => (
               <span key={w.index} class="other">
-                {i > 0 && <span class="sep"> · </span>}
+                {i > 0 && <span class="sep">{' · '}</span>}
                 <span class={w.lang === 'grc' ? 'grc' : 'hbo'} lang={htmlLang(w.lang)} dir={w.lang === 'grc' ? undefined : 'rtl'}>
                   {w.text}
                 </span>{' '}

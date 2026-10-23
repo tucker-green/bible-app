@@ -481,8 +481,9 @@ export function findPath(
     for (const cur of frontier) {
       const p = fam.get(cur)!;
       const edges: [string, 'parent' | 'child'][] = [];
-      if (dir !== 'up') for (const c of p.children) edges.push([c, 'child']);
+      // Parents first: in 'any' mode, equally short routes then go through a common ancestor.
       if (dir !== 'down') for (const c of p.parents) edges.push([c, 'parent']);
+      if (dir !== 'up') for (const c of p.children) edges.push([c, 'child']);
       for (const [nid, rel] of edges) {
         if (prev.has(nid) || !fam.has(nid)) continue;
         prev.set(nid, { from: cur, rel });

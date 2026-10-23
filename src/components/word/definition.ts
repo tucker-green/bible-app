@@ -187,6 +187,7 @@ export function splitDefinitionHead(nodes: DefNode[], lemma: string): { head: De
   const first = nodes[0];
   if (first.t !== 'b' || fold(defToText(first.c)) !== fold(lemma)) return { head: null, body: nodes };
   const head = nodes.slice(0, br);
-  if (defToText(head).length > 90) return { head: null, body: nodes };
+  // Only a compact heading ("λόγος, -ου, ὁ (λέγω)") is worth lifting out; long ones stay in the text.
+  if (defToText(head).length > 40) return { head: null, body: nodes };
   return { head, body: nodes.slice(br + 1) };
 }

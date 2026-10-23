@@ -283,7 +283,8 @@ export function parseLinks(field: string | undefined): TipnrLink[] {
 /** "https://www.google.com/maps/@33.545097,36.224661,14z" -> [33.545097, 36.224661]; undefined if none. */
 export function parseCoords(...urls: (string | undefined)[]): [number, number] | undefined {
   for (const url of urls) {
-    const m = /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/.exec(url ?? '');
+    // "@lat,long,14z" (Google) or "@lat,long" at the end (palopenmaps); "@0,14z" means unknown.
+    const m = /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)(?=,\d+(?:\.\d+)?z|$|[/?#&])/.exec(url ?? '');
     if (!m) continue;
     const lat = Number(m[1]);
     const lon = Number(m[2]);

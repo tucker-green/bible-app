@@ -115,7 +115,6 @@
 .rend__kjv { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .lexgl { color: var(--ink-3); }
 .facts .lexgl { font-size: 12.5px; }
-.others .other { white-space: nowrap; }
 .skeleton--inline { display: inline-block; width: 70%; height: .8em; margin: 0; vertical-align: middle; }
 
 /* notes */
@@ -181,22 +180,28 @@
 .btn-all .icon { width: 15px; height: 15px; }
 
 /* ---------- Bottom sheet (narrow / touch) --------------------------------- */
+/* The scrim dims the text but lets taps through (tap another word to swap the sheet); the open
+   word is lifted above it so it stays readable. */
 .word-scrim {
-  position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1);
+  position: fixed; inset: 0; z-index: 1;
   background: var(--scrim);
+  pointer-events: none;
   animation: rw-fade-in .2s var(--ease);
 }
+html.has-sheet .w.is-open { position: relative; z-index: 2; background-color: var(--wash); }
+html.has-sheet main { padding-bottom: 48dvh; }
 .word-card.is-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; top: auto;
-  width: auto; max-width: none; max-height: 74vh;
+  width: auto; max-width: none; max-height: 58dvh;
   z-index: var(--z-sheet);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; border-bottom: 0;
   box-shadow: inset 0 1px 0 var(--card-top), var(--shadow-sheet);
   animation: rw-sheet-in .22s var(--ease);
   padding-bottom: env(safe-area-inset-bottom);
   overflow-y: auto;
-  transition: transform .18s var(--ease);
+  transition: transform .18s var(--ease), max-height .24s var(--ease);
 }
+.word-card.is-sheet.is-full { max-height: 90dvh; }
 .word-card.is-sheet .card__inner { padding: 4px 20px 0; }
 .word-card.is-sheet.is-supplied .card__inner { padding-bottom: 20px; }
 .word-card.is-sheet .card__foot { margin-top: 16px; padding: 12px 20px 16px; border-radius: 0; }
