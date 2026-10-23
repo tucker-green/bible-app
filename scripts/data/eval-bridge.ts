@@ -243,7 +243,7 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
         }
         if (showIt) {
           const show = (ls: Iterable<number>) => [...ls].map((j) => `${words[j][OW.text]}(${words[j][OW.strongs]})`).join('+') || '∅';
-          console.log(`  ${g.text.padEnd(14)} gold ${isItalic ? '[italic]' : show(g.links)}   pred ${show(p.links)} ${correct ? '✓' : predicted ? '✗' : ''}`);
+          console.log(`  ${g.text.padEnd(14)} gold ${isItalic ? '[italic]' : show(g.links)}   pred ${show(p.links)} ${correct ? '✓' : unverifiable ? '?' : predicted ? '✗' : ''}`);
         }
       });
       // Confidence bins (all evaluable predicted words).

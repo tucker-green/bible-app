@@ -22,7 +22,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isFunctionWord, lemmas } from '../../src/lib/align/normalize';
+import { fitsMorpheme, isFunctionWord, lemmas, wordClass } from '../../src/lib/align/normalize';
 import { TableBuilder, type TranslationTable } from '../../src/lib/align/table';
 import { segment } from '../../src/lib/tokenize';
 import type { BookId, OrigChapter, OrigWord, TextChapter, TextVerse, Token, TokenInfo, WordToken } from '../../src/lib/types';
@@ -249,7 +249,77 @@ export interface LinkedWord {
 }
 
 const ARTICLE = 'G3588';
+
 const OBJECT_PRONOUNS = new Set(['him', 'them', 'me', 'us', 'thee', 'it', 'her', 'you']);
+const LEADING_PREPOSITIONS = new Set(['unto', 'to', 'with', 'for', 'upon', 'on', 'from', 'of', 'in', 'against', 'before', 'by']);
+
+/**
+ * The KJV's OT tagging often starts a tagged element with the object pronoun (or "unto them") of the
+ * PREVIOUS word: "number | them, every one that entereth" = H935; "Deliver | me from the workers" =
+ * H6466; "said | unto them, I am to be gathered" = H622. Such leading words are moved to the suffix
+ * (and preposition) of the preceding word or of the word right after it (אֹתָם, אֲלֵיהֶם), when the
+ * BSB-trained table backs the pairing. Indices of moved words are added to `moved`.
+ */
+function movePronouns(
+  entries: readonly KjvEntry[],
+  wordPieces: readonly { text: string; entry: number }[],
+  wordLinks: number[][],
+  lem: readonly string[],
+  words: readonly OrigWord[],
+  table: TranslationTable,
+  moved: Set<number>,
+): void {
+  const linkedIdx = new Set(wordLinks.flat());
+  const group = (start: number) => {
+    const out: number[] = [];
+    for (let k = start; k < words.length && words[k][OW.group] === start; k++) out.push(k);
+    return out;
+  };
+  for (let wi = 1; wi < wordPieces.length; wi++) {
+    const e = entries[wordPieces[wi].entry];
+    const prev = entries[wordPieces[wi - 1].entry];
+    if (prev.lemmaAttr === e.lemmaAttr || !prev.tags.length) continue; // not the start of a tagged element
+    if (e.tags.length !== 1 || !e.tags[0].strongs.startsWith('H') || wordLinks[wi].length !== 1) continue;
+    // Leading [preposition] pronoun of the element, followed by more words of the same element.
+    let k = wi;
+    const seq: number[] = [];
+    if (LEADING_PREPOSITIONS.has(wordPieces[k].text.toLowerCase())) seq.push(k++);
+    if (k >= wordPieces.length || !OBJECT_PRONOUNS.has(wordPieces[k].text.toLowerCase())) continue;
+    if (entries[wordPieces[k].entry].lemmaAttr !== e.lemmaAttr) continue;
+    seq.push(k++);
+    if (k >= wordPieces.length || entries[wordPieces[k].entry].lemmaAttr !== e.lemmaAttr) continue; // the element is just these words
+    const root = wordLinks[wi][0];
+    if (/^[SR]/.test(words[root][OW.morph])) continue; // already a pronoun / preposition
+    const before = wordLinks[wi - 1];
+    if (before.length !== 1) continue;
+    const own = group(words[before[0]][OW.group]);
+    const after = own[own.length - 1] + 1;
+    const pool = [...own, ...(after < words.length ? group(after) : [])].filter((j) => !linkedIdx.has(j));
+    const picks: [number, number][] = [];
+    for (const w of seq) {
+      const suffix = OBJECT_PRONOUNS.has(wordPieces[w].text.toLowerCase());
+      let best = -1;
+      let bestP = 0;
+      for (const j of pool) {
+        if (picks.some(([, x]) => x === j)) continue;
+        if (suffix !== words[j][OW.morph].startsWith('S')) continue;
+        const pr = table.prob(lem[w], words[j][OW.strongs]);
+        if (pr > bestP) {
+          bestP = pr;
+          best = j;
+        }
+      }
+      if (best >= 0 && bestP >= (suffix ? 0.03 : 0.1)) picks.push([w, best]);
+    }
+    // All or nothing: the pronoun must find its suffix.
+    if (!picks.some(([w]) => w === seq[seq.length - 1])) continue;
+    for (const [w, j] of picks) {
+      wordLinks[w] = [j];
+      linkedIdx.add(j);
+      moved.add(w);
+    }
+  }
+}
 
 export interface KjvLinkOptions {
   /** BSB-trained table: redirects English function words inside a tagged Hebrew word to its prefix / suffix. */
@@ -410,10 +480,13 @@ export function linkKjvVerse(
   const wordPieces = layout.filter((p) => p.word);
   const lem = lemmas(wordPieces.map((p) => p.text));
   const wordLinks = wordPieces.map((p) => entryLinks[p.entry]);
+  const moved = new Set<number>();
+  if (table) movePronouns(entries, wordPieces, wordLinks, lem, words, table, moved);
   if (table) {
     // Group word indices by (run, tagged element) for single-tag entries linked to one Hebrew word.
     const groups = new Map<string, number[]>();
     wordPieces.forEach((p, wi) => {
+      if (moved.has(wi)) return;
       const e = entries[p.entry];
       if (e.tags.length !== 1 || entryLinks[p.entry].length !== 1 || !e.tags[0].strongs.startsWith('H')) return;
       const key = `${runOf[p.entry]}|${occOfTag[p.entry][0]}`;
@@ -438,12 +511,13 @@ export function linkKjvVerse(
       }
       const used = new Set<number>();
       for (const wi of list) {
-        // Only function words (and, the, in, his…) move to a prefix / suffix morpheme.
+        // Only function words (and, the, in, his…) move, to a prefix / suffix morpheme of their kind.
         if (wi === keep || !isFunctionWord(wordPieces[wi].text)) continue;
+        const cls = wordClass(wordPieces[wi].text);
         let best = -1;
         let bestP = 0;
         for (const j of morphemes) {
-          if (used.has(j)) continue;
+          if (used.has(j) || !fitsMorpheme(cls, words[j][OW.morph])) continue;
           const p = table.prob(lem[wi], words[j][OW.strongs]);
           if (p > bestP) {
             bestP = p;
@@ -456,48 +530,6 @@ export function linkKjvVerse(
         }
       }
     }
-  }
-
-  // The KJV's OT tagging often starts a tagged element with the object pronoun of the PREVIOUS
-  // verb ("number | them, every one that entereth" = H935; "Deliver | me from the workers" = H6466).
-  // Such a pronoun is moved to the pronominal suffix of the preceding word (or of the object marker /
-  // preposition right after it: אֹתָם, לָהֶם) when the table backs the pairing.
-  if (table) {
-    const linkedIdx = new Set(wordLinks.flat());
-    wordPieces.forEach((p, wi) => {
-      if (wi === 0 || !OBJECT_PRONOUNS.has(p.text.toLowerCase())) return;
-      const e = entries[p.entry];
-      const prev = entries[wordPieces[wi - 1].entry];
-      const links = wordLinks[wi];
-      if (e.tags.length !== 1 || links.length !== 1 || !e.tags[0].strongs.startsWith('H')) return;
-      if (p.entry > 0 && runOf[p.entry] === runOf[wordPieces[wi - 1].entry]) return; // not the first word of its element
-      if (wi + 1 >= wordPieces.length || runOf[wordPieces[wi + 1].entry] !== runOf[p.entry]) return; // the element is just the pronoun
-      if (words[links[0]][OW.morph].startsWith('S') || !prev.tags.length) return;
-      const before = wordLinks[wi - 1];
-      if (before.length !== 1) return;
-      const g = words[before[0]][OW.group];
-      const group = (start: number) => {
-        const out: number[] = [];
-        for (let k = start; k < words.length && words[k][OW.group] === start; k++) out.push(k);
-        return out;
-      };
-      const own = group(g);
-      const after = own[own.length - 1] + 1;
-      const pool = [...own, ...(after < words.length ? group(after) : [])].filter((k) => words[k][OW.morph].startsWith('S') && !linkedIdx.has(k));
-      let best = -1;
-      let bestP = 0;
-      for (const k of pool) {
-        const pr = table.prob(lem[wi], words[k][OW.strongs]);
-        if (pr > bestP) {
-          bestP = pr;
-          best = k;
-        }
-      }
-      if (best >= 0 && bestP >= 0.03) {
-        wordLinks[wi] = [best];
-        linkedIdx.add(best);
-      }
-    });
   }
 
   let tags = 0;

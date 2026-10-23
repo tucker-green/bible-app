@@ -380,3 +380,26 @@ export function lemmas(words: readonly string[]): string[] {
     return lemma(w, { thouNearby: thou });
   });
 }
+
+/**
+ * Can an English function word of this class render a Hebrew bound morpheme with this (OSHB-style)
+ * morphology code? det: the article (Td) or a preposition with the article fused in (Rd);
+ * poss / obj: a pronominal suffix (S…); prep: a prepositional prefix (R…); conj: the conjunction
+ * prefix (C) or a prepositional prefix used as one (כְּ "as / when", בְּ "when"). Subject pronouns,
+ * copulas and auxiliaries have no morpheme of their own (they are part of the verb).
+ */
+export function fitsMorpheme(cls: WordClass, morph: string): boolean {
+  switch (cls) {
+    case 'det':
+      return /^Td/.test(morph) || /^R.*d$/.test(morph);
+    case 'poss':
+    case 'obj':
+      return morph.startsWith('S');
+    case 'prep':
+      return morph.startsWith('R');
+    case 'conj':
+      return morph.startsWith('C') || morph.startsWith('R');
+    default:
+      return false;
+  }
+}

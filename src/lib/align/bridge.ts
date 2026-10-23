@@ -28,7 +28,7 @@
 import { segment } from '../tokenize';
 import type { OrigChapter, OrigWord, TextChapter, TextVerse, Token, WordToken } from '../types';
 import { OW } from '../types';
-import { FUNCTION_WORDS, lemmas, wordClass, type WordClass } from './normalize';
+import { FUNCTION_WORDS, fitsMorpheme, lemmas, wordClass, type WordClass } from './normalize';
 import { tokenWords, type TranslationTable } from './table';
 import type { BridgeOptions } from './types';
 
@@ -367,7 +367,7 @@ export function bridgeVerse(
         if (!hebrew) return;
         const h = headAfter(i);
         if (h < 0) return;
-        const js = morphemesOf(chosen[h]!.j).filter((k) => isHebPrefix(words[k]));
+        const js = morphemesOf(chosen[h]!.j).filter((k) => isHebPrefix(words[k]) && fitsMorpheme('prep', words[k][OW.morph]));
         const [j, p] = best(i, js, 0.15);
         if (j >= 0) attachTo(i, h, j, p);
         return;
@@ -376,7 +376,8 @@ export function bridgeVerse(
         if (!hebrew) return;
         const h = headAfter(i, false);
         if (h < 0) return;
-        let [j, p] = best(i, morphemesOf(chosen[h]!.j).filter((k) => isHebPrefix(words[k])), 0.2);
+        const fits = (k: number) => isHebPrefix(words[k]) && fitsMorpheme('conj', words[k][OW.morph]);
+        let [j, p] = best(i, morphemesOf(chosen[h]!.j).filter(fits), 0.2);
         let at = h;
         if (j < 0) {
           // "And God made" = וַיַּעַשׂ אֱלֹהִים: the וְ is on the verb written just before the subject.
@@ -385,7 +386,7 @@ export function bridgeVerse(
           if (h2 >= 0 && h2 <= h + 2) {
             const ms = morphemesOf(chosen[h2]!.j);
             if (ms[ms.length - 1] + 1 === first) {
-              [j, p] = best(i, ms.filter((k) => isHebPrefix(words[k])), 0.2);
+              [j, p] = best(i, ms.filter(fits), 0.2);
               at = h2;
             }
           }
