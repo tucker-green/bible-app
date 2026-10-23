@@ -22,6 +22,8 @@ import {
 } from '../../app/state';
 import { getBook } from '../../lib/books';
 import { loadChapter, loadText, nextChapter, prefetchChapter, prevChapter } from '../../lib/data';
+import { APIBIBLE_ATTRIBUTION, apiBibleMeta, createFumsIds, reportFums } from '../../lib/providers/apibible';
+import type { FumsIds } from '../../lib/providers/apibible';
 import { formatChapter, refToHash } from '../../lib/reference';
 import type { TranslationMeta } from '../../lib/types';
 import { alignmentOf } from '../common/alignment';
@@ -48,6 +50,23 @@ export interface RenderStats {
   totalMs: number;
 }
 export let lastRender: RenderStats | null = null;
+
+let fumsIds: FumsIds | null = null;
+/** API.Bible usage reporting ids (device id in localStorage, session id in sessionStorage). */
+function getFumsIds(): FumsIds {
+  if (!fumsIds) {
+    let local: Storage | null = null;
+    let session: Storage | null = null;
+    try {
+      local = localStorage;
+      session = sessionStorage;
+    } catch {
+      /* storage blocked: ids live for this page only */
+    }
+    fumsIds = createFumsIds(local, session);
+  }
+  return fumsIds;
+}
 
 type LoadState =
   | { key: string; status: 'loading'; model: null }
@@ -156,6 +175,12 @@ export function Reader() {
 
   useEffect(() => () => controller.detach(), []);
 
+  // Chapters from API.Bible (e.g. the NIV): report the view (FUMS), as API.Bible's terms require.
+  useEffect(() => {
+    const am = model ? apiBibleMeta(model.text) : undefined;
+    if (am) reportFums(am, getFumsIds());
+  }, [model]);
+
   // Word states follow the open word (pinned wins over hover / focus).
   useEffect(
     () =>
@@ -201,7 +226,7 @@ export function Reader() {
       <article class="text" id="text" tabIndex={-1} aria-labelledby="chapter-title">
         <header class="ch-head">
           <p class="eyebrow">{bookEyebrow(book.id)}</p>
-          <h1 class="ch-title" id="chapter-title">
+          <h1 class={`ch-title${(book.id === 'PSA' ? 'Psalm' : book.name).length >= 12 ? ' ch-title--long' : ''}`} id="chapter-title">
             <span>{book.id === 'PSA' ? 'Psalm' : book.name}</span> <span class="num">{ref.chapter}</span>
           </h1>
           <span class="ch-rule" aria-hidden="true" />
@@ -245,7 +270,7 @@ export function Reader() {
         )}
         <WordCard model={model} controller={controller} />
         {model && <ChapterNav tr={tr} bookId={book.id} chapter={ref.chapter} />}
-        {model && <Colophon trMeta={trMeta} testament={testament} />}
+        {model && <Colophon trMeta={trMeta} testament={testament} model={model} />}
       </article>
       <RightRail trMeta={trMeta} testament={testament} />
     </div>
@@ -337,7 +362,8 @@ function ChapterNav({ tr, bookId, chapter }: { tr: string; bookId: string; chapt
   );
 }
 
-function Colophon({ trMeta, testament }: { trMeta: TranslationMeta | null; testament: 'OT' | 'NT' }) {
+function Colophon({ trMeta, testament, model }: { trMeta: TranslationMeta | null; testament: 'OT' | 'NT'; model: ChapterModel }) {
+  const remote = apiBibleMeta(model.text);
   const parts = [
     trMeta ? `${trMeta.abbr} text: ${trMeta.license.toLowerCase()}` : '',
     testament === 'NT' ? 'Greek: SBLGNT, CC BY 4.0' : 'Hebrew: WLC, public domain · Macula Hebrew, CC BY 4.0',
@@ -346,6 +372,14 @@ function Colophon({ trMeta, testament }: { trMeta: TranslationMeta | null; testa
   ].filter(Boolean);
   return (
     <footer class="colophon">
+      {remote && (
+        <p class="colophon__copy">
+          {remote.copyright} ·{' '}
+          <a href={APIBIBLE_ATTRIBUTION.url} target="_blank" rel="noopener noreferrer">
+            {APIBIBLE_ATTRIBUTION.text}
+          </a>
+        </p>
+      )}
       <p>{parts.join(' · ')}</p>
       <p>
         <a href="#/about">About Rootword &amp; full credits</a>

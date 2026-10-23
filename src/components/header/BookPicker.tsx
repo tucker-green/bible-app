@@ -83,7 +83,7 @@ export function BookPicker({ open, onClose, anchor }: { open: boolean; onClose: 
             key={b.id}
             type="button"
             title={b.name}
-            aria-label={b.name}
+            aria-label={b.short === b.name ? undefined : `${b.short} (${b.name})`}
             aria-current={b.id === cur.book ? 'true' : undefined}
             aria-pressed={b.id === sel.id}
             class={b.id === sel.id ? 'is-sel' : ''}
@@ -122,7 +122,7 @@ export function BookPicker({ open, onClose, anchor }: { open: boolean; onClose: 
   );
 
   return (
-    <Popover open={open} onClose={onClose} anchor={anchor} label="Choose a passage" class="books" initialFocus=".books__goto input">
+    <Popover open={open} onClose={onClose} anchor={anchor} label="Choose a passage" class="books" initialFocus={phone ? undefined : '.books__goto input'}>
       <form class="books__goto" onSubmit={submit} role="search">
         <label for="goto-input" class="eyebrow">
           Go to

@@ -52,18 +52,35 @@ export function headingRange(chapter: number, from: number, to: number): string 
   return to > from ? `${chapter}:${from}–${to}` : `${chapter}:${from}`;
 }
 
-/** Headings keyed by verse, each with the verse range it covers. */
-export function headingsByVerse(model: ChapterModel): Map<number, { text: string; range: string }[]> {
-  const out = new Map<number, { text: string; range: string }[]>();
+export interface HeadingInfo {
+  text: string;
+  /** Verse range covered ("1:1–5"); "" for a major heading stacked over a section heading. */
+  range: string;
+  major: boolean;
+}
+
+/**
+ * Headings keyed by verse, each with the verse range it covers. When several headings start at
+ * the same verse (Psalm 119: "Your Word Is a Lamp to My Feet" + "Aleph"), the earlier ones are
+ * major headings without a range; the last one is the section heading.
+ */
+export function headingsByVerse(model: ChapterModel): Map<number, HeadingInfo[]> {
+  const out = new Map<number, HeadingInfo[]>();
   const hs = model.text.headings ?? [];
   const lastVerse = model.text.verses[model.text.verses.length - 1]?.v ?? 1;
   hs.forEach(([v, text], i) => {
     const next = hs.slice(i + 1).find(([nv]) => nv > v);
     const to = next ? next[0] - 1 : lastVerse;
     const list = out.get(v) ?? [];
-    list.push({ text, range: headingRange(model.chapter, v, to) });
+    list.push({ text, range: headingRange(model.chapter, v, to), major: false });
     out.set(v, list);
   });
+  for (const list of out.values()) {
+    for (let i = 0; i < list.length - 1; i++) {
+      list[i].major = true;
+      list[i].range = '';
+    }
+  }
   return out;
 }
 
@@ -214,7 +231,7 @@ function vn(v: number): string {
 export function renderChapterHtml(model: ChapterModel, opts: RenderOptions): string {
   const il = opts.mode === 'interlinear';
   const firstId = model.units.length ? 0 : -1;
-  const heads = opts.headings ? headingsByVerse(model) : new Map<number, { text: string; range: string }[]>();
+  const heads = opts.headings ? headingsByVerse(model) : new Map<number, HeadingInfo[]>();
   const paras = new Set(model.text.paras ?? []);
   const layout = opts.layout;
   let html = '';
@@ -227,9 +244,10 @@ export function renderChapterHtml(model: ChapterModel, opts: RenderOptions): str
 
   const headingHtml = (v: number) =>
     (heads.get(v) ?? [])
-      .map(
-        (h) =>
-          `<h2 class="sec" data-sec="${v}"><span class="sec__title">${typeset(h.text)}</span><span class="sec__ref">${h.range}</span></h2>`,
+      .map((h) =>
+        h.major
+          ? `<h2 class="sec sec--major" data-sec="${v}"><span class="sec__title">${typeset(h.text)}</span></h2>`
+          : `<h2 class="sec" data-sec="${v}"><span class="sec__title">${typeset(h.text)}</span><span class="sec__ref">${h.range}</span></h2>`,
       )
       .join('');
 

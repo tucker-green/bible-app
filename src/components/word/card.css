@@ -99,7 +99,7 @@
 .morphs .plus { color: var(--ink-3); font-size: 12px; }
 
 /* facts */
-.facts { margin: 12px 0 0; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 12px; font-size: 13px; line-height: 1.4; }
+.facts { margin: 12px 0 0; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 5px 12px; font-size: 13px; line-height: 1.4; }
 .facts dt { font: 600 var(--fs-label)/1.9 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
 .facts dd { margin: 0; color: var(--ink); min-width: 0; }
 .facts .grc { font-size: 16.5px; line-height: 1.2; }
@@ -111,7 +111,7 @@
 .facts .rend .n { font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 11.5px; margin-left: 2px; }
 .facts .rend .r { white-space: nowrap; }
 .facts .rend .sep, .facts .others .sep { color: var(--ink-3); }
-.rend__from { color: var(--ink-3); font-size: 11.5px; }
+.rend__from { color: var(--ink-3); font: 600 10px/1 var(--font-ui); letter-spacing: .08em; margin-right: 2px; }
 .rend__kjv { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .lexgl { color: var(--ink-3); }
 .facts .lexgl { font-size: 12.5px; }
@@ -122,7 +122,7 @@
   margin: 12px 0 0; padding: 8px 10px; border-radius: 6px;
   background: var(--sunken); color: var(--ink-2); font-size: 12.5px; line-height: 1.45;
 }
-.card__approx { display: flex; gap: 8px; align-items: baseline; }
+.card__approx { display: flex; gap: 8px; align-items: baseline; padding: 6px 10px; font-size: 12px; }
 .card__approx b { font-weight: 600; color: var(--ink); }
 .approx-mark { font: 600 15px/1 var(--font-ui); color: var(--accent); }
 
@@ -133,6 +133,16 @@
 }
 .card__def-txt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
 .card__def-txt.is-open { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.word-card.is-tight .card__def-txt { -webkit-line-clamp: 2; line-clamp: 2; }
+.word-card.is-tight .card__src { display: none; }
+.word-card.is-tight .card__top { margin-bottom: 8px; padding-bottom: 8px; }
+.word-card.is-tight .card__orig { font-size: 32px; }
+.word-card.is-tight .card__orig.hbo { font-size: 34px; }
+.word-card.is-tight .card__duo .lxx-word { font-size: 26px; line-height: 1.5; }
+.word-card.is-tight .dist .spark { display: none; }
+.word-card.is-tight .card__foot { margin-top: 10px; padding: 7px 18px 8px; }
+.word-card.is-tight .btn-all { height: 28px; }
+.word-card.is-tight .card__def { margin-top: 10px; padding-top: 9px; }
 .card__def b { font-weight: 600; color: var(--ink); }
 .card__def :lang(grc) { color: var(--ink); }
 .card__def .ref {
@@ -210,6 +220,10 @@ html.has-sheet main { padding-bottom: 48dvh; }
 .sheet-handle span { width: 40px; height: 4px; border-radius: 2px; background: var(--rule-2); }
 .word-card.is-sheet .card__def-txt { -webkit-line-clamp: 5; line-clamp: 5; }
 
+@media (max-height: 500px) {
+  .word-card.is-sheet { max-height: 85dvh; }
+  html.has-sheet main { padding-bottom: 80dvh; }
+}
 @media (max-width: 640px) {
   .word-card.is-sheet .card__orig { font-size: 36px; }
   .word-card.is-sheet .card__orig.hbo { font-size: 38px; }

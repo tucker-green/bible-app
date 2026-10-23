@@ -2,7 +2,7 @@
  * Masthead (Scholar): R mark + wordmark · ‹ book/chapter › · translation · search · Reading |
  * Interlinear · theme. Phones get a compact row: mark, ‹ John 1 ›, KJV, search icon, theme.
  */
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   closeSearch,
   cycleTheme,
@@ -66,6 +66,24 @@ function SearchField() {
   const inputRef = useRef<HTMLInputElement>(null);
   const open = searchOpen.value;
 
+  // While open, a press or keyboard focus outside the field and the panel closes the search.
+  useEffect(() => {
+    if (!open) return;
+    const inside = (t: EventTarget | null) => t instanceof Element && Boolean(t.closest('.search, #search-panel, [data-search-keep]'));
+    const onDown = (e: PointerEvent) => {
+      if (!inside(e.target)) closeSearch();
+    };
+    const onFocus = (e: FocusEvent) => {
+      if (!inside(e.target)) closeSearch();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('focusin', onFocus);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('focusin', onFocus);
+    };
+  }, [open]);
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (searchKeys.handler?.(e)) return;
     if (e.key === 'Escape') {
@@ -112,7 +130,6 @@ function SearchField() {
           spellcheck={false}
           enterKeyHint="search"
           placeholder="Search words, λόγος, G3056 or Jn 3:16"
-          aria-expanded={open}
           aria-controls="search-panel"
           value={searchQuery.value}
           onFocus={() => openSearch()}
@@ -155,7 +172,7 @@ export function Header() {
   return (
     <header class="masthead" id="masthead">
       <div class="masthead__inner">
-        <a class="brand" href={refToHash(tr, { book: ref.book, chapter: ref.chapter })} aria-label="Rootword — back to reading">
+        <a class="brand" href={refToHash(tr, { book: ref.book, chapter: ref.chapter })} title="Rootword — back to reading">
           <BrandMark />
           <span class="brand__word">Rootword</span>
         </a>
@@ -178,7 +195,7 @@ export function Header() {
             class="btn locator__ref"
             aria-haspopup="dialog"
             aria-expanded={pop === 'books'}
-            aria-label={`Choose a passage. Current: ${formatChapter(ref.book, ref.chapter)}`}
+            aria-label={`${formatChapter(ref.book, ref.chapter)} — choose a passage`}
             onClick={() => setPop(pop === 'books' ? null : 'books')}
           >
             <span class="ref-book ref-book--long">{book?.id === 'PSA' ? 'Psalm' : book?.name}</span>
@@ -204,7 +221,7 @@ export function Header() {
           class="btn tr-btn"
           aria-haspopup="dialog"
           aria-expanded={pop === 'tr'}
-          aria-label={`Choose a translation. Current: ${trMeta?.name ?? tr}`}
+          aria-label={`${trMeta?.abbr ?? tr}${trMeta ? ` ${shortName(trMeta.name)}` : ''} — choose a translation`}
           onClick={() => setPop(pop === 'tr' ? null : 'tr')}
         >
           <span class="tr-btn__abbr">{trMeta?.abbr ?? tr}</span>

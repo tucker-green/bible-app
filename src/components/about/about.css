@@ -1,5 +1,5 @@
 /* About & credits page: one reading column in the Scholar grid. */
-.page--about { grid-template-columns: minmax(0, 720px); }
+.page.page--about { grid-template-columns: minmax(0, 720px); }
 .about { min-width: 0; font: 400 16.5px/1.65 var(--font-text); color: var(--ink-2); }
 .about p { margin: 0 0 var(--s-4); }
 .about b { color: var(--ink); font-weight: 600; }

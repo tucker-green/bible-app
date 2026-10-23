@@ -137,6 +137,7 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
     const host = (el.offsetParent as HTMLElement | null) ?? document.body;
     if (!anchor) return;
     el.style.maxHeight = '';
+    el.classList.remove('is-tight');
     const rects = [...anchor.getClientRects()].map((r) => ({
       left: r.left,
       top: r.top,
@@ -146,13 +147,20 @@ export function WordCard({ model, controller }: { model: ChapterModel | null; co
       height: r.height,
     }));
     const header = document.getElementById('masthead')?.getBoundingClientRect().bottom ?? 0;
-    const p = computePlacement({
-      rects,
-      card: { width: el.offsetWidth, height: el.offsetHeight },
-      viewport: { width: document.documentElement.clientWidth, height: window.innerHeight },
-      topInset: header,
-      pinned: isPinned,
-    });
+    const place = () =>
+      computePlacement({
+        rects,
+        card: { width: el.offsetWidth, height: el.offsetHeight },
+        viewport: { width: document.documentElement.clientWidth, height: window.innerHeight },
+        topInset: header,
+        pinned: isPinned,
+      });
+    let p = place();
+    // A hover card that fits on neither side first tightens (shorter definition) before scrolling.
+    if (!isPinned && Number.isFinite(p.maxHeight)) {
+      el.classList.add('is-tight');
+      p = place();
+    }
     const h = host.getBoundingClientRect();
     el.style.left = `${Math.round(p.left - h.left)}px`;
     el.style.top = `${Math.round(p.top - h.top)}px`;
@@ -495,6 +503,7 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
           <dd class="rend">
             {rend ? (
               <>
+                {rend.from !== trMeta?.id && <span class="rend__from">{rend.from} </span>}
                 {rend.list.map(([w, n], i) => [
                   i > 0 ? (
                     <span key={`s${i}`} class="sep">
@@ -505,12 +514,11 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
                     <b>{w}</b> <span class="n">{n.toLocaleString('en-US')}</span>
                   </span>,
                 ])}
-                {rend.from !== trMeta?.id && <span class="rend__from"> in the {rend.from}</span>}
               </>
             ) : entry?.kjv ? (
               <span class="rend__kjv">
+                <span class="rend__from">KJV </span>
                 {entry.kjv.replace(/\s*\.\s*$/, '')}
-                <span class="rend__from"> (KJV)</span>
               </span>
             ) : (
               <span class="skeleton skeleton--inline" />
@@ -540,15 +548,15 @@ function Facts({ card, lex, trMeta }: { card: CardModel; lex: Load<LexEntry | un
 
 function ApproxNote({ card, trMeta }: { card: CardModel; trMeta: TranslationMeta | null }) {
   const bridged = trMeta?.alignment === 'bridged';
-  const conf = card.conf < 1 ? ` (confidence ${Math.round(card.conf * 100)}%)` : '';
+  const conf = card.conf < 1 ? ` · ${Math.round(card.conf * 100)}% sure` : '';
   return (
-    <p class="card__approx">
-      <span class="approx-mark" aria-hidden="true">≈</span>
+    <p class="card__approx" title={bridged ? `The ${trMeta?.abbr ?? 'text'} has no hand-made alignment; its words are matched to the original automatically through the BSB.` : undefined}>
+      <span class="approx-mark" aria-hidden="true">
+        ≈
+      </span>
       <span>
-        <b>Approximate link{conf}.</b>{' '}
-        {bridged
-          ? `The ${trMeta?.abbr ?? 'text'} has no hand-made alignment; this word was matched automatically through the BSB.`
-          : 'The alignment marks this link as uncertain.'}
+        <b>Approximate link</b> · {bridged ? 'matched via the BSB' : 'uncertain in the alignment'}
+        {conf}
       </span>
     </p>
   );
