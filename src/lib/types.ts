@@ -252,6 +252,100 @@ export interface SearchCorpus {
 }
 
 /* ------------------------------------------------------------------------ */
+/* Cross references: public/data/xref/{BOOK}/{CHAPTER}.json                 */
+/* ------------------------------------------------------------------------ */
+
+/** [target start (packRef), target end (packRef; 0 when a single verse), OpenBible.info votes] */
+export type XrefTarget = [start: number, end: number, votes: number];
+
+export interface XrefChapter {
+  book: BookId;
+  chapter: number;
+  /** Verse number (as a string key) -> targets, most votes first, capped (see scripts/data/xrefs.ts). */
+  verses: Record<string, XrefTarget[]>;
+}
+
+/* ------------------------------------------------------------------------ */
+/* People & places (STEPBible TIPNR): public/data/names/...                 */
+/* ------------------------------------------------------------------------ */
+
+export type EntityKind = 'person' | 'place' | 'group' | 'other';
+
+/**
+ * One individual person, place or group. `id` is compact and stable: a kind letter plus a number
+ * ("p0685" person, "l0123" place, "g0007" group/other). Entities live in chunk files
+ * public/data/names/entities/{p|l|g}/{NNN}.json where NNN = floor(number / 100), zero-padded.
+ */
+export interface NameEntity {
+  id: string;
+  /** Display name, e.g. "Abraham", "Bethlehem". */
+  name: string;
+  kind: EntityKind;
+  /** TIPNR unique name, e.g. "Abraham@Gen.11.26-1Pe". */
+  uniqueName: string;
+  /** One-line descriptor, e.g. "Man living at the time of the Patriarchs", "Town in Judah". */
+  brief: string;
+  /** Longer description, sanitised HTML (only <b>, <i>, <br>, <span class="ref" data-ref="GEN.11.26">). */
+  summary: string;
+  gender?: 'male' | 'female';
+  /** Original-language forms: [Strong's id, form in Hebrew/Greek script, English name used]. */
+  forms: [string, string, string][];
+  /** Family links (entity ids). */
+  parents?: string[];
+  siblings?: string[];
+  partners?: string[];
+  children?: string[];
+  /** Tribe / group / category, e.g. "Tribe of Judah", "Early Patriarch". */
+  group?: string;
+  /** Places: [latitude, longitude] when known. */
+  coords?: [number, number];
+  /** Every verse mentioning the entity (packRef, English versification), canonical order. */
+  refs: number[];
+}
+
+export type NameEntityChunk = Record<string, NameEntity>;
+
+/** public/data/names/chapters/{BOOK}/{CHAPTER}.json — OrigChapter word index (as string) -> entity id. */
+export interface NameChapter {
+  book: BookId;
+  chapter: number;
+  words: Record<string, string>;
+}
+
+/**
+ * public/data/names/family.json — the whole family graph of people, for the lineage explorer:
+ * [id, name, brief, parents, children, partners, siblings].
+ */
+export type FamilyGraph = [id: string, name: string, brief: string, parents: string[], children: string[], partners: string[], siblings: string[]][];
+
+/** public/data/names/index.json — every entity for search/autocomplete: [id, name, kind, brief, refCount]. */
+export type NameIndex = [id: string, name: string, kind: EntityKind, brief: string, refCount: number][];
+
+/* ------------------------------------------------------------------------ */
+/* Word study: public/data/study/{G|H}/{NNN}.json (same chunking as lex)    */
+/* ------------------------------------------------------------------------ */
+
+export interface WordStudy {
+  /** Strong's id (same keying as the concordance: base id, or full extended id for Hebrew prefix/suffix morphemes). */
+  id: string;
+  /** Total occurrences (words, not verses). */
+  total: number;
+  /** Occurrences per book: index 0 = Genesis … 65 = Revelation. */
+  byBook: number[];
+  /** Inflected forms as they occur: [surface form, morph code, count], most frequent first (top 40). */
+  forms: [string, string, number][];
+  /**
+   * The Septuagint bridge. For a Hebrew word: the Greek words the LXX uses for it ([G id, count]).
+   * For a Greek word: the Hebrew words it renders in the LXX ([H id, count]). Most frequent first, top 12.
+   */
+  lxx?: [string, number][];
+  /** Related words from Strong's derivation notes (ids), e.g. λόγος -> λέγω. */
+  related?: string[];
+}
+
+export type WordStudyChunk = Record<string, WordStudy>;
+
+/* ------------------------------------------------------------------------ */
 /* Runtime helpers shared by UI code                                         */
 /* ------------------------------------------------------------------------ */
 

@@ -39,6 +39,11 @@ const SOURCES = [
   ['web.usfx.xml', `${OPEN_BIBLES}/eng-web.usfx.xml`],
   ['asv.zefania.xml', `${OPEN_BIBLES}/eng-asv.zefania.xml`],
   ['ylt.zefania.xml', `${OPEN_BIBLES}/eng-ylt.zefania.xml`],
+  ['kjv.osis.xml', `${OPEN_BIBLES}/eng-kjv.osis.xml`], // red-letter markup (<q who="Jesus">)
+  // Cross references: OpenBible.info (CC BY), mirrored by scrollmapper/bible_databases
+  ['openbible-cross-references.txt', 'https://raw.githubusercontent.com/scrollmapper/bible_databases/master/sources/extras/cross_references.txt'],
+  // People and places with family links and coordinates: STEPBible TIPNR (CC BY 4.0)
+  ['TIPNR.txt', `${STEP}/Proper%20Nouns/TIPNR%20-%20Translators%20Individualised%20Proper%20Names%20with%20all%20References%20-%20STEPBible.org%20CC%20BY.txt`],
 ];
 
 async function download(name, url) {
