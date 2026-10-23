@@ -2,6 +2,8 @@
 
 **Read the Bible in English and see the Greek or Hebrew behind every word.**
 
+**Live site: https://tucker-green.github.io/bible-app/**
+
 Rootword is a static website for reading and searching the Bible in several English translations.
 Hover over a word (or tap it on a phone) and the original word appears beneath it: the Greek of the
 New Testament, or the Hebrew of the Old Testament together with the Greek word the Septuagint used
