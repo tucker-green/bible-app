@@ -8,7 +8,7 @@
  *   #/lineage/{ID}                               family-tree explorer centred on a person
  *   #/compare/{TR1},{TR2}[,{TR3}]/{BOOK}/{CH}[/{VERSE}]   translations side by side
  *   #/study                                      my highlights, notes and bookmarks
- * An empty hash opens the last-read chapter (localStorage "rootword:last"), else #/KJV/JHN/1.
+ * An empty hash opens the last-read chapter (localStorage "rootword:last"), else #/KJV/GEN/1 (Genesis 1, the start of the Bible).
  *
  * parseRoute / routeToHash / resolveTranslation are pure (unit-tested); startRouter() wires
  * window.location.hash to the signals in ./state.
@@ -45,7 +45,7 @@ const ENTITY_ID = /^[a-z][0-9]{1,6}$/;
 
 /** The KJV is the default translation (owner's decision) and the fallback for unknown ones. */
 export const DEFAULT_TR = 'KJV';
-export const DEFAULT_REF: VerseRef = { book: 'JHN', chapter: 1 };
+export const DEFAULT_REF: VerseRef = { book: 'GEN', chapter: 1 };
 export const DEFAULT_HASH = refToHash(DEFAULT_TR, DEFAULT_REF);
 /** localStorage key (without prefix) of the last chapter read. */
 export const LAST_READ_KEY = 'last';
