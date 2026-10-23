@@ -40,7 +40,7 @@ export const DEFAULT_BRIDGE_OPTIONS: BridgeOptions = {
 
 /** Minimum P(Strong's | lemma) for a function word to link directly (phase 2), by class. */
 const DIRECT_MIN: Record<WordClass, number> = {
-  det: Number.POSITIVE_INFINITY,
+  det: Number.POSITIVE_INFINITY, // never on the table alone; Hebrew only with a lexical bridge
   poss: 0.15,
   obj: 0.15,
   subj: 0.2,
@@ -111,6 +111,28 @@ export interface AlignedWord {
 
 const GLOSS_STOP = new Set(['[direct', 'object]', '*']);
 
+/** Per-chapter lookups, computed once per OrigChapter object. */
+interface ChapterIndex {
+  /** English verse -> indices of its original words. */
+  byVerse: Map<number, number[]>;
+  /** Word index -> lemma set of its gloss (filled lazily). */
+  gloss: Map<number, Set<string>>;
+}
+const INDEX = new WeakMap<OrigChapter, ChapterIndex>();
+function chapterIndex(orig: OrigChapter): ChapterIndex {
+  let ix = INDEX.get(orig);
+  if (!ix) {
+    const byVerse = new Map<number, number[]>();
+    orig.words.forEach((w, j) => {
+      const list = byVerse.get(w[OW.verse]);
+      if (list) list.push(j);
+      else byVerse.set(w[OW.verse], [j]);
+    });
+    INDEX.set(orig, (ix = { byVerse, gloss: new Map() }));
+  }
+  return ix;
+}
+
 /** Lemma set of an original word's gloss, without function words. */
 function glossLemmas(gloss: string): Set<string> {
   const ws = gloss
@@ -174,10 +196,7 @@ export function alignVerse(
   const T: Target[] = tw.map((w, i) => ({ text: w, lemma: tl[i], cls: wordClass(w), pos: tw.length > 1 ? i / (tw.length - 1) : 0.5 }));
 
   // Candidates: this verse's original words, plus anything the BSB verse links to.
-  const candSet = new Set<number>();
-  words.forEach((w, j) => {
-    if (w[OW.verse] === verse) candSet.add(j);
-  });
+  const candSet = new Set<number>(chapterIndex(orig).byVerse.get(verse) ?? []);
   const bw = tokenWords(bsb ?? []);
   const bl = lemmas(bw.map((w) => w.text));
   const B: BsbWord[] = bw.map((w, k) => ({
@@ -222,7 +241,7 @@ export function alignVerse(
     if (list) list.push(b);
     else bsbBy.set(b.lemma, [b]);
   }
-  const glossCache = new Map<number, Set<string>>();
+  const glossCache = chapterIndex(orig).gloss;
   const glossOf = (j: number) => {
     let g = glossCache.get(j);
     if (!g) glossCache.set(j, (g = glossLemmas(words[j][OW.gloss])));
@@ -243,7 +262,9 @@ export function alignVerse(
     const lexB = bsbBy.get(t.lemma) ?? [];
     for (const j of cand) {
       const tab = prob(i, j);
-      if (fn && tab < Math.min(min, LEX_FN_MIN)) continue;
+      // Greek determiners: attachment only (which of a verse's articles is the question). Hebrew
+      // "the" may also follow the BSB onto a definite noun without an article ("the LORD").
+      if ((t.cls === 'det' && !hebrew) || (fn && tab < Math.min(min, LEX_FN_MIN))) continue;
       // Hebrew prefixes and suffixes are reached only by attachment (phase 3): which of a verse's
       // many וְ / לְ / ־וֹ an "and" / "to" / "him" renders depends on the word it goes with.
       if (fn && hebrew && bound.has(j)) continue;
@@ -267,7 +288,8 @@ export function alignVerse(
       // a neighbouring phrase).
       if (fn && tab < min && (lex < 0.5 || (hebrew && t.cls === 'cop'))) continue;
       const ev = 1 - (1 - 0.9 * lex) * (1 - Math.min(tab, 0.95)) * (1 - 0.6 * gl);
-      const pj = posSim(t.pos, anchor.get(j)!, opt.sigma);
+      // Without a BSB verse the anchors are only the original word order: a weaker prior.
+      const pj = cand.length === 1 ? 1 : posSim(t.pos, anchor.get(j)!, B.length ? opt.sigma : opt.sigma * 2);
       const score = ev * (0.4 + 0.6 * pj);
       if (score < (fn ? opt.minFunction : opt.minContent)) continue;
       // A content link resting on a weak lexical bridge alone (far-off position, frequent word the

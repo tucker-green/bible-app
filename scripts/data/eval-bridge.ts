@@ -1,10 +1,14 @@
 /**
  * Evaluate the bridge aligner (src/lib/align) against the KJV's own Strong's tagging.
  *
- *   npx tsx scripts/data/eval-bridge.ts                 # all books, held-out tables
- *   npx tsx scripts/data/eval-bridge.ts --sample=4      # every 4th chapter (faster)
- *   npx tsx scripts/data/eval-bridge.ts --table=bsb     # translation table from the BSB only
- *   npx tsx scripts/data/eval-bridge.ts --show=JHN.3.16 # print one verse's predictions
+ *   npx tsx scripts/data/eval-bridge.ts                  # all books, held-out tables
+ *   npx tsx scripts/data/eval-bridge.ts --sample=4       # every 4th chapter (faster)
+ *   npx tsx scripts/data/eval-bridge.ts --table=bsb      # translation table from the BSB only
+ *   npx tsx scripts/data/eval-bridge.ts --classes        # also per testament x word class
+ *   npx tsx scripts/data/eval-bridge.ts --kinds          # also per link kind x raw score (calibration)
+ *   npx tsx scripts/data/eval-bridge.ts --errors[=content] [--testament=NT]  # most wrong / missed words
+ *   npx tsx scripts/data/eval-bridge.ts --show=JHN.3.16  # print one verse's predictions vs gold
+ *   npx tsx scripts/data/eval-bridge.ts --word=him --testament=OT  # random verses where "him" got a link
  *
  * The KJV text (public/data/text/KJV, built by the kjv stage) is treated as untagged English and
  * bridged through the BSB; each word's predicted links are compared with the KJV's gold links.
@@ -13,13 +17,16 @@
  * the BSB alone with --table=bsb.
  *
  * Metrics (per English word; "evaluable" = the KJV tags it, or marks it as supplied in italics):
- *   precision = correct predictions / predicted links on evaluable words (an italic word that gets a
- *               link counts as wrong)
- *   recall    = correct predictions / words whose gold Strong's is present in the source text
- *   correct   = "strongs": a predicted original word has one of the gold Strong's numbers (Hebrew:
- *               prefixes / suffixes of the same written word count, as the KJV tags whole words);
- *               "exact": a predicted word is the very original word the KJV word is linked to
- *               (same written word in Hebrew).
+ *   precision  = correct / linked evaluable words (an italic word that gets a link counts as wrong)
+ *   recall     = correct / words whose gold original word is in the source text (SBLGNT / WLC)
+ *   correct    = a predicted original word carries one of the gold Strong's ids; in Hebrew the
+ *                prefixes / suffixes of the same written word count, since the KJV tags whole words
+ *   exact      = a predicted word is the very original word the KJV word is linked to
+ *   verifiable precision = precision leaving out wrong-by-the-letter links whose original words the
+ *                KJV links to nothing at all in that verse. The KJV's OT tagging lumps phrases into one
+ *                tagged element ("all the land" = H776 only, "and Esau came" = H6215, "not" untagged), so
+ *                a correct link to כָּל, a וְ or לֹא cannot be confirmed by it; the strict precision is a
+ *                lower bound, the verifiable one an upper bound. NT tags are word-level and much cleaner.
  */
 import { existsSync } from 'node:fs';
 import { alignVerse, type AlignedWord } from '../../src/lib/align/bridge';
@@ -183,7 +190,12 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
         skipped++;
         return;
       }
-      const showIt = opts.show?.includes(`${book.id}.${chapter}.${v.v}`) || (opts.word !== undefined && (!opts.testament || opts.testament === book.testament) && gold.some((g, i) => g.text.toLowerCase() === opts.word && pred[i].links.length > 0) && Math.random() < 0.03);
+      const sampled =
+        opts.word !== undefined &&
+        (!opts.testament || opts.testament === book.testament) &&
+        gold.some((g, i) => g.text.toLowerCase() === opts.word && pred[i].links.length > 0) &&
+        Math.random() < 0.03;
+      const showIt = opts.show?.includes(`${book.id}.${chapter}.${v.v}`) || sampled;
       if (showIt) console.log(`${book.id} ${chapter}:${v.v} ${plainText(v.t)}`);
       // Italic flags by word order (WordTokens only).
       const italic = new Set<number>();
@@ -238,6 +250,10 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
         res.byClass.set(ck, cc);
         if (predicted) {
           const aw: AlignedWord = details[vi].words[i];
+          const bin = Math.min(9, Math.floor(aw.conf * 10));
+          const b = res.bins.get(bin) ?? zero();
+          add(b, c);
+          res.bins.set(bin, b);
           const kk = `${fn ? 'fn' : 'content'} ${aw.kind} ${(Math.min(9, Math.floor(aw.score * 10)) / 10).toFixed(1)}`;
           const kc = res.byKind.get(kk) ?? zero();
           add(kc, c);
@@ -259,24 +275,6 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
           console.log(`  ${g.text.padEnd(14)} gold ${isItalic ? '[italic]' : show(g.links)}   pred ${show(p.links)} ${correct ? '✓' : unverifiable ? '?' : predicted ? '✗' : ''}`);
         }
       });
-      // Confidence bins (all evaluable predicted words).
-      const confs: number[] = [];
-      for (const t of preds[vi]) if (typeof t !== 'string') confs.push(t[2]?.c ?? 1);
-      let k = 0;
-      gold.forEach((g, i) => {
-        const p = pred[i];
-        if (!p.links.length) return;
-        const conf = confs[k++];
-        const isItalic = italic.has(i);
-        const goldStrongs = goldIds(g);
-        if (!isItalic && !goldStrongs.size) return;
-        let correct = 0;
-        if (!isItalic) for (const j of expand(p.links)) if (hit(goldStrongs, words[j][OW.strongs])) correct = 1;
-        const bin = Math.min(9, Math.floor(conf * 10));
-        const b = res.bins.get(bin) ?? zero();
-        add(b, { words: 1, predicted: 1, correct });
-        res.bins.set(bin, b);
-      });
     });
   }
   if (!opts.quiet) {
@@ -295,7 +293,10 @@ export function evaluateBridge(opts: EvalOptions = {}): EvalResult {
       }
     }
     const bins = [...res.bins].sort((a, b) => a[0] - b[0]);
-    console.log('precision by confidence: ' + bins.map(([b, c]) => `${(b / 10).toFixed(1)}:${(c.correct / c.predicted).toFixed(2)}(${c.predicted})`).join('  '));
+    console.log(
+      'precision by confidence (strict / verifiable): ' +
+        bins.map(([b, c]) => `${(b / 10).toFixed(1)}: ${(c.correct / c.predicted).toFixed(2)} / ${(c.correct / Math.max(1, c.predicted - c.unverifiable)).toFixed(2)} (${c.predicted})`).join('  '),
+    );
     if (opts.errors) {
       const top = [...res.byWord].filter(([w]) => opts.errors !== 'content' || !isFunctionWord(w)).sort((a, b) => b[1][1] - a[1][1]).slice(0, 40);
       console.log('most wrong links: ' + top.map(([w, [n, e]]) => `${w} ${e}/${n}`).join(', '));

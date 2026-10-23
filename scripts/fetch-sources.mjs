@@ -38,7 +38,8 @@ const SOURCES = [
   ['bsb.usfx.xml', `${OPEN_BIBLES}/eng-bsb.usfx.xml`], // headings, paragraphs, Psalm titles
   ['web.usfx.xml', `${OPEN_BIBLES}/eng-web.usfx.xml`],
   ['asv.zefania.xml', `${OPEN_BIBLES}/eng-asv.zefania.xml`],
-  ['ylt.zefania.xml', `${OPEN_BIBLES}/eng-ylt.zefania.xml`],
+  // Full 1898 Young's Literal Translation (open-bibles' eng-ylt is the Revised YLT, NT only)
+  ['ylt.json', 'https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/json/YLT.json'],
   ['kjv.osis.xml', `${OPEN_BIBLES}/eng-kjv.osis.xml`], // red-letter markup (<q who="Jesus">)
   // Cross references: OpenBible.info (CC BY), mirrored by scrollmapper/bible_databases
   ['openbible-cross-references.txt', 'https://raw.githubusercontent.com/scrollmapper/bible_databases/master/sources/extras/cross_references.txt'],

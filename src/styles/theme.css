@@ -23,6 +23,7 @@
   --paper: #fafaf7;
   --surface: #ffffff;
   --sunken: #f2f2ee;
+  --raised: #ffffff;       /* selected segment, chips on sunken ground */
   --ink: #171c26;          /* 16.3:1 on paper */
   --ink-2: #434b5a;        /*  8.4:1 */
   --ink-3: #5f6877;        /*  5.4:1 on paper, 5.0 on sunken, 4.7 on wash */
@@ -92,6 +93,7 @@
     --paper: #101319;
     --surface: #181c24;
     --sunken: #0b0d11;
+    --raised: #232934;
     --ink: #ebe6dc;          /* 14.9:1 on paper */
     --ink-2: #b9bfc9;        /* 10.1:1 */
     --ink-3: #8f97a4;        /*  5.8:1 on surface, 4.85 on wash */
@@ -125,6 +127,7 @@
   --paper: #101319;
   --surface: #181c24;
   --sunken: #0b0d11;
+  --raised: #232934;
   --ink: #ebe6dc;
   --ink-2: #b9bfc9;
   --ink-3: #8f97a4;

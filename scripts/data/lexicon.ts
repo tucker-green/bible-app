@@ -14,12 +14,20 @@
  * conjunction וְ, but Strong's H2050 is הָתַת "to break in"). Those ids get short, accurate entries
  * written here, chosen by how Macula actually uses each id, so that "and" / "the" / "in" / "his" show
  * the right word instead of falling back to an unrelated base entry.
+ *
+ * Usage figures (run after the kjv, bridged and concordance stages):
+ *   LexEntry.verses      verse count from public/data/conc/ under the concordance key (usageKey: the
+ *                        base number, or the full id of a prefix/suffix morpheme);
+ *   LexEntry.renderings  how the KJV and BSB render the word, from their word links to
+ *                        public/data/orig/ (top 6 per translation; see RenderingCounter).
  */
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { getBook } from '../../src/lib/books';
 import type { BookInfo } from '../../src/lib/books';
-import type { LexChunk, LexEntry, LexIndex } from '../../src/lib/types';
-import { baseStrongs, chunkOf, cleanOut, log, normStrongs, outPath, srcPath, writeJson } from './common';
+import type { ConcChunk, LexChunk, LexEntry, LexIndex, OrigChapter, TextChapter, Token } from '../../src/lib/types';
+import { OW } from '../../src/lib/types';
+import { allChapters, baseStrongs, chunkOf, cleanOut, log, normStrongs, outPath, readJson, srcPath, writeJson } from './common';
 
 const STAGE = 'lexicon';
 
@@ -977,6 +985,28 @@ export interface MorphemeUse {
 }
 
 /**
+ * The Macula ids that get a hand-written morpheme entry: lettered Hebrew ids used mostly as one
+ * prefix/suffix class (see findMorphemeIds). Their base number is an unrelated word, so the
+ * concordance, verse counts and renderings keep them under their full id (see usageKey).
+ */
+export function morphemeIdSet(uses: ReadonlyMap<string, MorphemeUse>): Set<string> {
+  const out = new Set<string>();
+  for (const [id, use] of uses) {
+    if (/^H\d{4}[a-z]$/.test(id) && morphemeEntry(use.cls, use.aramaic, use.alsoPgn)) out.add(id);
+  }
+  return out;
+}
+
+/**
+ * Key under which an occurrence of Strong's id `id` is counted (concordance, LexEntry.verses,
+ * LexEntry.renderings): a prefix/suffix morpheme id keeps its full id ("H2050b" = "and", never
+ * H2050 "to break in"); any other id counts under its base number ("H1121a" -> "H1121").
+ */
+export function usageKey(id: string, morphemes: ReadonlySet<string>): string {
+  return morphemes.has(id) ? id : baseStrongs(id);
+}
+
+/**
  * Decide which Macula ids are function morphemes: an id qualifies when at least 60% of its uses fall
  * in one morpheme class. Input rows: Macula strongnumberx (may contain "a|b"), lang, pos, type, lemma, morph.
  */
@@ -1173,10 +1203,9 @@ export function assembleLexicon(src: Sources): LexBuild {
     // Macula the 2nd-person-plural suffix) follows Macula, the source of every OT word in the app.
     const morphemes = new Map<string, MorphemeTemplate>();
     if (lang === 'H') {
-      for (const [id, use] of src.morphemes) {
-        if (!/^H\d{4}[a-z]$/.test(id)) continue;
-        const t = morphemeEntry(use.cls, use.aramaic, use.alsoPgn);
-        if (t) morphemes.set(id, t);
+      for (const id of morphemeIdSet(src.morphemes)) {
+        const use = src.morphemes.get(id)!;
+        morphemes.set(id, morphemeEntry(use.cls, use.aramaic, use.alsoPgn)!);
       }
     }
 
@@ -1263,6 +1292,490 @@ export function assembleLexicon(src: Sources): LexBuild {
 }
 
 /* ======================================================================== */
+/* Usage: verse counts and translation renderings                            */
+/* ======================================================================== */
+
+/** Coarse class of an original-language word, enough to tell which English words belong to it. */
+export type WordKind = 'art' | 'prep' | 'conj' | 'pron' | 'part' | 'noun' | 'verb' | 'adj' | 'adv' | 'other';
+
+/** Nouns, verbs and adjectives: their renderings shed surrounding function words ("of God" -> "God"). */
+const TRIMMED_KINDS: ReadonlySet<WordKind> = new Set<WordKind>(['noun', 'verb', 'adj']);
+const CONTENT_KINDS: ReadonlySet<WordKind> = new Set<WordKind>(['noun', 'verb', 'adj', 'adv']);
+const FUNCTION_KINDS: ReadonlySet<WordKind> = new Set<WordKind>(['art', 'prep', 'conj', 'pron']);
+
+const GREEK_KINDS: Record<string, WordKind> = {
+  T: 'art', PREP: 'prep', CONJ: 'conj', COND: 'conj',
+  P: 'pron', R: 'pron', D: 'pron', F: 'pron', S: 'pron', C: 'pron', I: 'pron', X: 'pron', Q: 'pron', K: 'pron',
+  PRT: 'part', INJ: 'part', ARAM: 'part', HEB: 'part',
+  N: 'noun', V: 'verb', A: 'adj', ADV: 'adv',
+};
+
+/** Word class from an OrigWord morphology code: Robinson ("N-NSM", "T-ASM", "PREP") or OSHB ("Ncmsa", "Td", "Sp3ms"). */
+export function morphKind(morph: string, lang: 'grc' | 'hbo'): WordKind {
+  if (!morph) return 'other';
+  if (lang === 'grc') return GREEK_KINDS[morph.split('-')[0]] ?? 'other';
+  switch (morph[0]) {
+    case 'N':
+      return 'noun';
+    case 'V':
+      return 'verb';
+    case 'A':
+      return 'adj';
+    case 'D':
+      return 'adv';
+    case 'R':
+      return 'prep';
+    case 'C':
+      return 'conj';
+    case 'P':
+      return 'pron';
+    case 'S':
+      return morph[1] === 'p' ? 'pron' : 'part';
+    case 'T':
+      return morph[1] === 'd' ? 'art' : 'part';
+    default:
+      return 'other';
+  }
+}
+
+/** Word class from a LexEntry.pos (for KJV Strong's tags that link to no original word). */
+export function posKind(pos: string): WordKind {
+  if (/^Article/.test(pos)) return 'art';
+  if (/^Preposition/.test(pos)) return 'prep';
+  if (/^(?:Conjunction|Conditional)/.test(pos)) return 'conj';
+  if (/pronoun|^Suffix, pronominal/i.test(pos)) return 'pron';
+  if (/^Verb/.test(pos)) return 'verb';
+  if (/^(?:Proper noun|Noun)/.test(pos)) return 'noun';
+  if (/^(?:Adjective|Numeral)/.test(pos)) return 'adj';
+  if (/^Adverb/.test(pos)) return 'adv';
+  if (/^(?:Particle|Interjection|Interrogative|Negative|Correlative|Suffix)/.test(pos)) return 'part';
+  return 'other';
+}
+
+/** One English word of a rendering; `cap` = its capitalisation is meaningful (not sentence-initial). */
+export interface EnWord {
+  text: string;
+  cap: boolean;
+}
+
+/** Trim edge punctuation, unify apostrophes and drop a possessive ending: "“LORD’s" -> "LORD", "brothers’" -> "brothers". */
+export function cleanEnglishWord(word: string): string {
+  return word
+    .replace(/[’‘ʼ`]/g, "'")
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+    .replace(/'s$/i, '');
+}
+
+const set = (...lists: (readonly string[] | ReadonlySet<string>)[]): ReadonlySet<string> => new Set(lists.flatMap((l) => [...l]));
+
+const ARTICLES = set(['the', 'a', 'an']);
+const LEAD_CONJ = set(['and', 'but', 'or', 'nor', 'so', 'then', 'yet', 'now', 'for', 'that', 'when', 'while', 'if']);
+/** Prepositions that mark case or context ("of God", "to go", "in the beginning"). */
+const CASE_PREP = set(['of', 'to', 'in', 'on', 'at', 'by', 'with', 'from', 'for', 'into', 'unto', 'upon']);
+const LEAD_PREP = set(CASE_PREP, [
+  'over', 'under', 'among', 'through', 'throughout', 'toward', 'towards', 'against', 'before', 'after', 'about', 'as',
+  'like', 'within',
+]);
+const POSSESSIVES = set(['his', 'her', 'its', 'their', 'my', 'our', 'your', 'thy', 'thine', 'mine', 'whose', 'own']);
+const SUBJECTS = set(['i', 'he', 'she', 'it', 'we', 'they', 'you', 'ye', 'thou']);
+const OBJECTS = set(['him', 'her', 'it', 'them', 'me', 'us', 'you', 'thee', 'ye']);
+const RELATIVES = set(['which', 'who', 'whom', 'whose', 'what', 'that']);
+const AUX = set([
+  'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'art', 'wast', 'wert', 'may', 'might', 'shall', 'shalt',
+  'should', 'will', 'wilt', 'would', 'let', 'do', 'does', 'did', 'doth', 'dost', 'didst', 'have', 'has', 'hast',
+  'hath', 'had', 'can', 'could', 'must', 'having',
+]);
+const QUANT = set(['all', 'every', 'each', 'any', 'no', 'some']);
+/** Words that never make a rendering of a content word on their own ("of", "He" for Jesus, "O" for God). */
+const WEAK = set(ARTICLES, LEAD_CONJ, CASE_PREP, POSSESSIVES, SUBJECTS, OBJECTS, RELATIVES, AUX, QUANT, [
+  'o', 'out', 'because', 'not', 'behold', 'lo', 'also', 'even', 'how', 'seeing', 'thus', 'therefore', 'wherefore',
+  'wherewith', 'whereby', 'wherein', 'whereof', 'whereupon',
+]);
+const WEAK_FOR_PARTICLE = set(CASE_PREP, ARTICLES, POSSESSIVES, SUBJECTS, OBJECTS);
+const WEAK_FOR_ARTICLE = set(CASE_PREP, LEAD_CONJ);
+/** Context words dropped after the span of a rendering that matches the word's gloss. */
+const SPAN_TRAIL = set(ARTICLES, LEAD_CONJ, POSSESSIVES, OBJECTS, SUBJECTS, RELATIVES, AUX);
+
+/** Words an unmatched function word may take over from its unit (see attributeUnit). */
+const KIND_WORDS: Partial<Record<WordKind, ReadonlySet<string>>> = {
+  art: ARTICLES,
+  conj: set(LEAD_CONJ, [
+    'because', 'though', 'although', 'since', 'as', 'even', 'also', 'both', 'either', 'neither', 'therefore', 'thus',
+    'lest', 'unless', 'until', 'whether', 'moreover', 'indeed', 'surely', 'wherefore', 'howbeit', 'nevertheless',
+    'however', 'again', 'rather', 'than', 'instead', 'whereas', 'still',
+  ]),
+  prep: set(LEAD_PREP, [
+    'out', 'off', 'up', 'down', 'beside', 'beneath', 'behind', 'above', 'below', 'around', 'between', 'beyond', 'near',
+    'until', 'till', 'since', 'except', 'because', 'along', 'across', 'amid', 'without', 'concerning', 'according', 'onto',
+  ]),
+  pron: set(SUBJECTS, OBJECTS, POSSESSIVES, RELATIVES, [
+    'this', 'these', 'those', 'himself', 'herself', 'itself', 'themselves', 'myself', 'yourself', 'yourselves',
+    'ourselves', 'thyself', 'one', 'ones', 'each', 'other', 'another', 'any', 'some', 'whoever', 'whatever', 'hers',
+    'ours', 'theirs', 'yours', 'someone', 'anyone', 'something', 'anything', 'certain', 'everyone', 'everybody',
+    'everything', 'nothing', 'none', 'nobody', 'such', 'same', 'why', 'how', 'where', 'whichever', 'whosoever',
+    'whatsoever', 'whomsoever', 'self', 'both', 'either', 'neither', 'many', 'few', 'much', 'more', 'all', 'every', 'no',
+  ]),
+};
+/** Every function word: a rendering made only of these says nothing about a content word ("over all"). */
+const FUNCTION = set(WEAK, LEAD_PREP, QUANT, KIND_WORDS.conj!, KIND_WORDS.prep!, KIND_WORDS.pron!, ['therefore', 'thus', 'surely']);
+/** Context words dropped before the span of a rendering that matches the word's gloss. */
+const SPAN_LEAD = FUNCTION;
+
+/** Longest rendering kept; longer stretches are paraphrase rather than a rendering of one word. */
+export const MAX_RENDERING_WORDS = 4;
+
+/** Light stem for matching English against a gloss: "words" ~ "word", "loved" ~ "love", "saying" ~ "says". */
+function stemEn(w: string): string {
+  return w.length > 3 ? w.replace(/(?:ings?|ed|es|s|e|ly)$/, '') : w;
+}
+
+/** Stems of the words of a contextual gloss, without bracketed notes ("[direct object]"). */
+function glossStems(gloss: string): Set<string> {
+  return new Set(
+    gloss
+      .replace(/\[[^\]]*\]/g, ' ')
+      .split(/[^\p{L}\p{N}'’]+/u)
+      .map((g) => stemEn(cleanEnglishWord(g).toLowerCase()))
+      .filter(Boolean),
+  );
+}
+
+const lowerOf = (w: EnWord): string => cleanEnglishWord(w.text).toLowerCase();
+
+/**
+ * Normalise the English words attributed to one original word (with its contextual gloss) into a
+ * rendering; display case is kept, callers fold case when counting.
+ *  1. Edge punctuation and possessive endings go ("LORD’s" -> "LORD"); a doubled word is merged.
+ *  2. When some words match the gloss, function words before that span go ("which the LORD",
+ *     "as surely as the LORD", "unto him" -> "LORD", "him"), and so do pronouns, auxiliaries,
+ *     articles and conjunctions after it ("love is" -> "love", "LORD your" -> "LORD"). For a function
+ *     word (article, preposition, conjunction, pronoun, particle) only the matching span is kept.
+ *  3. A leading article goes unless the word is itself an article; nouns, verbs and adjectives also shed
+ *     leading conjunctions, prepositions and "O" ("of God" -> "God", "to go" -> "go"), quantifiers,
+ *     auxiliaries and possessives before nouns ("all the gods" -> "gods", "his own hand" -> "hand"),
+ *     subject pronouns before verbs ("he called" -> "called"), and trailing object pronouns and
+ *     conjunctions (and subjects after verbs: "lovest thou" -> "lovest"). Words matching the gloss are
+ *     never shed. If that leaves nothing, prepositions and quantifiers are kept ("before" for the noun
+ *     פָּנִים, "every" for כֹּל).
+ *  4. Without a gloss match, a rendering made only of function words is dropped for content words
+ *     ("of" or "He" for θεός / Ἰησοῦς, "over all" for אֶרֶץ), particles ("to" for אֵת) and articles
+ *     ("of" for a genitive article). An article, preposition, conjunction or pronoun rendered without
+ *     any function word is dropped even with a gloss match ("heart" for לְ, "king" for an article).
+ * Returns null for an empty rendering or one longer than MAX_RENDERING_WORDS words; `cap` is that of
+ * the first word kept.
+ */
+export function normalizeRendering(words: readonly EnWord[], kind: WordKind, gloss = ''): EnWord | null {
+  let ws: EnWord[] = [];
+  for (const w of words) {
+    const text = cleanEnglishWord(w.text);
+    if (text && text.toLowerCase() !== ws[ws.length - 1]?.text.toLowerCase()) ws.push({ text, cap: w.cap });
+  }
+  const stems = glossStems(gloss);
+  const inGloss = (w: EnWord) => stems.has(stemEn(w.text.toLowerCase()));
+  const low = (i: number) => ws[i].text.toLowerCase();
+  const hits = ws.map((w, i) => (inGloss(w) ? i : -1)).filter((i) => i >= 0);
+  if (hits.length) {
+    let a = 0;
+    let b = ws.length;
+    if (CONTENT_KINDS.has(kind) || kind === 'other') {
+      while (a < hits[0] && SPAN_LEAD.has(low(a))) a++;
+      while (b - 1 > hits[hits.length - 1] && SPAN_TRAIL.has(low(b - 1))) b--;
+    } else {
+      // A function word's rendering is the matching span itself ("his father" -> "his").
+      a = hits[0];
+      b = hits[hits.length - 1] + 1;
+    }
+    ws = ws.slice(a, b);
+  }
+  const context = TRIMMED_KINDS.has(kind);
+  const trim = (wide: boolean, ctx: boolean): EnWord[] => {
+    let a = 0;
+    let b = ws.length;
+    for (let changed = true; changed && a < b; ) {
+      changed = false;
+      const first = low(a);
+      if (
+        !inGloss(ws[a]) &&
+        ((kind !== 'art' && ARTICLES.has(first)) ||
+          (ctx &&
+            (LEAD_CONJ.has(first) ||
+              first === 'o' ||
+              (wide && (LEAD_PREP.has(first) || (kind !== 'verb' && (QUANT.has(first) || AUX.has(first) || SUBJECTS.has(first))))) ||
+              (kind !== 'verb' && POSSESSIVES.has(first)) ||
+              (kind === 'verb' && SUBJECTS.has(first)))))
+      ) {
+        a++;
+        changed = true;
+      } else if (b - a > 1 && ctx && !inGloss(ws[b - 1])) {
+        const last = low(b - 1);
+        if (
+          OBJECTS.has(last) ||
+          ARTICLES.has(last) ||
+          LEAD_CONJ.has(last) ||
+          (kind === 'verb' ? SUBJECTS.has(last) : last === 'of')
+        ) {
+          b--;
+          changed = true;
+        }
+      }
+    }
+    return ws.slice(a, b);
+  };
+  let kept = trim(true, context);
+  if (!kept.length && context) kept = trim(false, true);
+  if (!kept.length && context) kept = trim(false, false);
+  if (!kept.length || kept.length > MAX_RENDERING_WORDS) return null;
+  if (!kept.some(inGloss)) {
+    const lows = kept.map((w) => w.text.toLowerCase());
+    const only = (s: ReadonlySet<string>) => lows.every((l) => s.has(l));
+    if (CONTENT_KINDS.has(kind) && (only(WEAK) || (lows.length > 1 && only(FUNCTION)))) return null;
+    if (kind === 'part' && only(WEAK_FOR_PARTICLE)) return null;
+    if (kind === 'art' && only(WEAK_FOR_ARTICLE)) return null;
+  }
+  // An article, preposition, conjunction or pronoun rendered by content words only is a mis-attribution,
+  // even when a contextual gloss repeats the noun ("heart" for לְ, "king" for the Aramaic article).
+  if (FUNCTION_KINDS.has(kind) && !kept.some((w) => FUNCTION.has(w.text.toLowerCase()))) return null;
+  return { text: kept.map((w) => w.text).join(' '), cap: kept[0].cap };
+}
+
+/** One original word an English unit is linked to. */
+export interface UnitSource {
+  /** Contextual English gloss of this occurrence ("" if unknown). */
+  gloss: string;
+  kind: WordKind;
+}
+
+/**
+ * Split an English unit (consecutive words sharing the same links) among the original words it is
+ * linked to: "the Word" -> ὁ "the" + λόγος "Word"; "In the beginning" -> בְּ "In" + רֵאשִׁית "beginning".
+ *  - A word goes to the source(s) whose contextual gloss contains it (light stemming).
+ *  - The other words go to the heir: the one source left without a match, or else the one content word
+ *    (noun, verb, adjective, adverb) left without a match. A function-word heir only takes words of its
+ *    class (an article takes "the", a conjunction "and"/"then", a pronoun "his"...).
+ *  - Words nobody takes go to the unit's only content word, if it has exactly one ("will be" for
+ *    וְ + הָיָה: "will" is not a conjunction, so הָיָה takes it); otherwise they are dropped.
+ * A single source takes the whole unit. Returns the words of each source in English order.
+ */
+export function attributeUnit(words: readonly EnWord[], sources: readonly UnitSource[]): EnWord[][] {
+  if (sources.length === 1) return [words.slice()];
+  const glosses = sources.map((s) => glossStems(s.gloss));
+  const owners = words.map((w) => {
+    const lw = stemEn(lowerOf(w));
+    const out: number[] = [];
+    if (lw) glosses.forEach((g, i) => g.has(lw) && out.push(i));
+    return out;
+  });
+  const unmatched = sources.map((_, i) => i).filter((i) => !owners.some((o) => o.includes(i)));
+  let heir = unmatched.length === 1 ? unmatched[0] : -1;
+  if (heir < 0) {
+    const content = unmatched.filter((i) => CONTENT_KINDS.has(sources[i].kind));
+    if (content.length === 1) heir = content[0];
+  }
+  const contentAll = sources.map((_, i) => i).filter((i) => CONTENT_KINDS.has(sources[i].kind));
+  const fallback = contentAll.length === 1 ? contentAll[0] : -1;
+  words.forEach((w, j) => {
+    if (owners[j].length) return;
+    const accepts = heir >= 0 && (KIND_WORDS[sources[heir].kind]?.has(lowerOf(w)) ?? (sources[heir].kind !== 'part' || !WEAK.has(lowerOf(w))));
+    const to = accepts ? heir : fallback;
+    if (to >= 0) owners[j] = [to];
+  });
+  return sources.map((_, i) => words.filter((_w, j) => owners[j].includes(i)));
+}
+
+/** A unit: consecutive word tokens with the same links (or, for unlinked KJV words, the same Strong's tags). */
+export interface RenderUnit {
+  words: EnWord[];
+  /** Indices into OrigChapter.words ([] for a tag-only unit). */
+  links: number[];
+  /** Strong's ids of an unlinked KJV word (TokenInfo.s), else []. */
+  tags: string[];
+}
+
+/** Text after which a capital letter says nothing (sentence start, opening quote or bracket). */
+const SENTENCE_START = /(?:[.!?:]['"’”)\]]*|[“‘(\[])\s*$/;
+
+/**
+ * Group a verse's tokens into rendering units. Units break at any literal text other than whitespace
+ * (punctuation, unlinked words). Each word records whether its capitalisation is meaningful: false
+ * at the start of the verse and after sentence-ending punctuation or an opening quote.
+ */
+export function verseUnits(tokens: readonly Token[]): RenderUnit[] {
+  const units: RenderUnit[] = [];
+  let open: (RenderUnit & { key: string }) | null = null;
+  let sentenceStart = true;
+  for (const t of tokens) {
+    const text = typeof t === 'string' ? t : t[0];
+    if (typeof t === 'string') {
+      if (t.trim()) {
+        open = null;
+        sentenceStart = SENTENCE_START.test(t);
+      }
+      continue;
+    }
+    const links = t[1];
+    const tags = links.length ? [] : (t[2]?.s ?? []).filter((s) => /^[GH]\d{4}[A-Za-z]?$/.test(s));
+    const key = links.length ? links.join(',') : tags.length ? `s:${tags.join(',')}` : '';
+    const word: EnWord = { text, cap: !sentenceStart };
+    sentenceStart = SENTENCE_START.test(text);
+    if (!key) {
+      open = null;
+      continue;
+    }
+    if (open && open.key === key) open.words.push(word);
+    else {
+      open = { key, words: [word], links, tags };
+      units.push(open);
+    }
+  }
+  return units.map(({ words, links, tags }) => ({ words, links, tags }));
+}
+
+/** Counts of one rendering of one word in one translation. */
+interface RenderStat {
+  n: number;
+  /** Occurrences whose capitalisation is meaningful, and how many of those are capitalised, by form. */
+  informative: number;
+  caps: Map<string, number>;
+  /** Every form seen (for words only ever seen sentence-initially). */
+  forms: Map<string, number>;
+}
+
+/**
+ * Collects renderings verse by verse. Each distinct (word, rendering) pair counts once per verse.
+ * Occurrences are keyed by usageKey (base number, or the full id of a morpheme), and a lettered
+ * non-morpheme id is also counted under its own id for its own lexicon entry.
+ */
+export class RenderingCounter {
+  /** tr -> key -> lower-cased rendering -> stats */
+  private data = new Map<string, Map<string, Map<string, RenderStat>>>();
+
+  constructor(
+    private readonly morphemes: ReadonlySet<string>,
+    /** Word class for a tag-only (unlinked KJV) Strong's id. */
+    private readonly tagKind: (id: string) => WordKind = () => 'other',
+  ) {}
+
+  /** Keys an occurrence of `id` counts under. */
+  keysOf(id: string): string[] {
+    const k = usageKey(id, this.morphemes);
+    return k === id ? [k] : [k, id];
+  }
+
+  /** Add one verse (or superscription) of translation `tr`. */
+  addVerse(tr: string, tokens: readonly Token[], orig: OrigChapter | null): void {
+    const seen = new Set<string>();
+    for (const unit of verseUnits(tokens)) {
+      const sources: (UnitSource & { id: string })[] = unit.links.length
+        ? unit.links.map((i) => {
+            const w = orig?.words[i];
+            return w
+              ? { id: w[OW.strongs], gloss: w[OW.gloss], kind: morphKind(w[OW.morph], orig!.lang) }
+              : { id: '', gloss: '', kind: 'other' as WordKind };
+          })
+        : unit.tags.map((id) => ({ id, gloss: '', kind: this.tagKind(id) }));
+      const parts = attributeUnit(unit.words, sources);
+      sources.forEach((src, i) => {
+        // No id, nothing attributed, or a gloss that is only a note ("[direct object]" for אֵת): no rendering.
+        if (!src.id || !parts[i].length || (src.gloss && !src.gloss.replace(/\[[^\]]*\]/g, '').trim())) return;
+        const r = normalizeRendering(parts[i], src.kind, src.gloss);
+        if (!r) return;
+        const lower = r.text.toLowerCase();
+        for (const key of this.keysOf(src.id)) {
+          const dedupe = `${key}\u0000${lower}`;
+          if (seen.has(dedupe)) continue;
+          seen.add(dedupe);
+          this.count(tr, key, lower, r);
+        }
+      });
+    }
+  }
+
+  private count(tr: string, key: string, lower: string, r: EnWord): void {
+    let byKey = this.data.get(tr);
+    if (!byKey) this.data.set(tr, (byKey = new Map()));
+    let byText = byKey.get(key);
+    if (!byText) byKey.set(key, (byText = new Map()));
+    let st = byText.get(lower);
+    if (!st) byText.set(lower, (st = { n: 0, informative: 0, caps: new Map(), forms: new Map() }));
+    st.n++;
+    st.forms.set(r.text, (st.forms.get(r.text) ?? 0) + 1);
+    if (r.cap) {
+      st.informative++;
+      if (/^\p{Lu}/u.test(r.text)) st.caps.set(r.text, (st.caps.get(r.text) ?? 0) + 1);
+    }
+  }
+
+  /**
+   * Top `limit` renderings per key and translation, most frequent first, without the rare ones
+   * (see minRenderingCount). A rendering is shown
+   * capitalised only when it is consistently capitalised where capitals are meaningful (≥ 80%:
+   * "God", "LORD", "Jesus", "I"), or, never seen mid-sentence, when `proper(key)` says it is a name.
+   */
+  result(limit = 6, proper: (key: string) => boolean = () => false): Map<string, Record<string, [string, number][]>> {
+    const out = new Map<string, Record<string, [string, number][]>>();
+    for (const [tr, byKey] of this.data) {
+      for (const [key, byText] of byKey) {
+        const ranked = [...byText].sort((a, b) => b[1].n - a[1].n || (a[0] < b[0] ? -1 : 1));
+        const min = minRenderingCount(ranked[0][1].n);
+        const top = ranked
+          .filter(([, st]) => st.n >= min)
+          .slice(0, limit)
+          .map(([lower, st]): [string, number] => [displayForm(lower, st, proper(key)), st.n]);
+        let rec = out.get(key);
+        if (!rec) out.set(key, (rec = {}));
+        rec[tr] = top;
+      }
+    }
+    return out;
+  }
+}
+
+/**
+ * Smallest count a rendering needs to be listed, given the top rendering's count: everything for rare
+ * words; for words seen 10+ times at least 2 and 0.5% of the top count (a stray "therefore" next to
+ * 5,000 × "LORD" is a tagging artefact, not a rendering).
+ */
+export function minRenderingCount(top: number): number {
+  return top >= 10 ? Math.max(2, Math.ceil(top * 0.005)) : 1;
+}
+
+const mostFrequent = (m: Map<string, number>): string => [...m].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0][0];
+
+function displayForm(lower: string, st: RenderStat, proper: boolean): string {
+  const capped = [...st.caps.values()].reduce((a, b) => a + b, 0);
+  if (st.informative > 0) return capped >= 0.8 * st.informative ? mostFrequent(st.caps) : lower;
+  return proper ? mostFrequent(st.forms) : lower;
+}
+
+/**
+ * Store LexEntry.verses and LexEntry.renderings on every entry. Both are looked up by the entry's
+ * key: verses by usageKey (the concordance key), renderings by the key itself (base number, morpheme
+ * id, or a lettered id's own counts). Canonical keys go first and base aliases last: an alias shares
+ * its entry object with a lettered variant, and that object is what every plain-number word in the
+ * texts resolves to, so it carries the base-number figures. Absent data removes the field.
+ */
+export function attachUsage(
+  entries: Map<string, LexEntry>,
+  canonical: ReadonlySet<string>,
+  morphemes: ReadonlySet<string>,
+  verseCounts: ReadonlyMap<string, number>,
+  renderings: ReadonlyMap<string, Record<string, [string, number][]>>,
+  order: readonly string[] = ['KJV', 'BSB'],
+): void {
+  const keys = [...entries.keys()].sort((a, b) => Number(!canonical.has(a)) - Number(!canonical.has(b)));
+  for (const key of keys) {
+    const e = entries.get(key)!;
+    const v = verseCounts.get(usageKey(key, morphemes));
+    if (v) e.verses = v;
+    else delete e.verses;
+    const r = renderings.get(key);
+    const trs = r ? [...order.filter((t) => r[t]?.length), ...Object.keys(r).filter((t) => !order.includes(t) && r[t].length)] : [];
+    if (r && trs.length) e.renderings = Object.fromEntries(trs.map((t) => [t, r[t]]));
+    else delete e.renderings;
+  }
+}
+
+/* ======================================================================== */
 /* I/O                                                                       */
 /* ======================================================================== */
 
@@ -1286,14 +1799,28 @@ function readColumns<K extends string>(name: string, cols: readonly K[]): Record
   return rows;
 }
 
-function loadSources(): Sources {
-  const read = (n: string) => readFileSync(srcPath(n), 'utf8');
+let maculaCache: { morphemes: Map<string, MorphemeUse>; ids: Set<string> } | null = null;
+
+/** Morpheme classification and id set of Macula Hebrew (read once per process: the file is 84 MB). */
+function maculaInfo(): { morphemes: Map<string, MorphemeUse>; ids: Set<string> } {
+  if (maculaCache) return maculaCache;
   const macula = readColumns('macula-hebrew.tsv', ['strongnumberx', 'lang', 'pos', 'type', 'lemma', 'morph'] as const);
   const morphemes = findMorphemeIds(
     macula.map((r) => ({ strong: r.strongnumberx, lang: r.lang, pos: r.pos, type: r.type, lemma: r.lemma, morph: r.morph })),
   );
-  const maculaIds = new Set<string>();
-  for (const r of macula) for (const part of r.strongnumberx.split('|')) if (normStrongs('H', part)) maculaIds.add(normStrongs('H', part));
+  const ids = new Set<string>();
+  for (const r of macula) for (const part of r.strongnumberx.split('|')) if (normStrongs('H', part)) ids.add(normStrongs('H', part));
+  return (maculaCache = { morphemes, ids });
+}
+
+/** The Hebrew prefix/suffix morpheme ids that keep their full id (concordance and lexicon agree on these). */
+export function loadMorphemeIds(): Set<string> {
+  return morphemeIdSet(maculaInfo().morphemes);
+}
+
+function loadSources(): Sources {
+  const read = (n: string) => readFileSync(srcPath(n), 'utf8');
+  const { morphemes, ids: maculaIds } = maculaInfo();
   const greekLemmas = new Map<string, string>();
   for (const r of readColumns('SBLGNT.tsv', ['strongs', 'lemma'] as const)) {
     const id = normStrongs('G', r.strongs);
@@ -1327,9 +1854,75 @@ function usedIds(): { G: Set<string>; H: Set<string> } {
   return { G, H };
 }
 
+/** Number of verses per concordance key, from public/data/conc/ (empty map if the stage has not run). */
+function readVerseCounts(): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const lang of ['G', 'H']) {
+    const dir = outPath('conc', lang);
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      for (const [id, refs] of Object.entries(readJson<ConcChunk>(join(dir, f)))) counts.set(id, refs.length);
+    }
+  }
+  return counts;
+}
+
+/** Translations whose word links feed LexEntry.renderings. */
+export const RENDERING_TRANSLATIONS = ['KJV', 'BSB'] as const;
+
+/**
+ * Count renderings in every bundled translation of RENDERING_TRANSLATIONS that exists. A chapter file
+ * that is missing or unreadable (e.g. being rewritten by a concurrent kjv run) is skipped and reported.
+ */
+function collectRenderings(counter: RenderingCounter): { trs: string[]; skipped: string[] } {
+  const trs = RENDERING_TRANSLATIONS.filter((tr) => existsSync(outPath('text', tr)));
+  const skipped: string[] = [];
+  for (const { book, chapter } of allChapters()) {
+    let orig: OrigChapter | null = null;
+    try {
+      orig = readJson<OrigChapter>(outPath('orig', book.id, `${chapter}.json`));
+    } catch {
+      orig = null;
+    }
+    for (const tr of trs) {
+      let text: TextChapter;
+      try {
+        text = readJson<TextChapter>(outPath('text', tr, book.id, `${chapter}.json`));
+      } catch {
+        skipped.push(`${tr} ${book.id} ${chapter}`);
+        continue;
+      }
+      if (text.superscription?.length) counter.addVerse(tr, text.superscription, orig);
+      for (const v of text.verses) counter.addVerse(tr, v.t, orig);
+    }
+  }
+  return { trs: [...trs], skipped };
+}
+
 export function buildLexicon(): void {
   const src = loadSources();
   const { entries, canonical, stats } = assembleLexicon(src);
+
+  // Usage: verse counts from the concordance, renderings from the bundled translations' word links.
+  const morphemes = morphemeIdSet(src.morphemes);
+  const verseCounts = readVerseCounts();
+  const entryOf = (id: string) => entries.get(id) ?? entries.get(baseStrongs(id));
+  const counter = new RenderingCounter(morphemes, (id) => posKind(entryOf(id)?.pos ?? ''));
+  const { trs, skipped } = collectRenderings(counter);
+  const renderings = counter.result(6, (key) => /^Proper noun/.test(entryOf(key)?.pos ?? ''));
+  attachUsage(entries, canonical, morphemes, verseCounts, renderings);
+  let withVerses = 0;
+  const withRenderings: Record<string, number> = {};
+  for (const [key, e] of entries) {
+    if (!canonical.has(key)) continue;
+    if (e.verses) withVerses++;
+    for (const tr of Object.keys(e.renderings ?? {})) withRenderings[tr] = (withRenderings[tr] ?? 0) + 1;
+  }
+  const usageNote =
+    `usage: ${verseCounts.size ? `${withVerses} entries with verse counts` : 'no concordance yet (run the concordance stage first)'}, ` +
+    `renderings from ${trs.join('+') || 'no translation'} (${Object.entries(withRenderings).map(([t, n]) => `${t} ${n}`).join(', ') || 'none'})` +
+    (skipped.length ? `, ${skipped.length} unreadable chapters skipped (${skipped.slice(0, 3).join('; ')})` : '');
 
   // Safety net: every definition must be in the allowed HTML subset.
   for (const e of entries.values()) {
@@ -1382,6 +1975,7 @@ export function buildLexicon(): void {
       `${(bytes / 1e6).toFixed(1)} MB + index ${(indexBytes / 1e6).toFixed(2)} MB; ` +
       `text ids ${used.G.size + used.H.size}: ${exact} exact, ${viaBase} via base, ${missing.length} missing` +
       `${missing.length ? ` (${missing.slice(0, 10).join(', ')})` : ''}; classic ${classic}/${MAX_STRONGS.G + MAX_STRONGS.H}; ` +
+      `${usageNote}; ` +
       Object.entries(stats)
         .map(([k, v]) => `${k}=${v}`)
         .join(' '),

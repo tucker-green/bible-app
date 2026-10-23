@@ -11,10 +11,11 @@ type Stage = { name: string; run: () => Promise<void> | void };
 const STAGES: Stage[] = [
   { name: 'orig', run: async () => (await import('./data/orig')).buildOrig() },
   { name: 'bsb', run: async () => (await import('./data/bsb')).buildBsb() },
-  { name: 'lexicon', run: async () => (await import('./data/lexicon')).buildLexicon() },
-  { name: 'concordance', run: async () => (await import('./data/concordance')).buildConcordance() },
   { name: 'kjv', run: async () => (await import('./data/kjv')).buildKjv() },
   { name: 'bridged', run: async () => (await import('./data/bridged')).buildBridged() },
+  // concordance reads orig; lexicon reads conc (verse counts) and the KJV/BSB word links (renderings).
+  { name: 'concordance', run: async () => (await import('./data/concordance')).buildConcordance() },
+  { name: 'lexicon', run: async () => (await import('./data/lexicon')).buildLexicon() },
   { name: 'search', run: async () => (await import('./data/search')).buildSearch() },
   { name: 'meta', run: async () => (await import('./data/meta')).buildMeta() },
   { name: 'validate', run: async () => (await import('./data/validate')).buildValidate() },

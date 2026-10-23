@@ -69,7 +69,7 @@ export const TRANSLATIONS: TranslationMeta[] = [
     alignment: 'bridged',
     description:
       'Robert Young’s strictly literal rendering, keeping Hebrew and Greek tenses and word order. Links are matched automatically through the BSB and are approximate.',
-    source: OPEN_BIBLES,
+    source: 'https://github.com/scrollmapper/bible_databases',
   },
 ];
 
@@ -124,9 +124,15 @@ const KJV_CREDIT: Credit = {
 };
 
 const OPEN_BIBLES_CREDIT: Credit = {
-  name: 'open-bibles (World English Bible, American Standard Version, Young’s Literal Translation)',
+  name: 'open-bibles (World English Bible, American Standard Version)',
   license: 'Public domain',
   url: OPEN_BIBLES,
+};
+
+const YLT_CREDIT: Credit = {
+  name: 'Young’s Literal Translation (1898), via scrollmapper/bible_databases',
+  license: 'Public domain',
+  url: 'https://github.com/scrollmapper/bible_databases',
 };
 
 /** Translations / credits for the given set of present translation ids. */
@@ -134,7 +140,8 @@ export function metaFor(present: (id: string) => boolean): Pick<DataMeta, 'trans
   const translations = TRANSLATIONS.filter((t) => present(t.id));
   const credits = [...CORE_CREDITS];
   if (present('KJV')) credits.push(KJV_CREDIT);
-  if (['WEB', 'ASV', 'YLT'].some(present)) credits.push(OPEN_BIBLES_CREDIT);
+  if (['WEB', 'ASV'].some(present)) credits.push(OPEN_BIBLES_CREDIT);
+  if (present('YLT')) credits.push(YLT_CREDIT);
   return { translations, credits };
 }
 

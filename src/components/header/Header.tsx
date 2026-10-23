@@ -1,0 +1,224 @@
+/**
+ * Masthead (Scholar): R mark + wordmark · ‹ book/chapter › · translation · search · Reading |
+ * Interlinear · theme. Phones get a compact row: mark, ‹ John 1 ›, KJV, search icon, theme.
+ */
+import { useRef, useState } from 'preact/hooks';
+import {
+  closeSearch,
+  cycleTheme,
+  effectiveTheme,
+  meta,
+  navigate,
+  openSearch,
+  passage,
+  readingMode,
+  route,
+  SEARCH_INPUT_ID,
+  searchKeys,
+  searchOpen,
+  searchQuery,
+  setReadingMode,
+  theme,
+  translations,
+} from '../../app/state';
+import { getBook } from '../../lib/books';
+import { nextChapter, prevChapter } from '../../lib/data';
+import { formatChapter, parseReference, refToHash } from '../../lib/reference';
+import { shortName } from '../common/alignment';
+import { BrandMark, Icon } from '../common/Icon';
+import { BookPicker } from './BookPicker';
+import { TranslationPicker } from './TranslationPicker';
+import './header.css';
+
+export function ModeToggle({ class: cls = '' }: { class?: string }) {
+  const mode = readingMode.value;
+  return (
+    <div class={`seg ${cls}`.trim()} role="group" aria-label="Reading mode">
+      <button type="button" aria-pressed={mode === 'reading'} onClick={() => setReadingMode('reading')}>
+        <Icon name="text" />
+        Reading
+      </button>
+      <button type="button" aria-pressed={mode === 'interlinear'} onClick={() => setReadingMode('interlinear')}>
+        <Icon name="inter" />
+        Interlinear
+      </button>
+    </div>
+  );
+}
+
+const THEME_NAME = { light: 'Light', dark: 'Dark', system: 'System' } as const;
+const NEXT_THEME = { light: 'dark', dark: 'system', system: 'light' } as const;
+
+export function ThemeToggle() {
+  const t = theme.value;
+  const label =
+    t === 'system'
+      ? `Theme: System (${effectiveTheme('system') === 'dark' ? 'dark' : 'light'} now). Switch to ${THEME_NAME[NEXT_THEME[t]]}`
+      : `Theme: ${THEME_NAME[t]}. Switch to ${THEME_NAME[NEXT_THEME[t]]}`;
+  return (
+    <button type="button" class="btn btn--icon theme-btn" onClick={cycleTheme} aria-label={label} title={label} data-theme-mode={t}>
+      <Icon name={t === 'light' ? 'sun' : t === 'dark' ? 'moon' : 'system'} />
+    </button>
+  );
+}
+
+function SearchField() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const open = searchOpen.value;
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (searchKeys.handler?.(e)) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSearch();
+      inputRef.current?.blur();
+    } else if (e.key === 'Enter') {
+      const m = meta.value;
+      const ref = parseReference(searchQuery.value, {
+        verseCount: (book, ch) => m?.books.find((b) => b.id === book)?.verses[ch - 1],
+      });
+      if (ref) {
+        e.preventDefault();
+        closeSearch();
+        searchQuery.value = '';
+        inputRef.current?.blur();
+        navigate(ref);
+      }
+    }
+  };
+
+  return (
+    <div class={`search${open ? ' is-open' : ''}`} data-keep-word>
+      <button
+        type="button"
+        class="btn btn--icon search__btn-mobile"
+        aria-label="Search"
+        onClick={() => {
+          openSearch();
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }}
+      >
+        <Icon name="search" />
+      </button>
+      <label class="search__field">
+        <Icon name="search" />
+        <span class="sr-only">Search the Bible</span>
+        <input
+          ref={inputRef}
+          id={SEARCH_INPUT_ID}
+          class="search__input"
+          type="search"
+          autoComplete="off"
+          spellcheck={false}
+          enterKeyHint="search"
+          placeholder="Search words, λόγος, G3056 or Jn 3:16"
+          aria-expanded={open}
+          aria-controls="search-panel"
+          value={searchQuery.value}
+          onFocus={() => openSearch()}
+          onInput={(e) => {
+            searchQuery.value = (e.target as HTMLInputElement).value;
+            if (!searchOpen.value) openSearch();
+          }}
+          onKeyDown={onKeyDown}
+        />
+        <span class="kbd search__kbd" aria-hidden="true">
+          /
+        </span>
+        <button
+          type="button"
+          class="btn btn--icon search__close"
+          aria-label="Close search"
+          onClick={() => {
+            closeSearch();
+            inputRef.current?.blur();
+          }}
+        >
+          <Icon name="close" />
+        </button>
+      </label>
+    </div>
+  );
+}
+
+export function Header() {
+  const { tr, ref } = passage.value;
+  const book = getBook(ref.book);
+  const trMeta = translations.value.find((t) => t.id === tr);
+  const prev = prevChapter(ref.book, ref.chapter);
+  const next = nextChapter(ref.book, ref.chapter);
+  const [pop, setPop] = useState<'books' | 'tr' | null>(null);
+  const bookBtn = useRef<HTMLButtonElement>(null);
+  const trBtn = useRef<HTMLButtonElement>(null);
+  const about = route.value.name === 'about';
+
+  return (
+    <header class="masthead" id="masthead">
+      <div class="masthead__inner">
+        <a class="brand" href={refToHash(tr, { book: ref.book, chapter: ref.chapter })} aria-label="Rootword — back to reading">
+          <BrandMark />
+          <span class="brand__word">Rootword</span>
+        </a>
+        <span class="hdr-sep" aria-hidden="true" />
+
+        <nav class="locator" aria-label="Passage">
+          <button
+            type="button"
+            class="btn btn--icon locator__step"
+            disabled={!prev}
+            aria-label={prev ? `Previous chapter: ${formatChapter(prev[0], prev[1])}` : 'Previous chapter'}
+            title={prev ? formatChapter(prev[0], prev[1]) : undefined}
+            onClick={() => prev && navigate({ book: prev[0], chapter: prev[1] })}
+          >
+            <Icon name="left" />
+          </button>
+          <button
+            ref={bookBtn}
+            type="button"
+            class="btn locator__ref"
+            aria-haspopup="dialog"
+            aria-expanded={pop === 'books'}
+            aria-label={`Choose a passage. Current: ${formatChapter(ref.book, ref.chapter)}`}
+            onClick={() => setPop(pop === 'books' ? null : 'books')}
+          >
+            <span class="ref-book ref-book--long">{book?.id === 'PSA' ? 'Psalm' : book?.name}</span>
+            <span class="ref-book ref-book--short">{book?.id === 'PSA' ? 'Ps' : book?.short}</span>
+            {book && book.chapters > 1 && <span class="ref-ch"> {ref.chapter}</span>}
+            <Icon name="chev" class="chev" />
+          </button>
+          <button
+            type="button"
+            class="btn btn--icon locator__step"
+            disabled={!next}
+            aria-label={next ? `Next chapter: ${formatChapter(next[0], next[1])}` : 'Next chapter'}
+            title={next ? formatChapter(next[0], next[1]) : undefined}
+            onClick={() => next && navigate({ book: next[0], chapter: next[1] })}
+          >
+            <Icon name="right" />
+          </button>
+        </nav>
+
+        <button
+          ref={trBtn}
+          type="button"
+          class="btn tr-btn"
+          aria-haspopup="dialog"
+          aria-expanded={pop === 'tr'}
+          aria-label={`Choose a translation. Current: ${trMeta?.name ?? tr}`}
+          onClick={() => setPop(pop === 'tr' ? null : 'tr')}
+        >
+          <span class="tr-btn__abbr">{trMeta?.abbr ?? tr}</span>
+          {trMeta && <span class="tr-btn__name">{shortName(trMeta.name)}</span>}
+          <Icon name="chev" class="chev" />
+        </button>
+
+        <span class="hdr-spacer" />
+        <SearchField />
+        {!about && <ModeToggle class="mode-hdr" />}
+        <ThemeToggle />
+      </div>
+      <BookPicker open={pop === 'books'} onClose={() => setPop(null)} anchor={bookBtn} />
+      <TranslationPicker open={pop === 'tr'} onClose={() => setPop(null)} anchor={trBtn} />
+    </header>
+  );
+}

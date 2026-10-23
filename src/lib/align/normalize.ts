@@ -352,6 +352,20 @@ function modernise(w: string, ctx: LemmaContext | undefined): string | undefined
  * then inflectionally stemmed. Pure and deterministic; the pipeline and the browser must agree.
  */
 export function lemma(word: string, ctx?: LemmaContext): string {
+  const key = ctx?.thouNearby ? word + '\u0001' : word;
+  let l = LEMMA_CACHE.get(key);
+  if (l === undefined) {
+    if (LEMMA_CACHE.size >= LEMMA_CACHE_MAX) LEMMA_CACHE.clear();
+    LEMMA_CACHE.set(key, (l = computeLemma(word, ctx)));
+  }
+  return l;
+}
+
+/** Memo for `lemma` (pure); bounded so a long browser session cannot grow it without limit. */
+const LEMMA_CACHE = new Map<string, string>();
+const LEMMA_CACHE_MAX = 100_000;
+
+function computeLemma(word: string, ctx?: LemmaContext): string {
   let w = foldWord(word).replace(/[‑–]/g, '-');
   if (!w) return w;
   const irr = IRREGULAR[w];
