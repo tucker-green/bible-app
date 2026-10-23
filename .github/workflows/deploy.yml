@@ -1,0 +1,55 @@
+name: Build and deploy
+
+# Builds the Bible data and the site on every push and pull request, so CI problems show up
+# before publishing. Only pushes to main are deployed to GitHub Pages.
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Cache raw Bible sources
+        uses: actions/cache@v4
+        with:
+          path: .cache/sources
+          key: bible-sources-${{ hashFiles('scripts/fetch-sources.mjs') }}
+      - name: Build Bible data (public/data)
+        run: npm run data
+      - run: npm test
+      - run: npm run build
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

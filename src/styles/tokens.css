@@ -1,0 +1,307 @@
+/* =========================================================================
+   Rootword design tokens: "Illuminated"
+   Vellum by day, candlelight by night. Colour follows the scribe's division
+   of labour: iron-gall INK for the text, vermilion RUBRIC for structure
+   (verse numbers, headings, the active word), LAPIS for the original
+   languages, and GILT for ornament only (never for text; use --gilt-ink).
+
+   Spec, rationale and contrast ratios: design/DESIGN.md.
+   Imported by src/styles/base.css; components read these properties only.
+
+   Theme selection
+     :root                         vellum (light) defaults
+     :root[data-theme="dark"]      candlelight, chosen explicitly in Settings
+     prefers-color-scheme: dark    candlelight, unless data-theme="light"
+   Reading face
+     :root[data-face="literata"]   Literata instead of EB Garamond for the text column
+   Text size
+     :root[data-size="s|l|xl"]     scales the reading text (m = default)
+   ========================================================================= */
+
+:root {
+  color-scheme: light;
+
+  /* ---- surfaces ------------------------------------------------------- */
+  --bg: #ece2cc;               /* the desk around the page; app chrome */
+  --page: #f7f0e1;             /* the leaf: reading surface */
+  --card: #fffaf0;             /* word card, popovers, panels, inputs on chrome */
+  --sunken: #f1e8d5;           /* recessed: fields inside cards, card footer, skeleton lines */
+
+  /* ---- ink ------------------------------------------------------------ */
+  --ink: #2a2017;              /* body text            14.05:1 on page */
+  --ink-2: #5b4935;            /* secondary text        7.55:1 on page */
+  --ink-3: #6f5c45;            /* labels, meta, supplied words 5.62:1 on page, 4.96:1 on bg */
+  --ink-inverse: #fffaf0;      /* text on --rubric / --ink fills */
+
+  /* ---- pigments ------------------------------------------------------- */
+  --rubric: #a2311c;           /* vermilion: verse numbers, rubrics, active word, links  6.18:1 */
+  --rubric-hover: #8a2815;
+  --lapis: #2f4987;            /* ultramarine: Greek/Hebrew text outside the card headword 7.64:1 */
+  --lapis-wash: rgb(47 73 135 / 0.08);   /* the Septuagint band in a Hebrew card */
+  --lapis-ground: #213a74;     /* ground of illuminated initials and the brand mark */
+  --lapis-ground-2: #34559d;
+  --gilt: #b8903f;             /* gold leaf: hairlines, fleurons, bezants. NEVER text (2.61:1) */
+  --gilt-2: #dcbd6e;           /* highlight stop in gold gradients */
+  --gilt-ink: #7f5d1c;         /* gold that must be read: eyebrows, part of speech, Strong's 5.31:1 */
+  --gold-leaf: linear-gradient(135deg, #f1dc9c 0%, #c99a3f 38%, #f4e2a8 55%, #a8802f 100%);
+  --gold-letter: linear-gradient(180deg, #fbecc0 8%, #e2bd63 48%, #b88a32 78%, #e7c97f);
+  --verdigris: #3d6a4a;        /* success / connected (NIV key OK)  5.51:1 */
+  --danger: var(--rubric);     /* errors use the rubric plus an icon and words, never colour alone */
+
+  /* ---- lines ---------------------------------------------------------- */
+  --rule: #e0d2b2;             /* hairlines between rows (decorative) */
+  --rule-strong: #cbb68a;      /* panel and chip borders (decorative; the fill or label identifies them) */
+  --edge: #8f7a57;             /* boundaries that identify a control: inputs, checkboxes, switch track (>= 3.2:1) */
+
+  /* ---- word states (see DESIGN.md "Word states") ---------------------- */
+  --hl: rgb(214 166 58 / 0.27);        /* gold wash: words tied to the open original word */
+  --hl-soft: rgb(214 166 58 / 0.15);   /* hover preview; row hover */
+  --kin: #9c762a;                      /* dotted underline: same lemma elsewhere (3.67:1 on page) */
+  --approx: var(--ink-3);              /* dashed underline: approximate (bridged) link */
+  --focus: #2f4987;                    /* 2px focus ring, 2px offset (7.64:1) */
+  --selection: rgb(47 73 135 / 0.20);
+
+  /* ---- data colour (search distribution ribbon, card sparkline) ------- */
+  --chart-ot: var(--gilt-ink);
+  --chart-nt: var(--rubric);
+  --chart-zero: var(--rule-strong);
+
+  /* ---- atmosphere ----------------------------------------------------- */
+  --shadow-rgb: 70 46 14;              /* warm umber shadows */
+  --overlay: rgb(42 32 23 / 0.32);     /* scrim behind modal sheets */
+  --glow: radial-gradient(1200px 520px at 50% -160px, rgb(255 252 240 / 0.85), transparent 70%);
+  --grain-opacity: 0.55;
+  --grain-blend: multiply;
+  --grain-image:
+    radial-gradient(ellipse 60% 40% at 12% 8%, rgb(186 140 60 / 0.10), transparent 70%),
+    radial-gradient(ellipse 50% 60% at 92% 96%, rgb(170 120 50 / 0.10), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.31  0 0 0 0 0.16  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23g)' opacity='0.28'/></svg>");
+
+  /* ---- elevation ------------------------------------------------------ */
+  --shadow-1: 0 1px 2px rgb(var(--shadow-rgb) / 0.12);
+  --shadow-card:
+    0 1px 0 rgb(255 255 255 / 0.40) inset,
+    0 3px 10px rgb(var(--shadow-rgb) / 0.10),
+    0 26px 56px -20px rgb(var(--shadow-rgb) / 0.48);
+  --shadow-panel:
+    0 3px 10px rgb(var(--shadow-rgb) / 0.10),
+    0 30px 70px -24px rgb(var(--shadow-rgb) / 0.50);
+  --shadow-folio:
+    0 1px 0 rgb(255 255 255 / 0.35) inset,
+    0 2px 4px rgb(var(--shadow-rgb) / 0.06),
+    0 30px 60px -32px rgb(var(--shadow-rgb) / 0.40);
+  --shadow-sheet:
+    0 -2px 8px rgb(var(--shadow-rgb) / 0.08),
+    0 -24px 48px -16px rgb(var(--shadow-rgb) / 0.40);
+
+  /* ---- type families -------------------------------------------------- */
+  --f-ui: 'EB Garamond', Garamond, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --f-read: var(--f-ui);       /* the reading column; Literata when data-face="literata" */
+  --f-greek: 'Gentium Book Plus', 'Gentium Plus', 'SBL Greek', 'EB Garamond', serif;
+  --f-hebrew: 'Frank Ruhl Libre', 'SBL Hebrew', 'Ezra SIL', 'Taamey Frank CLM', 'David', serif;
+  --f-translit: 'Gentium Book Plus', 'Gentium Plus', 'EB Garamond', serif;
+  --f-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  /* ---- type scale (rem = 16px) ---------------------------------------- */
+  --text-scale: 1;
+  --fs-body-base: 1.375rem;    /* 22px: EB Garamond runs small */
+  --fs-body: calc(var(--fs-body-base) * var(--text-scale));
+  --lh-body: 1.7;
+  --measure: 40rem;            /* 640px text column, ~68 characters at 22px */
+  --fs-ui: 1.0625rem;          /* 17px controls, card facts */
+  --fs-small: 0.9375rem;       /* 15px meta, notes, small-caps labels (minimum for all-small-caps) */
+  --fs-micro: 0.8125rem;       /* 13px lining-figure pills (Strong's), never small caps */
+  --fs-h-rubric: 1.3125rem;    /* 21px italic section heading */
+  --fs-h-minor: 1.0625rem;     /* 17px small-caps minor heading */
+  --fs-eyebrow: 1.0625rem;     /* 17px small-caps eyebrow above the book title */
+  --fs-title: 3.75rem;         /* 60px book title */
+  --fs-native: 1.25rem;        /* 20px Greek/Hebrew book name under the title */
+  --fs-headword: 2.75rem;      /* 44px Greek headword in the word card */
+  --fs-headword-he: 3rem;      /* 48px Hebrew headword (Frank Ruhl runs small) */
+  --fs-meaning: 1.25rem;       /* 20px contextual gloss in the card */
+  --lh-tight: 1.2;
+  --lh-ui: 1.45;
+  --track-sc: 0.14em;          /* tracking for all-small-caps labels */
+  --track-eyebrow: 0.22em;
+
+  /* ---- space: 4px base ------------------------------------------------ */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+  --gutter: var(--s6);         /* page side padding (16px on phones) */
+
+  /* ---- radii ---------------------------------------------------------- */
+  --r-xs: 3px;                 /* folio, word wash */
+  --r-sm: 4px;                 /* chapter cells, kbd */
+  --r: 6px;                    /* controls, word card */
+  --r-panel: 8px;              /* popovers, search panel */
+  --r-sheet: 18px;             /* top corners of bottom sheets */
+  --r-pill: 999px;
+
+  /* ---- motion --------------------------------------------------------- */
+  --dur-1: 140ms;              /* highlights, hovers */
+  --dur-2: 180ms;              /* card entrance */
+  --dur-3: 220ms;              /* sheet entrance, dock */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- layout --------------------------------------------------------- */
+  --masthead-h: 68px;
+  --toolbar-h: 52px;
+  --chrome-h: calc(var(--masthead-h) + var(--toolbar-h));
+  --sticky-h: var(--toolbar-h);  /* what stays pinned at the top while reading (phones: the masthead) */
+  --folio-max: 1120px;
+  --folio-pad-top: var(--s7);
+  --folio-pad-inner: 104px;    /* left: narrow inner margin, as on a codex leaf */
+  --folio-pad-outer: 272px;    /* right: wide outer margin holding the marginalia */
+  --card-w: 400px;
+  --dock-h: 60px;              /* phone navigation dock */
+
+  /* ---- stacking ------------------------------------------------------- */
+  --z-chrome: 30;
+  --z-card: 40;
+  --z-panel: 45;
+  --z-popover: 50;
+  --z-sheet: 60;
+  --z-dock: 55;
+  --z-toast: 80;
+  --z-tip: 90;
+}
+
+/* ---- candlelight (dark): explicit choice ------------------------------ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #15110d;
+  --page: #1d1711;
+  --card: #28201a;
+  --sunken: #221b14;
+  --ink: #efe3ca;
+  --ink-2: #cbb898;
+  --ink-3: #ad9a7c;
+  --ink-inverse: #1d1711;
+  --rubric: #ef8466;
+  --rubric-hover: #f59b80;
+  --lapis: #a3b8ee;
+  --lapis-wash: rgb(163 184 238 / 0.10);
+  --lapis-ground: #1a2c58;
+  --lapis-ground-2: #2a4482;
+  --gilt: #c9a45a;
+  --gilt-2: #e7c97f;
+  --gilt-ink: #dcbc72;
+  --verdigris: #9cc9a5;
+  --rule: #372c20;
+  --rule-strong: #57462f;
+  --edge: #8a7553;
+  --hl: rgb(222 176 82 / 0.22);
+  --hl-soft: rgb(222 176 82 / 0.12);
+  --kin: #c9a45a;
+  --focus: #e8c56c;
+  --selection: rgb(163 184 238 / 0.28);
+  --shadow-rgb: 0 0 0;
+  --overlay: rgb(0 0 0 / 0.5);
+  --glow: radial-gradient(900px 560px at 50% -120px, rgb(255 170 80 / 0.13), transparent 72%);
+  --grain-opacity: 0.32;
+  --grain-blend: soft-light;
+  --shadow-card:
+    0 1px 0 rgb(255 255 255 / 0.04) inset,
+    0 3px 10px rgb(0 0 0 / 0.30),
+    0 26px 56px -20px rgb(0 0 0 / 0.70);
+}
+
+/* ---- candlelight (dark): following the OS ----------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #15110d;
+    --page: #1d1711;
+    --card: #28201a;
+    --sunken: #221b14;
+    --ink: #efe3ca;
+    --ink-2: #cbb898;
+    --ink-3: #ad9a7c;
+    --ink-inverse: #1d1711;
+    --rubric: #ef8466;
+    --rubric-hover: #f59b80;
+    --lapis: #a3b8ee;
+    --lapis-wash: rgb(163 184 238 / 0.10);
+    --lapis-ground: #1a2c58;
+    --lapis-ground-2: #2a4482;
+    --gilt: #c9a45a;
+    --gilt-2: #e7c97f;
+    --gilt-ink: #dcbc72;
+    --verdigris: #9cc9a5;
+    --rule: #372c20;
+    --rule-strong: #57462f;
+    --edge: #8a7553;
+    --hl: rgb(222 176 82 / 0.22);
+    --hl-soft: rgb(222 176 82 / 0.12);
+    --kin: #c9a45a;
+    --focus: #e8c56c;
+    --selection: rgb(163 184 238 / 0.28);
+    --shadow-rgb: 0 0 0;
+    --overlay: rgb(0 0 0 / 0.5);
+    --glow: radial-gradient(900px 560px at 50% -120px, rgb(255 170 80 / 0.13), transparent 72%);
+    --grain-opacity: 0.32;
+    --grain-blend: soft-light;
+    --shadow-card:
+      0 1px 0 rgb(255 255 255 / 0.04) inset,
+      0 3px 10px rgb(0 0 0 / 0.30),
+      0 26px 56px -20px rgb(0 0 0 / 0.70);
+  }
+}
+
+/* ---- reading face: Literata (Settings) -------------------------------- */
+:root[data-face='literata'] {
+  --f-read: 'Literata Variable', 'Literata', Georgia, serif;
+  --fs-body-base: 1.25rem;     /* 20px: Literata's larger x-height matches Garamond at 22px */
+  --lh-body: 1.72;
+}
+
+/* ---- text size (Settings) -------------------------------------------- */
+:root[data-size='s'] { --text-scale: 0.9; }
+:root[data-size='l'] { --text-scale: 1.1; }
+:root[data-size='xl'] { --text-scale: 1.22; }
+
+/* ---- breakpoints: 1240 (margins narrow), 1100 (marginalia move below),
+        900 (compact chrome), 640 (phone) -------------------------------- */
+@media (max-width: 1240px) {
+  :root {
+    --folio-pad-inner: 80px;
+    --folio-pad-outer: 248px;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --folio-max: 780px;
+    --folio-pad-inner: var(--s7);
+    --folio-pad-outer: var(--s7);
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --fs-body-base: 1.1875rem; /* 19px */
+    --lh-body: 1.66;
+    --fs-title: 2.75rem;       /* 44px */
+    --fs-headword: 2.375rem;
+    --fs-headword-he: 2.6rem;
+    --masthead-h: 56px;
+    --toolbar-h: 0px;          /* the toolbar moves into the bottom dock */
+    --sticky-h: var(--masthead-h);
+    --gutter: var(--s4);
+    --folio-pad-top: var(--s6);
+    --folio-pad-inner: var(--s4);
+    --folio-pad-outer: var(--s4);
+  }
+  :root[data-face='literata'] {
+    --fs-body-base: 1.125rem;  /* 18px */
+    --lh-body: 1.68;
+  }
+}

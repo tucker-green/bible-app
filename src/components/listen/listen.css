@@ -1,0 +1,298 @@
+/* ==========================================================================
+   Listen mode (ListenBar.tsx, ListenButton.tsx) — Scholar.
+   Phones: a compact floating bar above the bottom toolbar. ≥ 720px: a slim bar
+   aligned with the reading column. Ink-blue drives the controls (play, progress);
+   the verse number keeps its rubricated cinnabar.
+   ========================================================================== */
+
+.listen {
+  --listen-btn: 40px;
+  position: fixed; z-index: var(--z-listen, 45);
+  left: 8px; right: 8px;
+  bottom: calc(var(--bottom-bar-h, 0px) + env(safe-area-inset-bottom, 0px) + 8px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  grid-template-areas: "play info prev next speed close";
+  align-items: center;
+  gap: 2px;
+  min-height: 60px;
+  padding: 8px 6px 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 var(--card-top), var(--shadow);
+  font-family: var(--font-ui);
+  animation: rw-listen-in var(--dur-2, 200ms) var(--ease-out, ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.listen[data-auto-bottom] { bottom: calc(var(--listen-auto-bottom) + 8px); }
+@keyframes rw-listen-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (pointer: coarse) {
+  .listen { --listen-btn: 44px; }
+}
+
+/* ---- progress hairline (top edge) ---------------------------------------- */
+.listen__progress {
+  position: absolute; left: 14px; right: 14px; top: -1px; height: 2px;
+  background: var(--rule); border-radius: 2px; overflow: hidden;
+  pointer-events: none;
+}
+.listen__progress span {
+  display: block; height: 100%; background: var(--blue);
+  transform-origin: 0 50%;
+  transition: transform var(--dur-3, 320ms) var(--ease-out, ease-out);
+}
+
+/* ---- buttons ---------------------------------------------------------------- */
+.listen button { touch-action: manipulation; }
+.listen__play {
+  grid-area: play;
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--listen-btn); height: var(--listen-btn); margin-right: 8px;
+  border-radius: 999px;
+  background: var(--blue); color: var(--on-blue);
+  transition: background-color var(--dur-1, 120ms) var(--ease), transform var(--dur-1, 120ms) var(--ease);
+}
+.listen__play:hover { background: var(--blue-ui); }
+.listen__play:active { transform: scale(.94); }
+.listen__play .icon { width: 20px; height: 20px; }
+.listen .micon .fill { fill: currentColor; stroke: none; }
+.listen__play:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+.listen__btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--listen-btn); height: var(--listen-btn);
+  border-radius: var(--radius);
+  color: var(--ink-2);
+  transition: background-color var(--dur-1, 120ms) var(--ease), color var(--dur-1, 120ms) var(--ease), transform var(--dur-1, 120ms) var(--ease);
+}
+.listen__btn:hover:not(:disabled) { background: var(--sunken); color: var(--ink); }
+.listen__btn:active:not(:disabled) { transform: scale(.92); }
+.listen__btn:disabled { opacity: .4; cursor: default; }
+.listen__btn .icon { width: 20px; height: 20px; }
+.listen__prev { grid-area: prev; }
+.listen__next { grid-area: next; }
+.listen__close { grid-area: close; }
+.listen__close .icon { width: 18px; height: 18px; }
+
+.listen__speed {
+  grid-area: speed;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--listen-btn); height: var(--listen-btn); padding: 0 2px;
+  border-radius: var(--radius);
+  color: var(--ink);
+}
+.listen__speed span {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 38px; height: 26px; padding: 0 6px;
+  border: 1px solid var(--edge); border-radius: 5px;
+  font: 600 12px/1 var(--font-ui); letter-spacing: .01em;
+  transition: background-color var(--dur-1, 120ms) var(--ease);
+}
+.listen__speed:hover span, .listen__speed[aria-expanded="true"] span { background: var(--sunken); }
+
+/* ---- loading spinner ---------------------------------------------------------- */
+.listen__spin {
+  position: absolute; inset: 3px; border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--on-blue) 30%, transparent);
+  border-top-color: var(--on-blue);
+  animation: rw-listen-spin .9s linear infinite;
+}
+.listen.is-loading .listen__play .icon { opacity: 0; }
+@keyframes rw-listen-spin { to { transform: rotate(360deg); } }
+
+/* ---- title + verse ------------------------------------------------------------- */
+.listen__info { grid-area: info; min-width: 0; padding-right: 4px; }
+.listen__title, .listen__sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.listen__title {
+  display: flex; align-items: center; gap: 6px;
+  font: 600 13.5px/1.25 var(--font-ui); color: var(--ink);
+}
+.listen__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.listen__tr { font-weight: 500; color: var(--ink-3); flex: none; }
+.listen__sub {
+  margin-top: 2px;
+  font: 400 12.5px/1.25 var(--font-ui); color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.listen__sub.is-error { color: var(--ink-2); white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.listen__v { color: var(--accent); font-weight: 650; }
+
+/* phones: short book names ("1 Cor 13"); the long name stays for screen readers */
+.listen__short { display: none; }
+@media (max-width: 719px) {
+  .listen__long {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .listen__short { display: inline; }
+}
+
+/* ---- options popover (speed + continue) ---------------------------------------------- */
+.listen__menu {
+  position: absolute; right: 6px; bottom: calc(100% + 8px);
+  width: min(300px, calc(100% - 12px));
+  padding: 14px 14px 12px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 var(--card-top), var(--shadow);
+  animation: rw-listen-menu-in var(--dur-2, 200ms) var(--ease-out, ease-out);
+  z-index: 1;
+}
+@keyframes rw-listen-menu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.listen__field { border: 0; margin: 0; padding: 0; min-width: 0; }
+.listen__lbl {
+  padding: 0; margin-bottom: 8px;
+  font: 600 var(--fs-label, 11px)/1.2 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3);
+}
+.listen__seg {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px;
+  padding: 3px; border-radius: 8px; background: var(--sunken);
+}
+.listen__seg label { position: relative; display: block; }
+.listen__seg input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.listen__seg span {
+  display: flex; align-items: center; justify-content: center;
+  height: 34px; border-radius: 6px;
+  font: 500 13px/1 var(--font-ui); color: var(--ink-2);
+  transition: background-color var(--dur-1, 120ms) var(--ease), color var(--dur-1, 120ms) var(--ease);
+}
+@media (pointer: coarse) { .listen__seg span { height: 44px; } }
+.listen__seg input:hover + span { color: var(--ink); }
+.listen__seg input:checked + span { background: var(--raised); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+.listen__seg input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.listen__cont {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule);
+  font: 500 13.5px/1.3 var(--font-ui); color: var(--ink);
+  cursor: pointer;
+  min-height: 44px;
+}
+.listen__cont small { display: block; margin-top: 2px; font: 400 12px/1.3 var(--font-ui); color: var(--ink-3); }
+.listen__cont input {
+  appearance: none; -webkit-appearance: none; flex: none;
+  position: relative; width: 38px; height: 22px; margin: 0;
+  border-radius: 999px; background: var(--sunken); border: 1px solid var(--edge);
+  cursor: pointer;
+  transition: background-color var(--dur-1, 120ms) var(--ease), border-color var(--dur-1, 120ms) var(--ease);
+}
+.listen__cont input::before {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 999px;
+  background: var(--ink-3);
+  transition: transform var(--dur-2, 200ms) var(--ease-out, ease-out), background-color var(--dur-1, 120ms) var(--ease);
+}
+.listen__cont input:checked { background: var(--blue); border-color: var(--blue); }
+.listen__cont input:checked::before { transform: translateX(16px); background: var(--on-blue); }
+.listen__cont input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---- wide screens: slim bar at the bottom of the reading column ------------------- */
+@media (min-width: 720px) {
+  .listen {
+    left: 50%; right: auto;
+    width: min(680px, calc(100% - 48px));
+    transform: translateX(-50%);
+    bottom: calc(var(--bottom-bar-h, 0px) + env(safe-area-inset-bottom, 0px) + 16px);
+    min-height: 52px;
+    padding: 5px 6px 5px 8px;
+    animation-name: rw-listen-in-c;
+  }
+  .listen[data-auto-bottom] { bottom: calc(var(--listen-auto-bottom) + 12px); }
+  .listen[data-aligned] { transform: none; animation-name: rw-listen-in; }
+  .listen__play { margin-right: 10px; }
+  .listen__menu { width: 300px; }
+}
+@keyframes rw-listen-in-c { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translateX(-50%); } }
+
+/* ---- tiny phones (Fold, SE 1st gen): controls on their own row --------------------- */
+@media (max-width: 359px) {
+  .listen {
+    grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "info info info info info close"
+      "play prev next speed . .";
+    row-gap: 4px;
+    padding: 8px 6px 8px 12px;
+  }
+  .listen__play { margin-right: 4px; }
+}
+
+/* ---- docked in the shell's bottom dock (in flow, above the phone toolbar) ---------------- */
+.listen[data-docked], .listen-dock > .listen {
+  position: relative; left: auto; right: auto; bottom: auto; transform: none;
+  flex: 1 1 auto; width: auto; min-width: 0;
+  margin: 0 8px 8px;
+}
+@media (min-width: 600px) {
+  .listen[data-docked], .listen-dock > .listen { margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 720px) {
+  .listen[data-docked], .listen-dock > .listen { flex: 0 1 auto; width: min(680px, calc(100% - 48px)); margin-left: auto; margin-right: auto; animation-name: rw-listen-in; }
+  .listen[data-docked][data-aligned] { width: var(--listen-w); margin-left: var(--listen-x); margin-right: auto; }
+  .listen[data-aligned]:not([data-docked]) { left: var(--listen-x); width: var(--listen-w); }
+}
+
+/* ---- make room for the bar ------------------------------------------------------------ */
+html.has-listen { scroll-padding-bottom: calc(var(--dock-h, var(--listen-top, 84px)) + 16px); }
+html.has-listen-float body { padding-bottom: calc(var(--listen-top, 84px) + 8px); }
+html.has-listen-float .toast { bottom: calc(var(--listen-top, 84px) + 12px); }
+
+/* ---- motion, contrast, forced colours ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .listen, .listen__menu { animation-name: rw-listen-fade; }
+  .listen__spin { animation: none; border-top-color: color-mix(in srgb, var(--on-blue) 30%, transparent); border-right-color: var(--on-blue); }
+}
+:root[data-motion="reduce"] .listen, :root[data-motion="reduce"] .listen__menu { animation-name: rw-listen-fade; }
+@keyframes rw-listen-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* stronger edges with prefers-contrast: more or Settings → High contrast (html[data-contrast="more"]) */
+@media (prefers-contrast: more) {
+  .listen, .listen__menu { border-color: var(--edge); }
+  .listen__progress { background: var(--edge); }
+  .listen__btn, .listen__sub, .listen__tr { color: var(--ink); }
+}
+:root[data-contrast="more"] .listen, :root[data-contrast="more"] .listen__menu { border-color: var(--edge); }
+:root[data-contrast="more"] .listen__progress { background: var(--edge); }
+:root[data-contrast="more"] :is(.listen__btn, .listen__sub, .listen__tr) { color: var(--ink); }
+:root[data-contrast="more"] .listen__seg input:checked + span { outline: 2px solid var(--ink); outline-offset: -2px; }
+
+@media (forced-colors: active) {
+  .listen, .listen__menu { border: 1px solid CanvasText; }
+  .listen__play, .listen__btn, .listen__speed span { border: 1px solid ButtonText; }
+  .listen__progress { forced-color-adjust: none; background: GrayText; }
+  .listen__progress span { background: Highlight; }
+  .listen__seg input:checked + span { outline: 2px solid Highlight; }
+  .listen__cont input { border-color: ButtonText; }
+  .listen__cont input::before { forced-color-adjust: none; background: ButtonText; }
+  .listen__cont input:checked::before { background: Highlight; }
+}
+
+@media print {
+  .listen, .listen-btn { display: none !important; }
+}
+
+/* ==========================================================================
+   ListenButton: quiet outlined "Listen" (chapter header) or 44px icon (toolbar)
+   ========================================================================== */
+.listen-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: var(--radius);
+  border: 1px solid var(--edge); color: var(--ink);
+  font: 500 13px/1 var(--font-ui);
+  white-space: nowrap;
+  transition: background-color var(--dur-1, 120ms) var(--ease), color var(--dur-1, 120ms) var(--ease);
+  touch-action: manipulation;
+}
+.listen-btn .icon { width: 17px; height: 17px; }
+.listen-btn:hover { background: var(--sunken); }
+.listen-btn[aria-pressed="true"] { background: var(--wash); color: var(--blue); border-color: color-mix(in srgb, var(--blue) 50%, var(--edge)); }
+@media (pointer: coarse) { .listen-btn { height: 44px; } }
+.listen-btn--icon { width: 44px; height: 44px; padding: 0; border: 0; color: var(--ink-2); }
+.listen-btn--icon .icon { width: 20px; height: 20px; }
+.listen-btn--icon[aria-pressed="true"] { border: 0; }
+@media (forced-colors: active) {
+  .listen-btn[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+}

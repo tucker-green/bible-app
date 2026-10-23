@@ -1,0 +1,56 @@
+/* ==========================================================================
+   Rootword — accessibility modes (docs/EXPERIENCE.md §4)
+   - html[data-contrast="more"]: Settings → High contrast, or prefers-contrast: more
+     (stronger tokens in theme.css; here: outlines + underlines instead of tints, heavier focus).
+   - forced-colors: active (Windows High Contrast): system colours, outlines, Highlight /
+     HighlightText for the active word; never a background tint alone.
+   ========================================================================== */
+
+/* ---- high contrast --------------------------------------------------------- */
+html[data-contrast="more"] :focus-visible { outline-width: 3px; outline-offset: 2px; }
+html[data-contrast="more"] .w.is-active,
+html[data-contrast="more"] .w.is-linked {
+  background-color: transparent;
+  outline: 2px solid var(--blue); outline-offset: 1px;
+  color: var(--ink);
+  text-decoration: underline 2px; text-underline-offset: .22em;
+}
+html[data-contrast="more"] .w.is-active { background-size: 0 0; outline-color: var(--accent); }
+html[data-contrast="more"] .w.is-kin:not(.is-active):not(.is-linked) { background-size: 4px 2.5px; }
+@media (hover: hover) and (pointer: fine) {
+  html[data-contrast="more"] .prose .w:hover { background-color: transparent; text-decoration: underline 1.5px; text-underline-offset: .22em; color: var(--ink); }
+}
+html[data-contrast="more"] .verse[data-hl] { background-color: transparent; text-decoration-thickness: 2.5px; }
+html[data-contrast="more"] .verse.is-listening { background-color: transparent; outline: 2px solid var(--accent); outline-offset: 2px; }
+html[data-contrast="more"] .word-card,
+html[data-contrast="more"] .verse-sheet,
+html[data-contrast="more"] .pop { border: 2px solid var(--ink); }
+html[data-contrast="more"] .masthead,
+html[data-contrast="more"] .toolbar { border-color: var(--ink); backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-contrast="more"] .word-scrim { background: rgba(0, 0, 0, .35); }
+html[data-contrast="more"] .tb-btn[aria-expanded="true"],
+html[data-contrast="more"] .tb-btn[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: -4px; }
+
+/* ---- forced colours (Windows High Contrast) ------------------------------- */
+@media (forced-colors: active) {
+  .w.is-active, .w.is-linked { forced-color-adjust: none; background: Highlight; color: HighlightText; outline: 2px solid CanvasText; }
+  .w.is-kin { text-decoration: underline dotted CanvasText; }
+  .w:focus-visible, .vn:focus-visible { outline: 2px solid Highlight; }
+  .vn { color: LinkText; }
+  .vm { forced-color-adjust: none; background: CanvasText; }
+  .vm--note { background: transparent; border-color: CanvasText; }
+  .verse[data-hl] { background: none; text-decoration-color: CanvasText; }
+  .il-para .verse[data-hl] > .il { background: none; box-shadow: none; border-bottom: 2px solid CanvasText; }
+  .verse.is-listening { background: none; outline: 2px solid Highlight; }
+  .verse.is-target { animation: none; outline: 2px dashed Highlight; }
+  .word-card, .verse-sheet, .pop, .loupe__lens, .toast, .coach, .swipe-hint { border: 1px solid CanvasText; }
+  /* the toast is plain text on an inverted (ink) surface: state the system pair outright, so the
+     paint and the computed colours agree (axe otherwise reads the authored paper-on-ink pair) */
+  .toast { forced-color-adjust: none; background: Canvas; color: CanvasText; }
+  .word-scrim, .vs-scrim, .pop-scrim { background: none; }
+  .skeleton { background: none; border: 1px solid GrayText; }
+  .card__strongs, .vs-word__sn { border-color: LinkText; }
+  :root .btn-all, :root .btn-primary { forced-color-adjust: none; background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
+  .masthead, .toolbar { border-color: CanvasText; }
+  :where(html[data-red-letter="on"]) .prose .wj { color: CanvasText; }
+}

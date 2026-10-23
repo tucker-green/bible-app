@@ -1,0 +1,45 @@
+{
+  "name": "bible-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Read and search the Bible in several translations, with the Greek or Hebrew word behind every English word.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "data:fetch": "node scripts/fetch-sources.mjs",
+    "data:build": "tsx scripts/build-data.ts",
+    "data": "npm run data:fetch && npm run data:build"
+  },
+  "dependencies": {
+    "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/literata": "5.3.0",
+    "@fontsource/eb-garamond": "5.3.0",
+    "@fontsource/frank-ruhl-libre": "5.3.0",
+    "@fontsource/gentium-book-plus": "5.3.0",
+    "@fontsource/opendyslexic": "5.3.0",
+    "@preact/signals": "^2.11.3",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.56.1",
+    "@preact/preset-vite": "^2.10.6",
+    "@testing-library/preact": "^3.2.6",
+    "@types/node": "^22.15.0",
+    "fast-xml-parser": "^4.5.7",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.5",
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "^3.2.7",
+    "workbox-window": "7.4.1"
+  }
+}

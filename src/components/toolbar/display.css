@@ -1,0 +1,108 @@
+/* ---------- "Aa" display panel ---------------------------------------------------------------- */
+.dp { width: 360px; padding: 0; }
+.dp__body { padding: 14px 16px 6px; display: grid; gap: 16px; }
+.dp-group { border: 0; margin: 0; padding: 0; min-width: 0; }
+.dp-group > .eyebrow, .dp-group > legend { margin: 0 0 8px; padding: 0; }
+
+/* segmented radio choices */
+.dp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; background: var(--sunken); border-radius: 9px; }
+.dp-choice { position: relative; display: block; cursor: pointer; }
+.dp-choice input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.dp-choice__face {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 36px; padding: 6px 8px; border-radius: 7px;
+  font: 500 13px/1.2 var(--font-ui); color: var(--ink-2); text-align: center;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.dp-choice__face .icon { width: 16px; height: 16px; }
+@media (hover: hover) { .dp-choice:hover .dp-choice__face { color: var(--ink); } }
+.dp-seg .dp-choice input:checked + .dp-choice__face { background: var(--raised); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-sm); }
+.dp-choice input:focus-visible + .dp-choice__face { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* text size stepper */
+.dp-size { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.dp-size__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; border: 1px solid var(--edge); border-radius: 8px; color: var(--ink);
+}
+@media (hover: hover) { .dp-size__btn:hover { background: var(--sunken); } }
+.dp-size__btn:disabled { opacity: .4; cursor: default; background: none; }
+.dp-size__btn .icon { width: 14px; height: 14px; color: var(--ink-2); }
+.dp-a { font-family: var(--font-text); line-height: 1; }
+.dp-a--sm { font-size: 14px; }
+.dp-a--lg { font-size: 21px; }
+.dp-size__val { min-width: 4.5ch; text-align: center; font: 650 15px/1 var(--font-ui); color: var(--ink); }
+.dp-steps { display: flex; gap: 4px; justify-content: center; margin-top: 8px; }
+.dp-steps i { width: 18px; height: 3px; border-radius: 2px; background: var(--rule-2); }
+.dp-steps i.on { background: var(--blue); }
+
+/* fonts: each option shown in its own face */
+.dp-fonts { display: grid; gap: 4px; }
+.dp-font .dp-choice__face {
+  display: grid; justify-items: start; justify-content: stretch; text-align: left; gap: 1px; padding: 8px 12px 8px 36px;
+  border: 1px solid var(--rule); border-radius: 8px; min-height: 48px;
+}
+.dp-font .dp-choice__face::before {
+  content: ''; position: absolute; left: 12px; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+  border: 1.5px solid var(--edge); border-radius: 50%; box-sizing: border-box;
+}
+.dp-font input:checked + .dp-choice__face { border-color: var(--blue); background: var(--wash); }
+.dp-font input:checked + .dp-choice__face::before { border: 4.5px solid var(--blue); }
+.dp-font__name { font-size: 16px; color: var(--ink); font-weight: 500; }
+.dp-font__hint { font: 400 11.5px/1.3 var(--font-ui); color: var(--ink-3); }
+.dp-font--literata .dp-font__name { font-family: var(--font-text); }
+.dp-font--atkinson .dp-font__name { font-family: 'Atkinson Hyperlegible Next Variable', var(--font-ui); }
+.dp-font--opendyslexic .dp-font__name { font-family: 'OpenDyslexic', var(--font-ui); font-size: 14px; }
+
+/* line-spacing glyphs */
+.dp-lines { display: inline-grid; gap: 2px; width: 14px; }
+.dp-lines i { display: block; height: 1.5px; background: currentColor; border-radius: 1px; }
+.dp-lines--snug { gap: 1.5px; }
+.dp-lines--roomy { gap: 4px; }
+
+/* switches */
+.dp-switches { display: grid; gap: 2px; border-top: 1px solid var(--rule); padding-top: 8px; }
+.dp-switch { position: relative; display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; }
+.dp-switch__txt { flex: 1; display: grid; gap: 1px; }
+.dp-switch__lbl { font: 500 13.5px/1.25 var(--font-ui); color: var(--ink); }
+.dp-switch__hint { font: 400 11.5px/1.3 var(--font-ui); color: var(--ink-3); }
+.dp-switch input { position: absolute; right: 0; width: 40px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
+.dp-switch__track {
+  flex: none; position: relative; width: 40px; height: 24px; border-radius: 12px;
+  background: var(--sunken); border: 1.5px solid var(--edge);
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.dp-switch__track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--ink-3); transition: transform var(--dur-2) var(--ease-spring), background-color var(--dur-1) var(--ease);
+}
+.dp-switch input:checked + .dp-switch__track { background: var(--blue); border-color: var(--blue); }
+.dp-switch input:checked + .dp-switch__track::after { transform: translateX(16px); background: var(--on-blue); }
+.dp-switch input:focus-visible + .dp-switch__track { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* links */
+.dp-links { display: grid; padding: 6px 8px 8px; border-top: 1px solid var(--rule); background: var(--sunken); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.dp-links a, .dp-links button {
+  display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; align-items: center;
+  min-height: 48px; padding: 6px 8px; border-radius: 8px;
+  color: var(--ink); text-decoration: none; text-align: left; width: 100%;
+}
+.dp-links .icon { grid-row: span 2; color: var(--ink-2); }
+.dp-links span { font: 550 13.5px/1.25 var(--font-ui); }
+.dp-links small { font: 400 11.5px/1.3 var(--font-ui); color: var(--ink-3); }
+@media (hover: hover) { .dp-links a:hover, .dp-links button:hover { background: var(--surface); color: var(--ink); } }
+
+@media (max-width: 640px) {
+  .dp { width: auto; }
+  .dp__body { padding: 6px 16px 8px; gap: 14px; }
+  .dp-links { border-radius: 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+}
+@media (pointer: coarse) {
+  .dp-choice__face { min-height: 44px; }
+  .dp-size__btn { min-height: 44px; }
+}
+@media (forced-colors: active) {
+  .dp-seg .dp-choice input:checked + .dp-choice__face { outline: 2px solid Highlight; }
+  .dp-switch__track { border-color: CanvasText; }
+  .dp-switch input:checked + .dp-switch__track { background: Highlight; }
+}

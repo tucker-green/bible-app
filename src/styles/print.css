@@ -1,0 +1,35 @@
+/* ==========================================================================
+   Rootword — print: the chapter as clean text with verse numbers; no chrome.
+   ========================================================================== */
+@media print {
+  @page { margin: 16mm 18mm; }
+  /* always print in the day edition's ink, whatever theme is on screen */
+  :root, :root[data-theme], :root:not([data-theme="light"]) {
+    color-scheme: light;
+    --paper: #fff; --surface: #fff; --sunken: #fff;
+    --ink: #000; --ink-2: #222; --ink-3: #444; --rule: #bbb; --rule-2: #999;
+    --blue: #000; --accent: #444; --red-letter: #000;
+  }
+  html, body { background: #fff !important; color: #000 !important; }
+  .skip-link, .masthead, .dock, .toolbar, .listen-dock, .rail, .ch-nav, .ch-tools, .il-bar, .approx-banner,
+  .word-card, .word-scrim, .verse-sheet, .vs-scrim, .loupe, .coach, .toast-region, .toast, .swipe-hint,
+  .pop, .pop-scrim, .search-stub, .settings-stub, #search-panel, .page-back, .no-print { display: none !important; }
+  main { padding: 0 !important; }
+  .page { display: block !important; padding: 0 !important; max-width: none !important; }
+  .text, .doc { max-width: none !important; }
+  .prose { max-width: none !important; font-size: 11.5pt !important; line-height: 1.55 !important; color: #000 !important; }
+  .prose > * { content-visibility: visible !important; }
+  .ch-title { font-size: 26pt !important; }
+  .ch-title .num, .vn { color: #444 !important; }
+  .ch-meta, .eyebrow { color: #444 !important; }
+  .w, .w.is-active, .w.is-linked, .w.is-kin { background: none !important; color: inherit !important; outline: 0 !important; }
+  .verse[data-hl] { background: none !important; }
+  .verse.is-listening, .verse.is-target { background: none !important; box-shadow: none !important; animation: none !important; }
+  .vn::after, .vn__marks { display: none !important; }
+  .sec { break-after: avoid; page-break-after: avoid; }
+  .para, .vl { orphans: 3; widows: 3; }
+  .colophon { color: #444 !important; border-top: 1px solid #999; }
+  .colophon a { color: #444 !important; text-decoration: none; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 9pt; color: #555; }
+  .prose--il .il__or { color: #000 !important; }
+}

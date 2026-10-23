@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Logos — Illuminated</title>
+  <meta name="description" content="Design concept “Illuminated”: a Bible reader with the Greek and Hebrew behind every English word." />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2.5' y='2.5' width='27' height='27' fill='%23f3e6c4' stroke='%23b8903f'/%3E%3Ctext x='16' y='25' text-anchor='middle' font-family='Georgia,serif' font-size='24' fill='%23a2311c'%3EL%3C/text%3E%3C/svg%3E" />
+  <script>
+    /* Resolve the theme before first paint: ?theme= wins, then a remembered choice, then the OS. */
+    (function () {
+      var q = new URLSearchParams(location.search).get('theme');
+      var saved = null;
+      try { saved = localStorage.getItem('illum-theme'); } catch (e) {}
+      var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = q === 'dark' || q === 'light' ? q : saved || (dark ? 'dark' : 'light');
+    })();
+  </script>
+  <link rel="stylesheet" href="illuminated.css" />
+</head>
+<body>
+  <a class="skip-link" href="#text">Skip to the text</a>
+
+  <!-- ============================== Masthead ============================== -->
+  <header class="masthead">
+    <div class="masthead__inner">
+      <a class="brand" href="./" aria-label="Logos — home">
+        <span class="brand__initial" aria-hidden="true">L</span><span class="brand__rest" aria-hidden="true">ogos</span>
+      </a>
+
+      <nav class="passage-nav" aria-label="Passage">
+        <button class="icon-btn passage-nav__step" type="button" data-step="prev" aria-label="Previous chapter">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6 8.5 12l6 6" /></svg>
+        </button>
+        <button class="passage-btn" id="passageBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="bookPanel">
+          <span class="passage-btn__label" id="passageLabel">John 1</span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+        </button>
+        <button class="icon-btn passage-nav__step" type="button" data-step="next" aria-label="Next chapter">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
+        </button>
+      </nav>
+
+      <div class="search" role="search">
+        <label class="sr-only" for="q">Search the Bible</label>
+        <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></svg>
+        <input id="q" class="search__input" type="search" autocomplete="off" spellcheck="false"
+          placeholder="Search a word, phrase or reference"
+          aria-controls="searchPanel" aria-expanded="false" aria-autocomplete="list" />
+        <kbd class="search__kbd" aria-hidden="true">/</kbd>
+      </div>
+
+      <div class="masthead__actions">
+        <button class="icon-btn only-mobile" id="searchOpen" type="button" aria-label="Search" aria-controls="searchPanel" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></svg>
+        </button>
+        <button class="icon-btn theme-btn" id="themeBtn" type="button" aria-pressed="false">
+          <!-- sun: shown in vellum (light) -->
+          <svg class="theme-btn__sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" /></svg>
+          <!-- candle: shown in candlelight (dark) -->
+          <svg class="theme-btn__candle" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2c1.9 2.1 2.4 3.6 2.4 4.7a2.4 2.4 0 0 1-4.8 0c0-1.1.5-2.6 2.4-4.7Z" /><path d="M9.5 12.2h5v8.6h-5zM12 10.4v1.8M7 20.8h10" /></svg>
+          <span class="sr-only" id="themeLabel">Candlelight theme</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search results (a glimpse of the search experience) -->
+    <section class="search-panel" id="searchPanel" role="region" aria-label="Search results" hidden>
+      <div class="search-panel__mobile-bar only-mobile">
+        <div class="search search--sheet" role="search">
+          <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></svg>
+          <label class="sr-only" for="q2">Search the Bible</label>
+          <input id="q2" class="search__input" type="search" autocomplete="off" placeholder="Search a word, phrase or reference" />
+        </div>
+        <button class="text-btn" type="button" data-close-search>Close</button>
+      </div>
+      <div class="search-panel__body" id="searchBody"></div>
+    </section>
+  </header>
+
+  <!-- ============================== Toolbar ============================== -->
+  <div class="toolbar">
+    <div class="toolbar__inner">
+      <div class="translations" role="radiogroup" aria-label="Translation" id="translations">
+        <button type="button" role="radio" class="tr" data-tr="BSB" aria-checked="true" title="Berean Standard Bible · hand-aligned to the Greek &amp; Hebrew">BSB</button>
+        <button type="button" role="radio" class="tr" data-tr="KJV" aria-checked="false" title="King James Version · linked by Strong’s numbers">KJV</button>
+        <button type="button" role="radio" class="tr" data-tr="WEB" aria-checked="false" title="World English Bible · approximate links">WEB</button>
+        <button type="button" role="radio" class="tr" data-tr="ASV" aria-checked="false" title="American Standard Version · approximate links">ASV</button>
+        <button type="button" role="radio" class="tr" data-tr="YLT" aria-checked="false" title="Young’s Literal Translation · approximate links">YLT</button>
+        <span class="translations__sep" aria-hidden="true"></span>
+        <button type="button" class="tr tr--remote" id="nivBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="nivPanel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="14" r="3.6" /><path d="m10.6 11.4 8-8M16 6l2.4 2.4M14 8l1.8 1.8" /></svg>
+          NIV <span class="tr__hint">connect</span>
+        </button>
+      </div>
+
+      <button type="button" class="tr-compact only-mobile" id="trCompact" aria-haspopup="dialog" aria-expanded="false" aria-controls="trSheet">
+        <span id="trCompactLabel">BSB</span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+      </button>
+
+      <div class="toolbar__right">
+        <div class="seg" role="radiogroup" aria-label="Sample passage">
+          <button type="button" role="radio" class="seg__opt" data-passage="nt" aria-checked="true"><span class="seg__long">John 1 · </span><span lang="grc" class="seg__glyph">Ελ</span> Greek</button>
+          <button type="button" role="radio" class="seg__opt" data-passage="ot" aria-checked="false"><span class="seg__long">Gen 1 · Ps 23 · </span><span lang="he" class="seg__glyph">א</span> Hebrew</button>
+        </div>
+        <label class="switch" for="interlinear">
+          <input type="checkbox" id="interlinear" role="switch" />
+          <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+          <span class="switch__label">Interlinear</span>
+        </label>
+        <label class="switch switch--sub" for="glosses" id="glossesWrap" hidden>
+          <input type="checkbox" id="glosses" role="switch" checked />
+          <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+          <span class="switch__label">Glosses</span>
+        </label>
+      </div>
+    </div>
+    <div class="toolbar__rule" aria-hidden="true"></div>
+  </div>
+
+  <!-- NIV connect popover -->
+  <div class="popover niv-panel" id="nivPanel" role="dialog" aria-labelledby="nivTitle" hidden>
+    <h2 class="popover__title" id="nivTitle">Read the NIV here</h2>
+    <p>The New International Version is under copyright, so it isn’t bundled. Connect your own free API.Bible key and it opens like any other translation — its word links are matched through the BSB, so they are marked <em>approximate</em>.</p>
+    <label class="field">
+      <span class="field__label">API.Bible key</span>
+      <input type="text" placeholder="paste your key" autocomplete="off" spellcheck="false" />
+    </label>
+    <div class="popover__actions">
+      <button type="button" class="btn btn--primary" data-close-popover>Connect</button>
+      <button type="button" class="text-btn" data-close-popover>Not now</button>
+    </div>
+  </div>
+
+  <!-- Mobile translation sheet -->
+  <div class="popover tr-sheet" id="trSheet" role="dialog" aria-label="Choose a translation" hidden>
+    <ul class="tr-list" id="trList"></ul>
+  </div>
+
+  <!-- Book & chapter chooser -->
+  <div class="popover book-panel" id="bookPanel" role="dialog" aria-label="Choose a book and chapter" hidden></div>
+
+  <!-- ============================== Reading ============================== -->
+  <main class="stage" id="main">
+    <div class="stage__grid">
+      <article class="folio" id="folio" aria-live="off">
+        <div id="passages"></div>
+
+        <!-- The word card ("gloss"). Lives right after the text so Tab moves from the text into it. -->
+        <div class="gloss" id="gloss" role="dialog" aria-modal="false" aria-labelledby="glossHead" hidden>
+          <span class="gloss__caret" aria-hidden="true"></span>
+          <span class="gloss__handle" aria-hidden="true"></span>
+          <div class="gloss__inner" id="glossInner"></div>
+        </div>
+
+        <footer class="colophon">
+          <nav class="chapter-nav" aria-label="Chapters">
+            <a href="#" class="chapter-nav__link" id="prevLink"><span aria-hidden="true">‹</span> <span id="prevLabel">Luke 24</span></a>
+            <span class="fleuron fleuron--small" aria-hidden="true"></span>
+            <a href="#" class="chapter-nav__link" id="nextLink"><span id="nextLabel">John 2</span> <span aria-hidden="true">›</span></a>
+          </nav>
+          <p class="colophon__credits" id="credits"></p>
+        </footer>
+      </article>
+
+      <aside class="marginalia" aria-labelledby="marginTitle">
+        <h2 class="marginalia__title" id="marginTitle">Words of note</h2>
+        <ul class="notes" id="notes"></ul>
+        <h2 class="marginalia__title marginalia__title--key">Reading key</h2>
+        <ul class="key">
+          <li><span class="key__swatch key__swatch--hl">word</span><span>Linked to the original — hover, tap, or focus and press Enter</span></li>
+          <li><span class="key__swatch key__swatch--kin">word</span><span>The same Greek or Hebrew word elsewhere on the page</span></li>
+          <li><span class="key__swatch key__swatch--supplied">word</span><span>Supplied by the translators; nothing stands behind it</span></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+
+  <div class="sr-only" aria-live="polite" id="live"></div>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="data.js"></script>
+  <script src="illuminated.js"></script>
+</body>
+</html>

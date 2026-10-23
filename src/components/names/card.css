@@ -1,0 +1,86 @@
+/* People & places block inside the word card, plus the family chips shared with the person page.
+   Quiet by design: a hairline, a small kind icon, Literata name, Inter meta — the Greek / Hebrew
+   above stays the card's subject. */
+.ent-cards { margin: 0; }
+.ent-card {
+  margin: 12px 0 0; padding-top: 11px; border-top: 1px solid var(--rule);
+  font: 400 13px/1.4 var(--font-ui); color: var(--ink-2);
+  animation: rw-swap-in var(--dur-2) var(--ease) both;
+}
+.ent-card--loading { padding-bottom: 2px; }
+.ent-card--loading .skeleton { margin: 6px 0; }
+.ent-card__head { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 0 10px; align-items: start; }
+.ent-card__icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--wash); color: var(--blue);
+}
+.ent-card__icon.is-place, .ent-card__icon.is-other { background: var(--sunken); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--rule-2); }
+.ent-card__icon .icon { width: 16px; height: 16px; }
+.ent-card__id { min-width: 0; }
+.ent-card__name { font: 400 15px/1.3 var(--font-text); color: var(--ink); overflow-wrap: anywhere; }
+.ent-card__name b { font-weight: 600; }
+.ent-card__aka { font: 400 12.5px/1 var(--font-ui); color: var(--ink-3); }
+.ent-card__brief { margin-top: 1px; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.ent-card__kind {
+  padding-top: 5px;
+  font: 600 var(--fs-label)/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3);
+  white-space: nowrap;
+}
+.ent-card__meta { margin: 5px 0 0 38px; font-size: 11.5px; line-height: 1.4; color: var(--ink-3); }
+.ent-card .ent-card__fam { margin: 8px 0 0 38px; }
+.ent-card__links { margin: 8px 0 0 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 18px; }
+.word-card.is-tight .ent-card__fam, .word-card.is-tight .ent-card__meta { display: none; }
+.word-card.is-tight .ent-card { margin-top: 10px; padding-top: 9px; }
+
+/* text links with an icon: "About Abraham →", "Family tree" */
+.ent-link {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 24px;
+  font: 600 12.5px/1.2 var(--font-ui); color: var(--blue); text-decoration: none;
+  border-radius: 3px;
+}
+.ent-link:hover { color: var(--blue-ui); text-decoration: underline; text-underline-offset: 3px; }
+.ent-link .icon { width: 15px; height: 15px; }
+
+/* family: "Son of [Terah]" rows as a two-column grid */
+.ent-fam { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 10px; align-items: start; }
+.ent-fam__row { display: contents; }
+.ent-fam dt { font: 600 11.5px/24px var(--font-ui); color: var(--ink-3); white-space: nowrap; }
+.ent-fam dd { margin: 0; min-width: 0; }
+.ent-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 5px; }
+.ent-chip {
+  position: relative;
+  display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px;
+  border: 1px solid var(--rule-2); background: var(--surface);
+  font: 500 12.5px/1 var(--font-ui); color: var(--ink); text-decoration: none; white-space: nowrap;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.ent-chip:hover { border-color: var(--blue); color: var(--blue); background: var(--wash); }
+.ent-chip--more { color: var(--ink-2); border-style: dashed; border-color: var(--edge); background: transparent; }
+
+/* touch: 44px targets around the same small chips; rows spaced so hit areas never overlap */
+@media (pointer: coarse) {
+  .ent-chips { gap: 16px 6px; }
+  .ent-fam { gap: 16px 10px; }
+  .ent-chip { height: 28px; }
+  .ent-chip::before { content: ''; position: absolute; left: -3px; right: -3px; top: -8px; bottom: -8px; }
+  .ent-fam dt { line-height: 28px; }
+  .ent-link { min-height: 44px; }
+  .ent-card__links { margin-top: 2px; gap: 0 22px; }
+}
+@media (max-width: 380px) {
+  .ent-card__meta, .ent-card .ent-card__fam, .ent-card__links { margin-left: 0; }
+}
+
+html[data-contrast="more"] .ent-chip { border-color: var(--ink-2); }
+@media (forced-colors: active) {
+  .ent-chip { border-color: LinkText; color: LinkText; }
+  .ent-card__icon { border: 1px solid CanvasText; }
+}
+
+/* in the bottom sheet each relation is one wrapped line ("Son of [Terah]  Husband of [Sarah] [Hagar] [+1]"),
+   short ones sharing a line, so the family takes fewer rows */
+.word-card.is-sheet .ent-card__fam { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 18px; }
+.word-card.is-sheet .ent-card__fam .ent-fam__row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 6px; min-width: 0; max-width: 100%; }
+.word-card.is-sheet .ent-card__fam dd { display: contents; }
+.word-card.is-sheet .ent-card__fam .ent-chips { display: contents; }

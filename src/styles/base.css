@@ -1,0 +1,723 @@
+/* =========================================================================
+   Rootword base styles: fonts, reset, body typography, focus, motion,
+   shared primitives and utilities.
+
+   Import ONCE, from src/main.tsx:   import './styles/base.css';
+   (it pulls in tokens.css). Component CSS files sit next to components
+   and use only the custom properties from tokens.css.
+
+   Resets use :where() so that any component selector overrides them.
+   Spec: design/DESIGN.md.
+   ========================================================================= */
+
+@import './tokens.css';
+
+/* ---- fonts: bundled @fontsource packages (no network at runtime) ------- */
+/* EB Garamond: house face for text and chrome (400/500/600, italic 400/500) */
+@import '@fontsource/eb-garamond/400.css';
+@import '@fontsource/eb-garamond/500.css';
+@import '@fontsource/eb-garamond/600.css';
+@import '@fontsource/eb-garamond/400-italic.css';
+@import '@fontsource/eb-garamond/500-italic.css';
+/* Gentium Book Plus: polytonic Greek and scholarly transliteration */
+@import '@fontsource/gentium-book-plus/400.css';
+@import '@fontsource/gentium-book-plus/400-italic.css';
+@import '@fontsource/gentium-book-plus/700.css';
+/* Frank Ruhl Libre: pointed Hebrew (500 for headwords) */
+@import '@fontsource/frank-ruhl-libre/400.css';
+@import '@fontsource/frank-ruhl-libre/500.css';
+/* Literata (variable, optical size): optional reading face, only downloaded when chosen */
+@import '@fontsource-variable/literata/opsz.css';
+@import '@fontsource-variable/literata/opsz-italic.css';
+
+/* ---- reset ------------------------------------------------------------- */
+:where(*, *::before, *::after) {
+  box-sizing: border-box;
+}
+
+:where(html) {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+  scroll-padding-top: calc(var(--sticky-h) + var(--s4)); /* anchors land below the sticky chrome */
+  background: var(--bg);
+}
+
+:where(body) {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--glow) top center / 100% 720px no-repeat, var(--bg);
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: var(--fs-ui);
+  line-height: var(--lh-ui);
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd) {
+  margin: 0;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 500;
+  line-height: var(--lh-tight);
+  text-wrap: balance;
+}
+
+:where(ul[role='list'], ol[role='list'], menu) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:where(img, svg, video, canvas) {
+  display: block;
+  max-width: 100%;
+}
+
+:where(svg) {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+:where(button) {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+:where(button:disabled, [aria-disabled='true']) {
+  cursor: not-allowed;
+}
+
+:where(a) {
+  color: var(--rubric);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+:where(a:hover) {
+  color: var(--rubric-hover);
+}
+
+:where(table) {
+  border-collapse: collapse;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+/* ---- focus: one ring everywhere (2px, offset 2px, >= 7:1) -------------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+/* ---- languages --------------------------------------------------------- */
+/* Mark Greek with lang="grc"; Hebrew with lang="hbo" dir="rtl"; Aramaic with lang="arc" dir="rtl". */
+:lang(grc),
+.grc {
+  font-family: var(--f-greek);
+  font-variant-ligatures: none;
+}
+
+:lang(hbo),
+:lang(he),
+:lang(arc),
+.hbo {
+  font-family: var(--f-hebrew);
+  unicode-bidi: isolate;
+  font-variant-ligatures: normal;
+}
+
+.translit {
+  font-family: var(--f-translit);
+  font-style: italic;
+}
+
+/* ---- typographic utilities -------------------------------------------- */
+/* Divine name: "LORD" -> L + small caps "ord" (render the source caps as "Lord" with this class). */
+.sc {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.035em;
+}
+
+/* Small-caps label used across the chrome and the card (never below 15px). */
+.label-sc {
+  font-family: var(--f-ui);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  font-variant-caps: all-small-caps;
+  letter-spacing: var(--track-sc);
+  color: var(--ink-3);
+}
+
+.eyebrow {
+  font-size: var(--fs-eyebrow);
+  font-weight: 500;
+  font-variant-caps: all-small-caps;
+  letter-spacing: var(--track-eyebrow);
+  color: var(--gilt-ink);
+}
+
+.lining { font-variant-numeric: lining-nums; }
+.oldstyle { font-variant-numeric: oldstyle-nums proportional-nums; }
+.tnum { font-variant-numeric: lining-nums tabular-nums; }
+.italic { font-style: italic; }
+.mono { font-family: var(--f-mono); font-size: 0.85em; letter-spacing: 0; }
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+/* ---- accessibility utilities ------------------------------------------ */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--s4);
+  top: -80px;
+  z-index: var(--z-toast);
+  padding: var(--s2) var(--s4);
+  border-radius: var(--r);
+  background: var(--ink);
+  color: var(--page);
+  text-decoration: none;
+}
+
+.skip-link:focus-visible {
+  top: var(--s2);
+  color: var(--page);
+}
+
+.scroll-lock {
+  overflow: hidden;
+}
+
+/* ---- ornament ----------------------------------------------------------- */
+/* Gilt hairline with a lozenge at its centre (title blocks, card divider, interludes).
+   Usage: <span class="fleuron" aria-hidden="true"></span> */
+.fleuron {
+  display: block;
+  width: 180px;
+  height: 14px;
+  margin-inline: auto;
+  background: var(--gilt);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 14'><g fill='none' stroke='black' stroke-width='1'><path d='M0 7h70M110 7h70'/><path d='M90 1.5l5.5 5.5-5.5 5.5-5.5-5.5z' fill='black'/><circle cx='78' cy='7' r='1.6' fill='black'/><circle cx='102' cy='7' r='1.6' fill='black'/></g></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 14'><g fill='none' stroke='black' stroke-width='1'><path d='M0 7h70M110 7h70'/><path d='M90 1.5l5.5 5.5-5.5 5.5-5.5-5.5z' fill='black'/><circle cx='78' cy='7' r='1.6' fill='black'/><circle cx='102' cy='7' r='1.6' fill='black'/></g></svg>") center / contain no-repeat;
+}
+
+.fleuron--small {
+  width: 96px;
+}
+
+/* A gilt rule that fades at both ends, with a lozenge (the card divider). */
+.rule-gilt {
+  position: relative;
+  height: 9px;
+  background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in srgb, var(--gilt) 75%, transparent) 18%,
+      color-mix(in srgb, var(--gilt) 75%, transparent) 82%,
+      transparent
+    )
+    center / 100% 1px no-repeat;
+}
+
+.rule-gilt::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--gilt);
+  transform: translate(-50%, -50%) rotate(45deg);
+  box-shadow: 0 0 0 3px var(--card);
+}
+
+/* The ruled double line that closes the chrome: a gilt hairline over an ink hairline. */
+.rule-double {
+  height: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--gilt) 80%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+/* The leaf: page colour, grain, warm shadow. Used by the reading folio and the About page. */
+.surface-folio {
+  position: relative;
+  isolation: isolate;
+  background: var(--page);
+  border: 1px solid color-mix(in srgb, var(--rule-strong) 70%, transparent);
+  border-radius: var(--r-xs);
+  box-shadow: var(--shadow-folio);
+}
+
+.surface-folio::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background: var(--grain-image);
+}
+
+/* A raised card with the inner gilt ruling of a marginal gloss (word card, popovers, panels). */
+.surface-card {
+  position: relative;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-card);
+}
+
+.surface-card::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--gilt) 34%, transparent);
+  border-radius: var(--r-xs);
+}
+
+/* ---- controls ----------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 40px;
+  padding: 0 var(--s4);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.btn:hover {
+  background: var(--hl-soft);
+}
+
+.btn--primary {
+  background: var(--rubric);
+  border-color: var(--rubric);
+  color: var(--ink-inverse);
+}
+
+.btn--primary:hover {
+  background: var(--rubric-hover);
+  border-color: var(--rubric-hover);
+}
+
+.btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--rubric);
+}
+
+.btn--quiet:hover {
+  background: var(--hl-soft);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.55;
+}
+
+/* Text-style action with an optional leading icon ("See all 318 verses ›"). */
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--s1) 0;
+  color: var(--rubric);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-btn:hover {
+  color: var(--rubric-hover);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.link-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.icon-btn:hover {
+  background: var(--hl-soft);
+  color: var(--ink);
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Filter / toggle chip. Selected state via aria-pressed, aria-checked or aria-selected. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--gilt);
+  color: var(--ink);
+}
+
+.chip:is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true']) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--page);
+}
+
+.chip__n {
+  font-size: 0.85em;
+  opacity: 0.85;
+  font-variant-numeric: lining-nums;
+}
+
+/* Strong's number / small data pill: "G3056". */
+.pill {
+  display: inline-block;
+  padding: 0 7px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-pill);
+  color: var(--gilt-ink);
+  font-size: var(--fs-micro);
+  line-height: 1.55;
+  letter-spacing: 0.05em;
+  font-variant-numeric: lining-nums;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}
+
+.pill--dashed {
+  border-style: dashed;
+  border-color: var(--edge);
+  color: var(--ink-3);
+}
+
+.input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  background: var(--sunken);
+  color: var(--ink);
+  font-size: var(--fs-ui);
+}
+
+.input::placeholder {
+  color: var(--ink-3);
+  font-style: italic;
+  opacity: 1;
+}
+
+.input:focus-visible {
+  outline-offset: 1px;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+/* Switch: <input type="checkbox" role="switch" class="switch"> next to a visible <label>. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-pill);
+  background: var(--sunken);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.switch::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease);
+}
+
+.switch:checked {
+  background: var(--rubric);
+  border-color: var(--rubric);
+}
+
+.switch:checked::before {
+  transform: translateX(18px);
+  background: var(--ink-inverse);
+}
+
+:where(kbd),
+.kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 0.4em;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  background: var(--page);
+  color: var(--ink-3);
+  font-family: var(--f-ui);
+  font-size: 0.8em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ---- word states (reading text, interlinear, search hits, reading key) -- */
+/* Markup: <span class="w" role="button" tabindex="-1|0" data-o="12 13">the beginning</span>
+   Static modifiers come from the token: .w--approx (bridged, c < 1), .w--weak (c < 0.5),
+   .w--lexonly (KJV Strong's with no original word in this edition).
+   Dynamic states, toggled on the few affected nodes (never re-render the chapter):
+   .is-preview (hover before the card opens), .is-linked (tied to the open original word),
+   .is-anchor (the word the card belongs to), .is-kin (same lemma elsewhere in view). */
+.w {
+  cursor: pointer;
+  border-radius: var(--r-xs);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  text-decoration-skip-ink: auto;
+  transition: background-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+
+.w.is-preview {
+  background: var(--hl-soft);
+  box-shadow: 0 0 0 0.1em var(--hl-soft);
+}
+
+@media (hover: hover) {
+  .w:hover {
+    background: var(--hl-soft);
+    box-shadow: 0 0 0 0.1em var(--hl-soft);
+  }
+}
+
+.w.is-linked {
+  background: var(--hl);
+  box-shadow: 0 0 0 0.1em var(--hl);
+}
+
+.w--weak.is-linked {
+  background: var(--hl-soft);
+  box-shadow: 0 0 0 0.1em var(--hl-soft);
+}
+
+.w.is-anchor {
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: var(--rubric);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.24em;
+}
+
+.w--approx.is-anchor {
+  text-decoration-style: dashed;
+}
+
+.w.is-kin:not(.is-linked) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--kin);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.26em;
+}
+
+.w:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Translator-supplied words (KJV italics, TokenInfo.i): italic, quieter; a one-line note on hover. */
+.w-supplied {
+  font-style: italic;
+  color: var(--ink-3);
+}
+
+.w-supplied.w {
+  cursor: help;
+}
+
+/* ---- motion & user preferences ---------------------------------------- */
+@keyframes rw-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rw-rise-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rw-drop-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rw-sheet-in {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rw-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* Skeleton line: the faint ruling of an unwritten leaf. */
+.skeleton-line {
+  display: block;
+  height: 0.62em;
+  margin: 0.54em 0;
+  border-radius: var(--r-xs);
+  background: var(--rule);
+  animation: rw-pulse 1.6s var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .w.is-linked,
+  .w.is-anchor {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .w.is-kin:not(.is-linked) {
+    text-decoration-color: CanvasText;
+  }
+  .fleuron,
+  .rule-gilt::after {
+    background: CanvasText;
+  }
+  .surface-card::after {
+    display: none;
+  }
+  .switch:checked {
+    background: Highlight;
+  }
+}
+
+@media print {
+  :root {
+    --page: #fff;
+    --ink: #000;
+    --rubric: #000;
+    --lapis: #000;
+  }
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .surface-folio {
+    box-shadow: none;
+    border: 0;
+  }
+  .surface-folio::before {
+    display: none;
+  }
+}

@@ -1,0 +1,141 @@
+/* ---------- Cross references (verse sheet section, desktop rail block, back chip) ------------- */
+
+/* section head (verse sheet): title left, count right */
+.xr-sec__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.xr-sec__count { font: 600 11.5px/1.2 var(--font-ui); color: var(--ink-3); }
+
+.xr-group + .xr-group { margin-top: 10px; }
+.xr-group__title {
+  margin: 2px 0 2px; padding: 0;
+  font: italic 500 13px/1.3 var(--font-text); color: var(--ink-2);
+}
+
+.xr-list { list-style: none; margin: 0; padding: 0; }
+.xr-item + .xr-item { border-top: 1px solid var(--rule); }
+
+.xr-link {
+  display: block; min-height: 44px; padding: 7px 6px 8px; margin: 0 -6px;
+  border-radius: 6px; color: var(--ink); text-decoration: none;
+  transition: background-color var(--dur-1) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.xr-link:hover { color: var(--ink); background: var(--sunken); }
+.xr-link:active { background: var(--wash); }
+.xr-link:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.xr-link__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.xr-link__ref {
+  font: 600 13.5px/1.3 var(--font-ui); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-1) var(--ease);
+}
+.xr-link:hover .xr-link__ref { text-decoration-color: currentColor; }
+.xr-link__prev {
+  display: block; margin-top: 2px;
+  font: 400 14px/1.45 var(--font-read); color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xr-link__prev--none { font: italic 400 12.5px/1.45 var(--font-ui); color: var(--ink-3); }
+.xr-link__prev--loading { height: 1.45em; display: flex; align-items: center; }
+.xr-link__prev--loading .skeleton { margin: 0; height: .6em; }
+
+/* vote strength: three bars, filled up to the level (hollow = not reached) */
+.xr-str { display: inline-flex; align-items: center; flex: none; color: var(--ink-3); }
+.xr-str__bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+.xr-str__bars i { display: block; width: 4px; border-radius: 1px; background: currentColor; }
+.xr-str__bars i:nth-child(1) { height: 5px; }
+.xr-str__bars i:nth-child(2) { height: 8px; }
+.xr-str__bars i:nth-child(3) { height: 11px; }
+.xr-str--1 .xr-str__bars i:nth-child(n + 2),
+.xr-str--2 .xr-str__bars i:nth-child(3) { background: transparent; box-shadow: inset 0 0 0 1px var(--edge); }
+
+/* more / retry / messages / source */
+.xr-more {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-top: 8px; padding: 0 14px;
+  border: 1px solid var(--edge); border-radius: 999px;
+  font: 500 12.5px/1 var(--font-ui); color: var(--ink);
+  transition: background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+@media (hover: hover) { .xr-more:hover { background: var(--sunken); } }
+.xr-more:active { transform: scale(.97); }
+.xr-msg { margin: 2px 0 6px; font-size: 13px; color: var(--ink-2); }
+.xr-retry { margin-left: 4px; color: var(--blue); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; }
+.xr-note { margin: 6px 0 0; font-size: 11.5px; color: var(--ink-3); font-style: italic; }
+.xr-src { margin: 10px 0 4px; font-size: 11.5px; line-height: 1.4; color: var(--ink-3); }
+.xr-src a { color: var(--ink-2); }
+
+.xr-skel__row { padding: 9px 0 10px; }
+.xr-skel__row + .xr-skel__row { border-top: 1px solid var(--rule); }
+.xr-skel__row .skeleton { margin: 4px 0; height: .62em; }
+.xr-skel__row .skeleton:first-child { margin-bottom: 9px; }
+
+/* ---------- rail block (desktop right rail / laptop left rail) ---------- */
+.xr-rail .rail__title { margin-bottom: 4px; }
+.xr-rail__verse { margin: 0 0 6px; font: 600 13px/1.35 var(--font-ui); color: var(--ink); }
+.xr-rail__n { font-weight: 500; color: var(--ink-3); }
+.xr-rail__wait { font-weight: 400; font-style: italic; color: var(--ink-3); font-size: 12px; }
+/* reserve room for a full block (5 references + "All N") so the rail does not jump while the verse changes */
+.xr-rail__body { min-height: 280px; }
+/* no negative margin here: the rail scrolls (overflow: auto) and would clip the focus ring */
+.xr--rail .xr-link { min-height: 0; margin: 0; padding: 5px 4px 6px; }
+.xr--rail .xr-link__ref { font-size: 12.5px; }
+.xr--rail .xr-link__prev { font-size: 13px; line-height: 1.4; }
+.xr--rail .xr-link__prev--loading { height: 1.4em; }
+.xr--rail .xr-more { min-height: 30px; padding: 0 12px; font-size: 12px; }
+.xr-rail .xr-msg { font-size: 12.5px; color: var(--ink-3); font-style: italic; }
+.xr-rail .rail__note { padding-left: 0; }
+
+@media (pointer: coarse) {
+  .xr-more { min-height: 44px; }
+  .xr-retry { min-height: 44px; padding: 0 6px; }
+  .xr--rail .xr-link { min-height: 44px; }
+  .xr-src a { display: inline-block; padding: 14px 0; }
+}
+
+/* ---------- "Back to John 3:16" chip ---------- */
+.xref-back {
+  position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px);
+  bottom: calc(var(--dock-h, 0px) + 16px + env(safe-area-inset-bottom));
+  z-index: calc(var(--z-dock) + 1);
+  display: flex; align-items: center;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--edge); border-radius: 999px;
+  box-shadow: var(--shadow);
+  animation: xr-chip-in var(--dur-2) var(--ease-out) both;
+  transition: translate var(--dur-2) var(--ease-out);
+}
+@keyframes xr-chip-in { from { opacity: 0; transform: translateY(10px); } }
+.xref-back__go {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 6px 0 12px;
+  border-radius: 999px 0 0 999px;
+  font: 600 13.5px/1.2 var(--font-ui); color: var(--ink); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.xref-back__go .icon { color: var(--accent); }
+.xref-back__x {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 44px; height: 44px; border-radius: 0 999px 999px 0; color: var(--ink-3);
+}
+.xref-back__x .icon { width: 16px; height: 16px; }
+@media (hover: hover) {
+  .xref-back__go:hover, .xref-back__x:hover { background: var(--sunken); color: var(--ink); }
+}
+.xref-back__go:focus-visible, .xref-back__x:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* step aside for a toast; hide under open bottom sheets and while scrubbing */
+html:has(.toast-region .toast) .xref-back { translate: 0 -54px; }
+html.has-sheet .xref-back, html.is-scrubbing .xref-back { display: none; }
+@media print { .xref-back { display: none; } }
+
+/* ---------- preferences ---------- */
+html[data-motion="reduce"] .xref-back { animation: rw-fade-in 120ms linear both; transition: none; }
+html[data-motion="reduce"] .xr-link, html[data-motion="reduce"] .xr-more { transition: none; }
+html[data-contrast="more"] .xr-item + .xr-item { border-top-color: var(--edge); }
+html[data-contrast="more"] .xr-str { color: var(--ink); }
+html[data-contrast="more"] .xr-link__prev { color: var(--ink); }
+@media (forced-colors: active) {
+  .xr-str { forced-color-adjust: none; color: CanvasText; }
+  .xr-str--1 .xr-str__bars i:nth-child(n + 2),
+  .xr-str--2 .xr-str__bars i:nth-child(3) { background: Canvas; box-shadow: inset 0 0 0 1px CanvasText; }
+  .xr-link:hover { outline: 1px solid LinkText; }
+  .xref-back { border: 1px solid CanvasText; }
+}

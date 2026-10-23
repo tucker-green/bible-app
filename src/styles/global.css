@@ -1,0 +1,162 @@
+/* ==========================================================================
+   Rootword — global styles: fonts, reset, typography primitives, focus,
+   selection. Tokens live in theme.css (imported first); motion.css, a11y.css
+   and print.css follow.
+   ========================================================================== */
+@import '@fontsource-variable/literata/opsz.css';
+@import '@fontsource-variable/literata/opsz-italic.css';
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource/gentium-book-plus/400.css';
+@import '@fontsource/gentium-book-plus/400-italic.css';
+@import '@fontsource/gentium-book-plus/700.css';
+@import '@fontsource/frank-ruhl-libre/400.css';
+@import '@fontsource/frank-ruhl-libre/500.css';
+@import '@fontsource/frank-ruhl-libre/700.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 24px);
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  touch-action: manipulation; /* no double-tap-zoom delay; pinch-zoom stays available */
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv11', 'ss01';
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure { margin: 0; }
+ul, ol { padding: 0; }
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; text-align: inherit; }
+a { color: var(--blue); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+a:hover { color: var(--blue-ui); }
+[hidden] { display: none !important; }
+
+::selection { background: var(--wash-2); color: inherit; }
+
+/* Focus: visible only for keyboard users, always ≥ 3:1 against its surface. */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+/* ---- language faces (markup must carry lang) ------------------------------ */
+:lang(grc), .grc { font-family: var(--font-greek); font-feature-settings: normal; }
+:lang(hbo), :lang(he), :lang(arc), .hbo { font-family: var(--font-hebrew); font-feature-settings: normal; }
+
+/* ---- primitives ------------------------------------------------------------ */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.skip-link {
+  position: fixed; left: 16px; top: -60px; z-index: 100;
+  background: var(--ink); color: var(--paper); padding: 8px 12px; border-radius: var(--radius);
+  text-decoration: none; font-weight: 600;
+  transition: top .15s var(--ease);
+}
+.skip-link:focus { top: 8px; color: var(--paper); }
+
+.tnum { font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font: 600 var(--fs-eyebrow)/1.2 var(--font-ui);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  border: 1px solid var(--rule-2); border-bottom-width: 2px; border-radius: 4px;
+  font: 500 11px/1 var(--font-ui); color: var(--ink-2); background: var(--surface);
+  white-space: nowrap;
+}
+.icon {
+  width: 18px; height: 18px; flex: none;
+  stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.mono { font-family: var(--font-code); }
+
+/* Divine name: LORD / GOD (YHWH) in small capitals, as printed Bibles set it. */
+.sc { font-variant-caps: all-small-caps; letter-spacing: .045em; }
+
+/* Buttons shared by header, popovers, card */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 10px;
+  border-radius: var(--radius);
+  font: 500 var(--fs-ui)/1 var(--font-ui);
+  color: var(--ink);
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.btn:hover { background: var(--sunken); }
+.btn[aria-expanded="true"] { background: var(--sunken); }
+.btn .chev { width: 14px; height: 14px; color: var(--ink-3); }
+.btn--icon { width: 34px; padding: 0; justify-content: center; color: var(--ink-2); }
+.btn--icon:hover { color: var(--ink); }
+.btn--icon[disabled] { opacity: .35; cursor: default; background: none; }
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 14px; border-radius: var(--radius);
+  background: var(--blue); color: var(--on-blue);
+  font: 600 13px/1 var(--font-ui);
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease);
+}
+.btn-primary:hover { background: var(--blue-ui); color: var(--on-blue); }
+.btn-quiet {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: var(--radius);
+  border: 1px solid var(--edge); color: var(--ink);
+  font: 500 13px/1 var(--font-ui);
+}
+.btn-quiet:hover { background: var(--sunken); }
+.link-btn {
+  font: 600 12.5px/1 var(--font-ui); color: var(--blue);
+  padding: 2px 0; border-radius: 3px;
+  text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--blue) 35%, transparent);
+  text-underline-offset: 3px;
+}
+.link-btn:hover { text-decoration-color: currentColor; }
+
+/* Loading skeleton lines */
+.skeleton {
+  display: block; height: .72em; margin: .62em 0; border-radius: 4px;
+  background: linear-gradient(90deg, var(--skeleton) 0, var(--skeleton-hi) 40%, var(--skeleton) 80%);
+  background-size: 300% 100%;
+  animation: rw-shimmer 1.4s linear infinite;
+}
+@keyframes rw-shimmer { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+
+/* Toast (role=status): slides up from the toolbar / bottom edge (motion.css) */
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: var(--z-toast);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  width: max-content;
+  background: var(--ink); color: var(--paper);
+  padding: 10px 16px; border-radius: 999px;
+  font: 500 13px/1.3 var(--font-ui);
+  box-shadow: var(--shadow);
+  animation: rw-rise var(--dur-2) var(--ease-out);
+}
+@keyframes rw-rise { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Body scroll lock while a modal sheet is open */
+.scroll-lock { overflow: hidden; }
+
+/* Reduced motion, forced colours and print live in motion.css, a11y.css and print.css. */

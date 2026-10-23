@@ -1,0 +1,35 @@
+/* Popovers (book picker, translations) — anchored on desktop, bottom sheet on phones. */
+.pop {
+  position: fixed; z-index: var(--z-pop);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 1px 0 var(--card-top), var(--shadow);
+  color: var(--ink);
+  animation: rw-pop-in .16s var(--ease);
+  max-height: calc(100dvh - var(--header-h) - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.pop:focus-visible { outline: none; }
+@keyframes rw-pop-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.pop-scrim {
+  position: fixed; inset: 0; z-index: var(--z-pop);
+  background: var(--scrim);
+  animation: rw-fade-in .2s var(--ease);
+}
+@keyframes rw-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.pop--sheet {
+  left: 0; right: 0; bottom: 0; top: auto;
+  width: auto !important; max-width: none;
+  max-height: 88vh;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  border-bottom: 0;
+  box-shadow: inset 0 1px 0 var(--card-top), var(--shadow-sheet);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: rw-sheet-in .22s var(--ease);
+}
+.pop__handle { display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--rule-2); margin: 8px auto 4px; }
+@keyframes rw-sheet-in { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }

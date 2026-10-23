@@ -1,0 +1,48 @@
+/* Pronounce button (SpeakButton.tsx): a small round speaker in the word card. Ink-blue = "the
+   original", like every Greek / Hebrew glyph in Scholar. */
+.speak {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 32px; height: 32px; border-radius: 999px;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  vertical-align: middle;
+  transition: background-color var(--dur-1, 120ms) var(--ease), color var(--dur-1, 120ms) var(--ease),
+    border-color var(--dur-1, 120ms) var(--ease), transform var(--dur-1, 120ms) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.speak--md { width: 40px; height: 40px; }
+.speak .icon { width: 18px; height: 18px; }
+.speak--md .icon { width: 21px; height: 21px; }
+/* ≥ 44px hit area on touch screens without changing the visual size. */
+.speak::before { content: ''; position: absolute; inset: -6px; border-radius: inherit; }
+.speak--md::before { inset: -2px; }
+@media (pointer: fine) { .speak::before { inset: -2px; } }
+
+.speak:hover { color: var(--blue); border-color: var(--edge); background: var(--sunken); }
+.speak:active { transform: scale(.94); background: var(--wash); }
+.speak.is-speaking,
+.speak[aria-pressed="true"] { color: var(--blue); background: var(--wash); border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+.speak:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Sound waves pulse outwards while speaking (static under reduced motion). */
+.speak .wave { transition: opacity var(--dur-2, 200ms) var(--ease); }
+.speak.is-speaking .wave-1 { animation: rw-speak-wave 1s var(--ease) infinite; }
+.speak.is-speaking .wave-2 { animation: rw-speak-wave 1s var(--ease) .18s infinite; }
+@keyframes rw-speak-wave { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) {
+  .speak.is-speaking .wave-1, .speak.is-speaking .wave-2 { animation: none; }
+}
+:root[data-motion="reduce"] .speak.is-speaking .wave { animation: none; }
+
+@media (prefers-contrast: more) {
+  .speak { border-color: var(--edge); color: var(--ink); }
+}
+:root[data-contrast="more"] .speak { border-color: var(--edge); color: var(--ink); }
+:root[data-contrast="more"] .speak[aria-pressed="true"] { border-width: 2px; border-color: var(--blue); }
+@media (forced-colors: active) {
+  .speak { border: 1px solid ButtonText; color: ButtonText; background: ButtonFace; }
+  .speak[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
+}

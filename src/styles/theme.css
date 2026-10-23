@@ -1,0 +1,244 @@
+/* ==========================================================================
+   Rootword — "Scholar" design tokens (light + dark).
+   A modern critical edition: ink-blue + graphite, one warm accent (cinnabar)
+   used the way a rubricator uses red — verse numbers, the chapter numeral,
+   Strong's numbers and the word that is active now. Nowhere else.
+
+   Contrast (WCAG 2.x, computed): body ink ≥ 13.7:1, --ink-3 labels ≥ 4.7:1 on
+   every surface they sit on (incl. the word wash), --accent ≥ 4.9:1,
+   --edge (control boundaries) ≥ 3.2:1, --focus ≥ 5.5:1 — in both themes.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- type families --------------------------------------------------- */
+  --font-text: 'Literata Variable', Literata, Georgia, 'Times New Roman', serif;
+  --font-ui: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-greek: 'Gentium Book Plus', 'Literata Variable', 'Times New Roman', serif;
+  --font-hebrew: 'Frank Ruhl Libre', 'SBL Hebrew', 'Taamey Frank CLM', 'Times New Roman', serif;
+  --font-code: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* ---- colour: light ("day edition") ----------------------------------- */
+  --paper: #fafaf7;
+  --surface: #ffffff;
+  --sunken: #f2f2ee;
+  --raised: #ffffff;       /* selected segment, chips on sunken ground */
+  --ink: #171c26;          /* 16.3:1 on paper */
+  --ink-2: #434b5a;        /*  8.4:1 */
+  --ink-3: #5f6877;        /*  5.4:1 on paper, 5.0 on sunken, 4.7 on wash */
+  --rule: #e4e4df;         /* hairlines (decorative) */
+  --rule-2: #cdcec8;       /* stronger rules, interlinear bracket (decorative) */
+  --edge: #7f8692;         /* boundaries that identify a control: 3.3:1+ */
+  --blue: #1d3b72;         /* ink-blue: Greek & Hebrew, active word text, primary buttons */
+  --blue-ui: #284f95;
+  --wash: #e5ecf7;         /* active word background */
+  --wash-2: #d3def1;       /* selection, linked-word outline in interlinear */
+  --accent: #b0401b;       /* cinnabar */
+  --accent-wash: #f8e8df;
+  --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+  --kin: #1d3b72;          /* dotted underline of related words */
+  --approx: #5f6877;       /* dashed underline of approximate links */
+  --focus: #2b5fcf;
+  --ok: #2f6a45;
+  --on-blue: #fafaf7;      /* text on --blue fills */
+  --skeleton: #ebebe6;
+  --skeleton-hi: #f5f5f1;
+  --header-bg: color-mix(in srgb, var(--paper) 90%, transparent);
+  --card-top: transparent; /* inner highlight on raised surfaces (dark only) */
+  --shadow: 0 1px 2px rgba(23, 28, 38, .06), 0 8px 24px -6px rgba(23, 28, 38, .14), 0 24px 48px -24px rgba(23, 28, 38, .18);
+  --shadow-sm: 0 1px 2px rgba(23, 28, 38, .06), 0 2px 8px -2px rgba(23, 28, 38, .08);
+  --shadow-sheet: 0 -12px 40px -12px rgba(23, 28, 38, .32);
+  --scrim: rgba(15, 18, 23, .22);
+  /* red letter (words of Jesus): a rubric red distinct from the cinnabar accent; 7.2:1 on paper */
+  --red-letter: #a3221a;
+  /* highlights: tint (text keeps ≥ 4.6:1 incl. --ink-3) + a named underline colour; each colour
+     also has its own underline STYLE (solid / double / dashed / dotted / wavy) — never colour alone */
+  --hl-yellow: #fcf0b8;  --hl-yellow-line: #8a6800;
+  --hl-green: #dff1dc;   --hl-green-line: #2f7a4a;
+  --hl-blue: #e0eafb;    --hl-blue-line: #2b5fcf;
+  --hl-pink: #fbe6ee;    --hl-pink-line: #b8336a;
+  --hl-purple: #eee8f9;  --hl-purple-line: #6b45b5;
+  --listen-wash: #fdf3d6;  /* the verse being read aloud */
+
+  /* ---- type scale ------------------------------------------------------- */
+  --font-scale: 1;
+  --fs-eyebrow: 11px;
+  --fs-label: 11px;        /* card / key labels (uppercase, tracked) */
+  --fs-meta: 12.5px;
+  --fs-ui: 13.5px;
+  --fs-ui-lg: 15px;
+  --fs-text: calc(20px * var(--font-scale));
+  --lh-text: 1.72;
+  --fs-title: 60px;
+  /* reading face (Settings → Reading font; html[data-font]) and user spacing (initState) */
+  --font-read: var(--font-text);
+  --line-spacing: 1;
+  --letter-spacing: 0em;
+
+  /* ---- space, shape, motion -------------------------------------------- */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px;
+  --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --radius-sheet: 16px;
+  --header-h: 60px;
+  --measure: 34em;
+  --card-w: 432px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring: cubic-bezier(.34, 1.36, .64, 1);
+  --dur: .14s;
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  /* the original word fades up last in the card ("root revealed"), 40ms stagger */
+  --stagger: 40ms;
+  /* phone toolbar height (without the safe area) */
+  --toolbar-h: 60px;
+
+  /* ---- stacking --------------------------------------------------------- */
+  --z-header: 40;
+  --z-dock: 45;
+  --z-card: 50;
+  --z-pop: 60;
+  --z-sheet: 70;
+  --z-search: 75;
+  --z-loupe: 95;
+  --z-toast: 90;
+}
+
+/* ---- colour: dark ("night edition") --------------------------------------
+   Deep graphite-blue paper, warm parchment ink, the same ink-blue / cinnabar
+   roles lifted for night reading. Raised surfaces get lighter (not just a
+   shadow) and carry a faint top highlight, so depth reads without glare. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #101319;
+    --surface: #181c24;
+    --sunken: #0b0d11;
+    --raised: #232934;
+    --ink: #ebe6dc;          /* 14.9:1 on paper */
+    --ink-2: #b9bfc9;        /* 10.1:1 */
+    --ink-3: #8f97a4;        /*  5.8:1 on surface, 4.85 on wash */
+    --rule: #252b35;
+    --rule-2: #353d4a;
+    --edge: #6d7685;         /* 3.7:1 on surface */
+    --blue: #a9c2ef;
+    --blue-ui: #c4d5f6;
+    --wash: #1c2a46;
+    --wash-2: #273c63;
+    --accent: #f0916b;       /* 7.9:1 on paper */
+    --accent-wash: #3b2319;
+    --kin: #8eaae0;
+    --approx: #8f97a4;
+    --focus: #8fb0f2;
+    --ok: #8fc9a1;
+    --on-blue: #0b0d11;
+    --skeleton: #1d222b;
+    --skeleton-hi: #252b35;
+    --header-bg: color-mix(in srgb, var(--paper) 86%, transparent);
+    --card-top: rgba(255, 255, 255, .045);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .45), 0 14px 36px -10px rgba(0, 0, 0, .65), 0 0 0 1px rgba(0, 0, 0, .2);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
+    --shadow-sheet: 0 -16px 48px -12px rgba(0, 0, 0, .7);
+    --scrim: rgba(0, 0, 0, .45);
+    --red-letter: #f4a3a0;
+    --hl-yellow: #2c2610;  --hl-yellow-line: #e3c25a;
+    --hl-green: #1a2e20;   --hl-green-line: #7fc795;
+    --hl-blue: #1a2742;    --hl-blue-line: #8fb0f2;
+    --hl-pink: #33202a;    --hl-pink-line: #ec8fb0;
+    --hl-purple: #282040;  --hl-purple-line: #b9a1ef;
+    --listen-wash: #2b2615;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #101319;
+  --surface: #181c24;
+  --sunken: #0b0d11;
+  --raised: #232934;
+  --ink: #ebe6dc;
+  --ink-2: #b9bfc9;
+  --ink-3: #8f97a4;
+  --rule: #252b35;
+  --rule-2: #353d4a;
+  --edge: #6d7685;
+  --blue: #a9c2ef;
+  --blue-ui: #c4d5f6;
+  --wash: #1c2a46;
+  --wash-2: #273c63;
+  --accent: #f0916b;
+  --accent-wash: #3b2319;
+  --kin: #8eaae0;
+  --approx: #8f97a4;
+  --focus: #8fb0f2;
+  --ok: #8fc9a1;
+  --on-blue: #0b0d11;
+  --skeleton: #1d222b;
+  --skeleton-hi: #252b35;
+  --header-bg: color-mix(in srgb, var(--paper) 86%, transparent);
+  --card-top: rgba(255, 255, 255, .045);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .45), 0 14px 36px -10px rgba(0, 0, 0, .65), 0 0 0 1px rgba(0, 0, 0, .2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
+  --shadow-sheet: 0 -16px 48px -12px rgba(0, 0, 0, .7);
+  --scrim: rgba(0, 0, 0, .45);
+  --red-letter: #f4a3a0;
+  --hl-yellow: #2c2610;  --hl-yellow-line: #e3c25a;
+  --hl-green: #1a2e20;   --hl-green-line: #7fc795;
+  --hl-blue: #1a2742;  --hl-blue-line: #8fb0f2;
+  --hl-pink: #33202a;  --hl-pink-line: #ec8fb0;
+  --hl-purple: #282040;  --hl-purple-line: #b9a1ef;
+  --listen-wash: #2b2615;
+}
+
+/* ---- reading fonts (loaded on demand, see loadReadingFont in src/app/state.ts) ---------------- */
+:root[data-font="atkinson"] { --font-read: 'Atkinson Hyperlegible Next Variable', 'Atkinson Hyperlegible Next', var(--font-ui); }
+:root[data-font="opendyslexic"] { --font-read: 'OpenDyslexic', 'Comic Sans MS', var(--font-ui); --read-size: .88; }
+:root[data-font="atkinson"] { --read-size: 1.02; }
+
+/* ---- high contrast (Settings, or prefers-contrast: more → html[data-contrast="more"]) -----------
+   Stronger rules and labels, a heavier focus ring; tinted-only states gain outlines/underlines
+   (see a11y.css). */
+:root[data-contrast="more"] {
+  --ink-2: #2c3340;
+  --ink-3: #3f4756;
+  --rule: #9aa0aa;
+  --rule-2: #6f7682;
+  --edge: #4d5562;
+  --focus: #1546b8;
+  --header-bg: var(--paper);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-contrast="more"]:not([data-theme="light"]) {
+    --ink-2: #d6dae1; --ink-3: #c0c6cf; --rule: #59616e; --rule-2: #7b8492; --edge: #9aa3b1; --focus: #b5ccf7;
+    --header-bg: var(--paper);
+  }
+}
+:root[data-contrast="more"][data-theme="dark"] {
+  --ink-2: #d6dae1; --ink-3: #c0c6cf; --rule: #59616e; --rule-2: #7b8492; --edge: #9aa3b1; --focus: #b5ccf7;
+  --header-bg: var(--paper);
+}
+
+/* ---- responsive tokens --------------------------------------------------- */
+@media (max-width: 980px) {
+  :root { --fs-title: 52px; }
+}
+@media (max-width: 760px) {
+  :root { --fs-title: 46px; --header-h: 56px; }
+}
+@media (max-width: 640px) {
+  :root { --fs-text: calc(18.5px * var(--font-scale)); --lh-text: 1.68; --fs-title: 42px; }
+}
+@media (max-width: 359.98px) {
+  :root { --fs-text: calc(17px * var(--font-scale)); --fs-title: 36px; }
+}
+@media (max-height: 500px) and (pointer: coarse) {
+  :root { --header-h: 48px; --fs-title: 36px; }
+}
+/* wide screens (≥ 1920): a larger type step */
+@media (min-width: 1920px) {
+  :root { --fs-text: calc(21.5px * var(--font-scale)); --fs-title: 68px; }
+}

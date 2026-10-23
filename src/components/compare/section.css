@@ -1,0 +1,49 @@
+/* ---------- Verse sheet → Compare translations (src/components/verse/CompareSection.tsx) ------- */
+.cmpv__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.cmpv__top .vs-sec__title { margin: 0; }
+.cmpv__all {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px 0 8px;
+  border: 1px solid var(--rule-2); border-radius: 999px;
+  font: 600 12.5px/1 var(--font-ui); color: var(--blue); text-decoration: none; white-space: nowrap;
+}
+.cmpv__all .icon { width: 17px; height: 17px; }
+@media (hover: hover) { .cmpv__all:hover { background: var(--sunken); } }
+.cmpv__list { list-style: none; margin: 0; padding: 0; }
+.cmpv__row { padding: 9px 0 10px; border-top: 1px solid var(--rule); }
+.cmpv__row:first-child { border-top: 0; }
+.cmpv__head { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 10px; min-height: 28px; }
+.cmpv__abbr { font: 650 12.5px/1 var(--font-ui); letter-spacing: .05em; color: var(--ink); }
+a.cmpv__abbr { color: var(--blue); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--blue) 35%, transparent); text-underline-offset: 3px; padding: 4px 0; }
+a.cmpv__abbr:hover { text-decoration-color: currentColor; }
+.cmpv__name { font: 400 13px/1.2 var(--font-ui); color: var(--ink-2); }
+.cmpv__meter { font: 500 11.5px/1 var(--font-ui); color: var(--ink-3); }
+.cmpv__tag {
+  margin-left: auto; padding: 3px 7px; border-radius: 999px;
+  background: var(--wash); color: var(--blue); font: 600 10.5px/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase;
+}
+.cmpv__cmp {
+  display: inline-flex; align-items: center; justify-content: center; margin-left: auto;
+  width: 32px; height: 32px; margin-right: -6px; border-radius: 8px; color: var(--ink-3);
+}
+.cmpv__cmp .icon { width: 18px; height: 18px; }
+@media (hover: hover) { .cmpv__cmp:hover { background: var(--sunken); color: var(--blue); } }
+.cmpv__row.is-here .cmpv__txt { color: var(--ink); }
+.cmpv__txt { margin: 4px 0 0; font: 400 15px/1.55 var(--font-read); color: var(--ink); }
+.cmpv__msg { margin: 4px 0 0; font: italic 400 13.5px/1.5 var(--font-text); color: var(--ink-3); }
+.cmpv__msg .link-btn { font-style: normal; }
+.cmpv__copy { margin: 4px 0 0; font: 400 11.5px/1.4 var(--font-ui); color: var(--ink-3); }
+.cmpv__copy a { color: var(--ink-2); }
+.cmpv__skel .skeleton { height: .7em; margin: .55em 0; }
+.cmpv__more { margin: 6px 0 4px; font: 400 12.5px/1.5 var(--font-ui); color: var(--ink-3); }
+
+@media (pointer: coarse) {
+  .cmpv__all { min-height: 44px; padding: 0 14px 0 12px; }
+  .cmpv__cmp { width: 44px; height: 44px; margin-right: -10px; }
+  a.cmpv__abbr { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; padding: 0; }
+  .cmpv__msg .link-btn, .cmpv__more .link-btn { display: inline-flex; align-items: center; min-height: 44px; }
+}
+html[data-contrast="more"] .cmpv__all { border-color: var(--edge); }
+@media (forced-colors: active) {
+  .cmpv__all { border: 1px solid ButtonText; }
+  .cmpv__tag { border: 1px solid CanvasText; }
+}
